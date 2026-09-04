@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>agent-harness — performance layer for coding agents</title>
+<meta name="description" content="Performance layer for coding agents. Skills, instincts, memory, security and research-first for Claude Code, Codex, Opencode, Cursor.">
+<meta property="og:title" content="agent-harness">
+<meta property="og:description" content="Skills, instincts, memory, security and research-first that works the same in Claude Code, Codex, Opencode, Cursor.">
+<meta property="og:url" content="https://theelephantcoder.github.io/agent-harness">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◍</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="logo" href="#">agent-harness</a>
+    <nav class="nav-links">
+      <a href="#start">Docs</a>
+      <a href="https://github.com/TheElephantCoder/agent-harness">GitHub</a>
+      <a class="btn-small" href="https://github.com/TheElephantCoder/agent-harness">Star →</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Claude Code • Codex • Opencode • Cursor</p>
+    <h1>Your agents should remember things.</h1>
+    <p class="lead">Skills, instincts, memory, security and research-first — one layer that works the same in every harness. Less re-reading, fewer wasted tokens, no guessing at APIs.</p>
+    <div class="hero-actions">
+      <a class="btn" href="#start">Quick start</a>
+      <a class="btn ghost" href="https://github.com/TheElephantCoder/agent-harness">View source</a>
+    </div>
+    <div class="install">
+      <code><span class="dim">$</span> npx @theelephantcoder/agent-harness init --auto</code>
+      <button class="copy" data-copy="npx @theelephantcoder/agent-harness init --auto" aria-label="copy">copy</button>
+    </div>
+    <p class="sub">npm • pip • brew &nbsp;·&nbsp; MIT &nbsp;·&nbsp; works on existing projects with <code>harness init --migrate</code></p>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="wrap stats-grid">
+    <div><strong>180s → 13s</strong><span>cold start on 250k LOC</span></div>
+    <div><strong>~65%</strong><span>fewer tokens per task</span></div>
+    <div><strong>~40%</strong><span>fewer tool calls</span></div>
+    <div><strong>&lt;100ms</strong><span>hook p99 overhead</span></div>
+  </div>
+</section>
+
+<section class="features wrap">
+  <div class="grid5">
+    <div class="card">
+      <h3>Skills</h3>
+      <p>Reusable <code>SKILL.md</code> that follows the agent skills spec. Write once, use in every harness. Pull in others like <code>vercel-labs/agent-skills</code> without copying.</p>
+      <code class="snippet">harness skill add harness/research-first</code>
+    </div>
+    <div class="card">
+      <h3>Instincts</h3>
+      <p>Hooks that fire on their own. Pre-tool guard, post-edit format + typecheck, session hydration. Muscle memory for agents.</p>
+      <code class="snippet">instincts/research-first blocks edits until plan exists</code>
+    </div>
+    <div class="card">
+      <h3>Memory</h3>
+      <p>Tiered <code>MEMORY.md</code> under 8k tokens. Hot always, warm on keyword, cold on demand. Sessions distill on exit, no 3 minute re-explanation.</p>
+      <code class="snippet">memory/MEMORY.md + SOUL.md + USER.md</code>
+    </div>
+    <div class="card">
+      <h3>Security</h3>
+      <p>Default deny. Prompt injection check, secret scan before commit, bash allowlist, file boundaries. Catches the dumb mistakes.</p>
+      <code class="snippet">harness security audit</code>
+    </div>
+    <div class="card">
+      <h3>Research-first</h3>
+      <p>Agent checks <code>research/findings/</code> first, then codebase, then web. Writes <code>research/plans/</code> and waits for an ok.</p>
+      <code class="snippet">research → plan → approve → build</code>
+    </div>
+  </div>
+</section>
+
+<section class="compat">
+  <div class="wrap">
+    <h2>One source, every harness</h2>
+    <p class="muted">You write skills and memory once. <code>harness init</code> transpiles to each tool's config.</p>
+    <div class="compat-grid">
+      <div><strong>Claude Code</strong><span>.claude/settings.json + .claude/skills/</span></div>
+      <div><strong>Opencode</strong><span>opencode.json</span></div>
+      <div><strong>Codex</strong><span>.codex/hooks.json</span></div>
+      <div><strong>Cursor</strong><span>.cursor/rules/*.mdc</span></div>
+      <div><strong>Generic</strong><span>.harness/ + AGENTS.md</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="start" class="start">
+  <div class="wrap two-col">
+    <div>
+      <h2>Quick start</h2>
+      <div class="tabs">
+        <button class="tab active" data-tab="npm">npm</button>
+        <button class="tab" data-tab="brew">brew</button>
+        <button class="tab" data-tab="pip">pip</button>
+        <button class="tab" data-tab="source">source</button>
+      </div>
+      <div class="panel active" id="panel-npm"><pre><code>npm install -g @theelephantcoder/agent-harness
+npx @theelephantcoder/agent-harness init --auto
+harness doctor
+harness bench --quick</code></pre></div>
+      <div class="panel" id="panel-brew"><pre><code>brew tap TheElephantCoder/agent-harness
+brew install agent-harness
+harness doctor</code></pre></div>
+      <div class="panel" id="panel-pip"><pre><code>pip install agent-harness-cli
+pipx install agent-harness-cli
+harness doctor</code></pre></div>
+      <div class="panel" id="panel-source"><pre><code>git clone https://github.com/TheElephantCoder/agent-harness.git
+cd agent-harness
+npm install
+npm link</code></pre></div>
+    </div>
+    <div>
+      <h3>In your project</h3>
+      <pre><code>cd your-project
+harness init --auto
+# or
+harness init --migrate
+
+# day to day
+harness memory sync
+harness skill search "review"
+harness research "best vector DB for 2026"
+harness security audit</code></pre>
+      <p class="muted small">See <a href="https://github.com/TheElephantCoder/agent-harness/blob/main/docs/cli.md">docs/cli.md</a> and <a href="https://github.com/TheElephantCoder/agent-harness/blob/main/docs/brew.md">docs/brew.md</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="perf">
+  <div class="wrap">
+    <h2>Measured, not marketed</h2>
+    <p class="muted">Bench on a 250k LOC TypeScript monorepo, M2 Max, 100 runs. Run it yourself.</p>
+    <pre class="bench"><code>harness bench --harness opencode --task cold-start
+harness bench --compare main</code></pre>
+    <div class="perf-table">
+      <div class="row head"><span>metric</span><span>before</span><span>after</span></div>
+      <div class="row"><span>cold start</span><span>~180s</span><span>~13s</span></div>
+      <div class="row"><span>tokens / task</span><span>~142k</span><span>~48k</span></div>
+      <div class="row"><span>tool calls</span><span>87</span><span>51</span></div>
+      <div class="row"><span>hook p99</span><span>—</span><span>87ms</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="flow">
+  <div class="wrap">
+    <h2>Research-first flow</h2>
+    <ol>
+      <li><strong>research</strong> — check <code>research/findings/</code>, grep codebase, web search if needed</li>
+      <li><strong>plan</strong> — write <code>research/plans/&lt;task&gt;.md</code></li>
+      <li><strong>approve</strong> — quick ok (tiny edits auto-approve)</li>
+      <li><strong>build</strong> — implement</li>
+      <li><strong>verify</strong> — tests + <code>harness bench</code> + <code>harness security audit</code></li>
+      <li><strong>remember</strong> — <code>harness memory sync</code> distills</li>
+    </ol>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <h2>Works on your existing repo</h2>
+    <pre><code>npx @theelephantcoder/agent-harness init --migrate
+git status # see what it added
+harness doctor --fix</code></pre>
+    <p class="muted">Remove the harness and your project still works — adapters are just transpilers.</p>
+    <a class="btn" href="https://github.com/TheElephantCoder/agent-harness">Get started on GitHub</a>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <span>MIT © TheElephantCoder</span>
+    <span>DM <strong>@theelephantcoder</strong> on Discord · GitHub issues for support</span>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll('[data-copy]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    navigator.clipboard.writeText(b.dataset.copy);
+    const t=b.textContent; b.textContent='copied'; setTimeout(()=>b.textContent=t,1200);
+  });
+});
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
