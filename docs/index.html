@@ -60,29 +60,51 @@
     <a href="#philosophy">Philosophy</a>
     <a href="#architecture">Architecture</a>
     <a href="#structure">Project structure</a>
+    <a href="#file-layout">File layout</a>
+    <a href="#requirements">Requirements</a>
     <a href="#install">Installation</a>
     <a href="#quickstart">Quick start</a>
     <a href="#concepts">Core concepts</a>
     <a href="#workflows">Workflows</a>
     <a href="#configuration">Configuration</a>
+    <a href="#environment">Environment</a>
+    <a href="#upgrading">Upgrading</a>
+    <a href="#uninstalling">Uninstalling</a>
     <h4>Building blocks</h4>
     <a href="#skills">Skills</a>
+    <a href="#skill-advanced">Skill advanced</a>
     <a href="#instincts">Instincts</a>
+    <a href="#instinct-advanced">Instinct advanced</a>
     <a href="#memory">Memory</a>
+    <a href="#memory-cookbook">Memory cookbook</a>
     <a href="#security">Security</a>
+    <a href="#security-hardening">Security hardening</a>
     <a href="#research">Research-first</a>
+    <a href="#templates">Templates</a>
+    <a href="#evidence">Evidence</a>
     <h4>Integration</h4>
     <a href="#adapters">Adapters</a>
+    <a href="#adapter-internals">Adapter internals</a>
+    <a href="#hook-lifecycle">Hook lifecycle</a>
+    <a href="#transpilation">Transpilation</a>
     <a href="#cli">CLI reference</a>
     <a href="#api">API reference</a>
     <a href="#performance">Performance</a>
+    <a href="#tuning">Tuning</a>
     <a href="#benchmarking">Benchmarking</a>
+    <a href="#profiling">Profiling</a>
     <a href="#brew">Brew</a>
     <h4>Guides</h4>
     <a href="#examples">Examples</a>
     <a href="#best-practices">Best practices</a>
+    <a href="#theming">Theming</a>
+    <a href="#integrations">Integrations</a>
+    <a href="#plugins">Plugins</a>
     <a href="#migration">Migration</a>
+    <a href="#deployment">Deployment</a>
+    <a href="#cicd">CI/CD</a>
     <a href="#testing">Testing</a>
+    <a href="#accessibility">Accessibility</a>
     <h4>More</h4>
     <a href="#troubleshooting">Troubleshooting</a>
     <a href="#faq">FAQ</a>
@@ -90,6 +112,7 @@
     <a href="#roadmap">Roadmap</a>
     <a href="#changelog">Changelog</a>
     <a href="#community">Community</a>
+    <a href="#license">License</a>
     <a href="#glossary">Glossary</a>
   </aside>
   <main class="docs-content">
@@ -278,7 +301,7 @@ memory/sessions/*.md
     <p>Use <code>harness init --migrate</code> so it merges instead of overwriting. Check with <code>git status</code> before committing. The harness adds about a dozen files, all reviewable in a normal PR.</p>
     <div class="pager">
       <a href="#architecture"><span>← Previous</span><strong>Architecture</strong></a>
-      <a href="#install"><span>Next →</span><strong>Installation</strong></a>
+      <a href="#file-layout"><span>Next →</span><strong>File layout</strong></a>
     </div>
 
     <h2 id="install">Installation</h2>
@@ -350,7 +373,7 @@ bash security/audit.sh
 bash security/audit.sh --staged</code></pre>
     <div class="callout"><strong>Offline:</strong> after install, everything runs locally. Skills, memory and research cache are markdown + JSON in your repo. No network needed except for initial <code>webfetch</code> research and <code>brew</code>/<code>npm</code> installs.</div>
     <div class="pager">
-      <a href="#structure"><span>← Previous</span><strong>Project structure</strong></a>
+      <a href="#requirements"><span>← Previous</span><strong>Requirements</strong></a>
       <a href="#quickstart"><span>Next →</span><strong>Quick start</strong></a>
     </div>
 
@@ -495,7 +518,7 @@ Alternatives: session cookies (rejected, needs DB)</code></pre>
     <p>You can edit <code>.harness/config.json</code> directly, then run <code>harness doctor --fix</code> to regenerate. Don't edit generated files like <code>.claude/settings.json:hooks</code> by hand — they'll be overwritten.</p>
     <div class="pager">
       <a href="#workflows"><span>← Previous</span><strong>Workflows</strong></a>
-      <a href="#skills"><span>Next →</span><strong>Skills</strong></a>
+      <a href="#environment"><span>Next →</span><strong>Environment</strong></a>
     </div>
 
     <h2 id="skills">Skills</h2>
@@ -565,8 +588,8 @@ Keep it focused. Put longer references in references/</code></pre>
     <h3>Versioning and updates</h3>
     <p>Bump <code>version</code> in <code>SKILL.md</code>, push tag, then <code>harness skill add</code> again to update pinned sha. Keep changelog in the skill repo's <code>CHANGELOG.md</code>.</p>
     <div class="pager">
-      <a href="#configuration"><span>← Previous</span><strong>Configuration</strong></a>
-      <a href="#instincts"><span>Next →</span><strong>Instincts</strong></a>
+      <a href="#uninstalling"><span>← Previous</span><strong>Uninstalling</strong></a>
+      <a href="#skill-advanced"><span>Next →</span><strong>Skill advanced</strong></a>
     </div>
 
     <h2 id="instincts">Instincts</h2>
@@ -635,8 +658,8 @@ echo $?</code></pre>
 harness instinct enable research-first
 # or remove the hook file for a harness: .claude/settings.json:hooks</code></pre>
     <div class="pager">
-      <a href="#skills"><span>← Previous</span><strong>Skills</strong></a>
-      <a href="#memory"><span>Next →</span><strong>Memory</strong></a>
+      <a href="#skill-advanced"><span>← Previous</span><strong>Skill advanced</strong></a>
+      <a href="#instinct-advanced"><span>Next →</span><strong>Instinct advanced</strong></a>
     </div>
 
     <h2 id="memory">Memory</h2>
@@ -716,8 +739,8 @@ Consequences: harness init must stay idempotent, doctor checks drift
 Alternatives: 5 copies (rejected, drifts)</code></pre>
     <div class="callout"><strong>Tip:</strong> No secrets in memory. <code>security-guard</code> redacts them before sync. If you paste a key, it gets dropped.</div>
     <div class="pager">
-      <a href="#instincts"><span>← Previous</span><strong>Instincts</strong></a>
-      <a href="#security"><span>Next →</span><strong>Security</strong></a>
+      <a href="#instinct-advanced"><span>← Previous</span><strong>Instinct advanced</strong></a>
+      <a href="#memory-cookbook"><span>Next →</span><strong>Memory cookbook</strong></a>
     </div>
 
     <h2 id="security">Security</h2>
@@ -767,8 +790,8 @@ bash security/audit.sh --staged</code></pre>
     <p>Skills are pinned in <code>.harness/config.json</code> with version + sha256. Verify with <code>harness skill verify &lt;name&gt;</code>. CI runs <code>security/audit.sh</code> on every PR. Don't log secrets — redact in <code>memory/</code> and <code>research/</code>. Pin updates require a PR so you review the diff.</p>
     <p class="muted small">Report vulns via DM <code>@theelephantcoder</code> on Discord or GitHub issue (mark private). Don't open a public issue with details. See <code>SECURITY.md</code>.</p>
     <div class="pager">
-      <a href="#memory"><span>← Previous</span><strong>Memory</strong></a>
-      <a href="#research"><span>Next →</span><strong>Research-first</strong></a>
+      <a href="#memory-cookbook"><span>← Previous</span><strong>Memory cookbook</strong></a>
+      <a href="#security-hardening"><span>Next →</span><strong>Security hardening</strong></a>
     </div>
 
     <h2 id="research">Research-first</h2>
@@ -846,8 +869,8 @@ Options: noStore vs revalidate:0 vs export dynamic
 Recommendation: noStore() in auth route, keep cache for rest.
 Risks: extra DB hits, mitigated by 60s revalidate on non-auth routes.</code></pre>
     <div class="pager">
-      <a href="#security"><span>← Previous</span><strong>Security</strong></a>
-      <a href="#adapters"><span>Next →</span><strong>Adapters</strong></a>
+      <a href="#security-hardening"><span>← Previous</span><strong>Security hardening</strong></a>
+      <a href="#templates"><span>Next →</span><strong>Templates</strong></a>
     </div>
 
     <h2 id="adapters">Adapters</h2>
@@ -909,8 +932,8 @@ harness doctor --fix</code></pre>
       <li>Some harnesses cache skills — run <code>harness doctor --fix</code> after editing a skill to bust the cache.</li>
     </ul>
     <div class="pager">
-      <a href="#research"><span>← Previous</span><strong>Research-first</strong></a>
-      <a href="#cli"><span>Next →</span><strong>CLI reference</strong></a>
+      <a href="#evidence"><span>← Previous</span><strong>Evidence</strong></a>
+      <a href="#adapter-internals"><span>Next →</span><strong>Adapter internals</strong></a>
     </div>
 
     <h2 id="cli">CLI reference</h2>
@@ -977,7 +1000,7 @@ harness --version</code></pre>
     <h3>Environment variables</h3>
     <p>Respects <code>$EDITOR</code> for <code>harness memory edit</code>. No other required env. Node &gt;=20 and Python &gt;=3.9 from PATH. For CI, set <code>CI=true</code> to make <code>harness doctor --fix</code> fail instead of interactive.</p>
     <div class="pager">
-      <a href="#adapters"><span>← Previous</span><strong>Adapters</strong></a>
+      <a href="#transpilation"><span>← Previous</span><strong>Transpilation</strong></a>
       <a href="#api"><span>Next →</span><strong>API reference</strong></a>
     </div>
 
@@ -1060,7 +1083,7 @@ harness bench --quick</code></pre>
     <p>If you added a big skill that's worth the tokens, note it in the PR and bump the target in <code>docs/performance.md</code>. Don't hide a 20% regression without calling it out.</p>
     <div class="pager">
       <a href="#api"><span>← Previous</span><strong>API reference</strong></a>
-      <a href="#benchmarking"><span>Next →</span><strong>Benchmarking</strong></a>
+      <a href="#tuning"><span>Next →</span><strong>Tuning</strong></a>
     </div>
 
     <h2 id="benchmarking">Benchmarking</h2>
@@ -1101,8 +1124,8 @@ harness bench --compare origin/main</code></pre>
       <li>Commit your <code>MEMORY.md</code> before benching — dirty files affect cold start.</li>
     </ul>
     <div class="pager">
-      <a href="#performance"><span>← Previous</span><strong>Performance</strong></a>
-      <a href="#brew"><span>Next →</span><strong>Brew</strong></a>
+      <a href="#tuning"><span>← Previous</span><strong>Tuning</strong></a>
+      <a href="#profiling"><span>Next →</span><strong>Profiling</strong></a>
     </div>
 
     <h2 id="brew">Brew</h2>
@@ -1138,7 +1161,7 @@ git push
     <h3>Bottle</h3>
     <p>The formula builds from source via npm. No pre-built bottle is needed, but you could add one with <code>brew bottle</code> if you want faster installs. For a Node shim, source build is usually fast enough (&lt;30s).</p>
     <div class="pager">
-      <a href="#benchmarking"><span>← Previous</span><strong>Benchmarking</strong></a>
+      <a href="#profiling"><span>← Previous</span><strong>Profiling</strong></a>
       <a href="#examples"><span>Next →</span><strong>Examples</strong></a>
     </div>
 
@@ -1217,7 +1240,7 @@ git commit -m "add nextjs skills"</code></pre>
     </table>
     <div class="pager">
       <a href="#examples"><span>← Previous</span><strong>Examples</strong></a>
-      <a href="#migration"><span>Next →</span><strong>Migration</strong></a>
+      <a href="#theming"><span>Next →</span><strong>Theming</strong></a>
     </div>
 
     <h2 id="migration">Migration</h2>
@@ -1247,8 +1270,8 @@ git status</code></pre>
     <h3>Migrating brew formula</h3>
     <p>If you installed via npm and want brew instead: <code>npm uninstall -g @theelephantcoder/agent-harness && brew install agent-harness</code>. Same binary, same <code>harness</code> command.</p>
     <div class="pager">
-      <a href="#best-practices"><span>← Previous</span><strong>Best practices</strong></a>
-      <a href="#testing"><span>Next →</span><strong>Testing</strong></a>
+      <a href="#plugins"><span>← Previous</span><strong>Plugins</strong></a>
+      <a href="#deployment"><span>Next →</span><strong>Deployment</strong></a>
     </div>
 
     <h2 id="testing">Testing</h2>
@@ -1286,8 +1309,8 @@ cat .cursor/rules/harness.mdc | head</code></pre>
     <h3>CI</h3>
     <p><code>.github/workflows/ci.yml</code> runs <code>tsc --noEmit</code>, <code>pip install</code>, <code>security/audit.sh</code>, <code>harness doctor --strict</code> and <code>harness bench --quick</code>. All should pass before merge.</p>
     <div class="pager">
-      <a href="#migration"><span>← Previous</span><strong>Migration</strong></a>
-      <a href="#troubleshooting"><span>Next →</span><strong>Troubleshooting</strong></a>
+      <a href="#cicd"><span>← Previous</span><strong>CI/CD</strong></a>
+      <a href="#accessibility"><span>Next →</span><strong>Accessibility</strong></a>
     </div>
 
     <h2 id="troubleshooting">Troubleshooting</h2>
@@ -1336,7 +1359,7 @@ echo "src/foo.ts — example hash, not a secret — expires: 2027-01-01 — appr
     <h3>Pages not updating</h3>
     <p>GitHub Pages serves <code>gh-pages</code> branch root. Check that <code>gh-pages</code> has <code>index.html</code> and <code>docs/index.html</code> and that Pages is set to Deploy from branch <code>gh-pages</code> / <code>/ (root)</code> in repo Settings → Pages.</p>
     <div class="pager">
-      <a href="#testing"><span>← Previous</span><strong>Testing</strong></a>
+      <a href="#accessibility"><span>← Previous</span><strong>Accessibility</strong></a>
       <a href="#faq"><span>Next →</span><strong>FAQ</strong></a>
     </div>
 
@@ -1473,10 +1496,1377 @@ harness bench --quick</code></pre>
     <p>Be decent. Small PRs, kind reviews, no harassment. If someone is out of line, DM me on Discord.</p>
     <div class="pager">
       <a href="#changelog"><span>← Previous</span><strong>Changelog</strong></a>
+      <a href="#license"><span>Next →</span><strong>License</strong></a>
+    </div>
+
+            <h2 id="file-layout">File layout deep dive</h2>
+    <p>Every file has a purpose. Here's what gets created where, and what you should commit. This is the deep dive companion to <a href="#structure">Project structure</a>. If you understand this, you can review a harness PR in 30 seconds.</p>
+    <table>
+      <tr><th>path</th><th>purpose</th><th>commit?</th><th>who creates it</th><th>lifecycle</th></tr>
+      <tr><td><code>AGENTS.md</code></td><td>shared instructions for all harnesses, copied to each</td><td>yes</td><td>harness init</td><td>curated, keep tight</td></tr>
+      <tr><td><code>.harness/config.json</code></td><td>pinned skill versions + harness list + memory limit + auto-approve</td><td>yes</td><td>harness init</td><td>updated via doctor</td></tr>
+      <tr><td><code>memory/MEMORY.md</code></td><td>curated long-term memory, &lt;8k tokens (~2000 words)</td><td>yes</td><td>init + memory sync</td><td>prune monthly</td></tr>
+      <tr><td><code>memory/SOUL.md</code></td><td>who the agent is, tone</td><td>yes</td><td>harness init</td><td>rarely changes</td></tr>
+      <tr><td><code>memory/USER.md</code></td><td>who you are, preferences</td><td>yes</td><td>harness init</td><td>update when preferences change</td></tr>
+      <tr><td><code>memory/sessions/*.md</code></td><td>raw per-session logs, verbose, timestamped</td><td>no (pruned ~30d)</td><td>session-end hook</td><td>auto-pruned</td></tr>
+      <tr><td><code>memory/decisions/ADR-*.md</code></td><td>architectural decisions, short ADRs</td><td>yes if still relevant</td><td>you + memory sync</td><td>kept long-term</td></tr>
+      <tr><td><code>memory/tiers/hot.md</code></td><td>always loaded at session start</td><td>yes</td><td>you</td><td>keep &lt;2k</td></tr>
+      <tr><td><code>memory/tiers/warm.md</code></td><td>loaded on keyword</td><td>yes</td><td>you</td><td>keep &lt;4k</td></tr>
+      <tr><td><code>memory/tiers/cold/*.md</code></td><td>explicit read only, deep history</td><td>your call</td><td>you</td><td>unbounded</td></tr>
+      <tr><td><code>research/findings/*.md</code></td><td>cached research per topic, with citations</td><td>your call — commit useful ones</td><td>research flow</td><td>prune stale</td></tr>
+      <tr><td><code>research/plans/*.md</code></td><td>implementation plans per task</td><td>usually no, or commit for the PR</td><td>research flow</td><td>prune after merge</td></tr>
+      <tr><td><code>research/evidence/*</code></td><td>repros, bench notes, raw fetch</td><td>yes, version repros</td><td>research flow</td><td>kept</td></tr>
+      <tr><td><code>research/template.md</code></td><td>copy for new findings/plans</td><td>yes (in harness repo)</td><td>harness repo</td><td>template</td></tr>
+      <tr><td><code>.claude/settings.json</code></td><td>Claude permissions (allow/ask/deny) + hooks + instructions</td><td>yes</td><td>adapter transpile</td><td>generated, don't edit by hand</td></tr>
+      <tr><td><code>.claude/skills/*/SKILL.md</code></td><td>transpiled skills for Claude</td><td>yes</td><td>adapter</td><td>generated</td></tr>
+      <tr><td><code>opencode.json</code></td><td>Opencode config (instructions, skills, hooks, permission.bash)</td><td>yes</td><td>adapter</td><td>generated</td></tr>
+      <tr><td><code>.cursor/rules/*.mdc</code></td><td>Cursor rules, converted from SKILL.md</td><td>yes</td><td>adapter</td><td>generated</td></tr>
+      <tr><td><code>.codex/hooks.json</code> + <code>.codex/config.toml</code></td><td>Codex hooks shim + config</td><td>yes</td><td>adapter</td><td>generated</td></tr>
+      <tr><td><code>.harness/</code></td><td>per-project harness state, pinned versions</td><td>yes</td><td>harness init</td><td>generated</td></tr>
+      <tr><td><code>Formula/agent-harness.rb</code></td><td>brew formula (single-repo tap)</td><td>yes (in harness repo)</td><td>bump-brew.sh</td><td>update per release</td></tr>
+      <tr><td><code>src/harness/cli.ts</code></td><td>TS CLI, argument parsing, stub impl</td><td>yes</td><td>you</td><td>source</td></tr>
+      <tr><td><code>src/harness/cli.py</code></td><td>Python shim, argparse</td><td>yes</td><td>you</td><td>source</td></tr>
+      <tr><td><code>src/harness/bench.ts</code></td><td>bench harness</td><td>yes</td><td>you</td><td>source</td></tr>
+    </table>
+    <h3>What stays local vs shared vs global</h3>
+    <p><strong>Global install</strong> (<code>npm -g</code>, <code>brew</code>, <code>pipx</code>) is just the <code>harness</code> binary. It's the runner. <strong>Per-project harness</strong> (<code>.harness/</code>, <code>memory/</code>, <code>research/</code>, <code>.claude/</code> etc.) lives in each repo. That means teammates get the same behavior via <code>git pull</code> without needing a global version match. The global binary is just the runner, the per-project files are the config. If you update the global binary, run <code>harness doctor --fix</code> in each project to re-transpile.</p>
+    <h3>Hidden files and why they are committed</h3>
+    <p><code>.claude/</code>, <code>.cursor/</code>, <code>.codex/</code> are hidden by convention but committed so teammates get them without running <code>harness init</code> themselves. <code>.harness/</code> is also committed despite the dot — it's not ignored so teammates get pinned versions. The only things ignored are ephemeral: <code>node_modules/</code>, <code>dist/</code>, <code>.venv/</code>, <code>*.egg-info/</code>, <code>research/findings/*.md</code> (except <code>.gitkeep</code>), <code>memory/sessions/*.md</code>.</p>
+    <h3>What gets committed vs ignored — decision tree</h3>
+    <pre><code>Is it curated and long-term? → commit (MEMORY.md, SOUL.md, useful findings)
+Is it raw and will be pruned? → ignore (sessions/*.md, findings/*.md in harness repo's own .gitignore)
+Is it generated from a source? → commit the generated file so CI can check drift, but never edit it by hand
+Is it a secret or high-entropy? → never commit, let audit.sh block it</code></pre>
+    <p>In your own project you should commit <code>MEMORY.md</code> and useful findings, and ignore raw sessions. Template gitignore is in the harness repo's <code>.gitignore</code> — copy it. For the harness repo itself, <code>research/findings/*.md</code> is ignored because it's a template repo; in your project you decide per finding.</p>
+    <h3>Adding to an existing repo — what changes on disk</h3>
+    <p>Use <code>harness init --migrate</code> so it merges instead of overwriting. It will: create <code>.harness/config.json</code> if missing, copy <code>AGENTS.md</code> if you don't have one (or merge if you do), create <code>memory/</code> with seeded files, and for each harness you picked, merge hooks into the existing config. Review with <code>git status</code> and <code>git diff</code> — it adds about a dozen files, all reviewable in a normal PR. If you already had <code>.claude/settings.json</code>, the merge adds a <code>hooks</code> block and <code>instructions</code> without clobbering your existing permissions.</p>
+    <div class="callout"><strong>Tip:</strong> Run <code>git diff --stat</code> after <code>init --migrate</code>. If it shows changes to files you didn't expect, check <code>--harness</code> - maybe it added an adapter you didn't want. Remove with <code>rm -rf .cursor/rules/harness.mdc</code> and re-run <code>harness doctor</code>.</div>
+
+
+
+    <h2 id="requirements">Requirements</h2>
+    <p>What you need before installing. Harness is deliberately small so it runs on stock macOS and Linux without extra services, no Docker, no database. If you can run <code>node</code> and <code>git</code>, you can run harness. This section covers minimums, how to check, and what to do on older machines.</p>
+    <table>
+      <tr><th>tool</th><th>minimum version</th><th>how to check</th><th>required?</th><th>why</th></tr>
+      <tr><td>Node</td><td>&gt;=20.0.0</td><td><code>node --version</code></td><td>yes for TS CLI</td><td><code>tsx</code> loader needs Node 20.6+, hooks use Node if you write them in TS</td></tr>
+      <tr><td>npm</td><td>&gt;=9.0.0</td><td><code>npm --version</code></td><td>yes for npm install</td><td>installs <code>@theelephantcoder/agent-harness</code></td></tr>
+      <tr><td>Python</td><td>&gt;=3.9</td><td><code>python3 --version</code></td><td>only for Python shim</td><td>argparse shim mirrors TS CLI</td></tr>
+      <tr><td>Git</td><td>&gt;=2.30</td><td><code>git --version</code></td><td>yes</td><td>hooks use <code>diff --cached</code>, <code>ls-files</code>, <code>status</code></td></tr>
+      <tr><td>Bash</td><td>&gt;=4.0</td><td><code>bash --version</code></td><td>yes for hooks</td><td>all hooks are <code>.sh</code> for speed</td></tr>
+      <tr><td>Brew</td><td>any recent</td><td><code>brew --version</code></td><td>optional, macOS only</td><td>for <code>brew install agent-harness</code></td></tr>
+      <tr><td>Disk</td><td>10MB + node_modules if from source</td><td><code>df -h</code></td><td>yes</td><td>install is tiny</td></tr>
+    </table>
+    <h3>Node — the only hard requirement</h3>
+    <p>Hooks and the TS CLI need Node 20+. Node 18 will fail on the <code>tsx</code> loader with <code>Error: tsx must be loaded with --import</code>. Node 16 will fail earlier. If your system Node is old (macOS ships with 16-18), use <code>nvm</code> or <code>fnm</code> to get 20 without touching system.</p>
+    <pre><code># check
+node --version  # should be v20.x, v22.x, or v24.x
+# if old, install via nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+nvm install 20
+nvm use 20
+node --version
+# or fnm (faster)
+brew install fnm
+fnm install 20
+fnm use 20
+# verify harness still works
+./node_modules/.bin/tsc --noEmit --project tsconfig.json</code></pre>
+    <p>The brew formula depends on <code>node</code> without pinning so it picks the latest in Homebrew (currently 22). That's fine — forward compatible. If you pin Node in CI, use <code>actions/setup-node@v4</code> with <code>node-version: 20</code> as in <code>.github/workflows/ci.yml</code>.</p>
+    <h3>Python — only if you prefer pip</h3>
+    <p>Only needed if you want <code>pip install agent-harness-cli</code> instead of npm/brew. The shim mirrors the TS CLI via <code>argparse</code> and gives you the same <code>harness</code> binary name. If you install both npm and pip, they both provide <code>harness</code> — the one first on PATH wins, but they're the same version. Pick one.</p>
+    <pre><code>python3 --version  # should be &gt;=3.9, e.g. 3.9.6, 3.11.x
+python3 -m pip --version
+pipx install agent-harness-cli  # preferred, isolates
+pipx ensurepath
+which harness  # ~/.local/bin/harness or ~/Library/Python/3.9/bin/harness
+harness --version
+# if which is empty, add to PATH
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+# macOS pip
+echo 'export PATH="$HOME/Library/Python/3.9/bin:$PATH"' >> ~/.zshrc</code></pre>
+    <h3>Git and Bash</h3>
+    <p>Any recent Git works. Hooks use <code>git diff --cached --name-only</code>, <code>git ls-files</code>, <code>git status --porcelain</code>, and <code>git rev-parse</code>. On Windows use Git Bash or WSL so shell hooks run — PowerShell alone won't run <code>.sh</code> hooks. Test Bash:</p>
+    <pre><code>bash --version  # should be 4.x or 5.x
+echo "test" | bash instincts/pre-tool/guard.sh; echo $?
+# 0 = pass, 2 = block</code></pre>
+    <h3>Disk, memory, and no daemon</h3>
+    <p>Install is under 10MB plus <code>node_modules</code> when built from source (about 80 packages, ~30MB). At runtime, memory hydration is &lt;50ms per tier, hooks are &lt;100ms, no daemon is required unless you enable pre-warm. No database, no Docker, no background service to manage. That's why <code>harness doctor</code> is instant.</p>
+    <h3>CI vs local</h3>
+    <p>In CI, use the same versions as local for repro. The repo's own CI uses:</p>
+    <pre><code>- uses: actions/setup-node@v4
+  with: { node-version: 20 }
+- uses: actions/setup-python@v5
+  with: { python-version: "3.11" }
+- run: npm ci || npm install
+- run: npx tsc --noEmit
+- run: ./security/audit.sh
+- run: node src/harness/cli.ts doctor --strict</code></pre>
+    <div class="callout"><strong>Tip:</strong> If <code>harness --version</code> works but <code>harness doctor</code> fails with <code>node: command not found</code>, your hook's shebang is finding a different Node than your shell. Check <code>which node</code> and ensure <code>/usr/bin/env node</code> resolves.</div>
+    <div class="pager">
+      <a href="#file-layout"><span>← Previous</span><strong>File layout</strong></a>
+      <a href="#install"><span>Next →</span><strong>Installation</strong></a>
+    </div>
+
+
+    <h2 id="environment">Environment</h2>
+    <p>Harness reads very little from the environment. That's intentional — it should behave the same on your machine and in CI without hidden env that changes behavior. This section lists every var it looks at, where PATH matters, and how CI differs.</p>
+    <table>
+      <tr><th>variable</th><th>used for</th><th>default if unset</th><th>example</th></tr>
+      <tr><td><code>$EDITOR</code></td><td><code>harness memory edit</code> opens this</td><td><code>$VISUAL</code> or <code>vi</code></td><td><code>EDITOR=code harness memory edit</code></td></tr>
+      <tr><td><code>$VISUAL</code></td><td>fallback for <code>EDITOR</code></td><td>unset</td><td><code>VISUAL=nvim</code></td></tr>
+      <tr><td><code>CI</code></td><td>makes <code>doctor --fix</code> fail instead of interactive, disables auto-approve prompts, makes bench non-interactive</td><td>unset (interactive)</td><td><code>CI=true harness doctor --strict</code></td></tr>
+      <tr><td><code>PATH</code></td><td>finding <code>node</code>, <code>python3</code>, <code>git</code>, <code>bash</code>, <code>npx</code></td><td>system</td><td>must include node bin</td></tr>
+      <tr><td><code>HOME</code></td><td>resolving <code>~/.claude</code>, <code>~/Library/Python/3.9/bin</code></td><td>system</td><td>normally set</td></tr>
+      <tr><td><code>NODE_ENV</code></td><td>not used by harness, but respected if you set it for your app</td><td>unset</td><td><code>NODE_ENV=production</code></td></tr>
+      <tr><td><code>NO_COLOR</code></td><td>disables color in <code>harness bench</code> tables if you set it</td><td>unset</td><td><code>NO_COLOR=1</code></td></tr>
+    </table>
+    <h3>PATH for Python shim — the most common gotcha</h3>
+    <p>After <code>pip install agent-harness-cli</code>, the <code>harness</code> binary lands in a Python bin dir, not in <code>/usr/local/bin</code>. If <code>which harness</code> is empty after install, that's why. Fix by adding the Python bin to PATH or using <code>pipx</code> which does it for you.</p>
+    <pre><code># after pip install
+which harness  # if empty, find it
+pip show -f agent-harness-cli | grep bin/harness
+ls ~/Library/Python/3.9/bin/harness  # macOS
+ls ~/.local/bin/harness              # Linux
+# add to PATH (macOS)
+echo 'export PATH="$HOME/Library/Python/3.9/bin:$PATH"' >> ~/.zshrc
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc  # Linux too
+# or for pipx (preferred, isolates)
+pipx install agent-harness-cli
+pipx ensurepath
+exec $SHELL
+which harness  # should now show pipx path
+harness --version</code></pre>
+    <h3>EDITOR and memory edit</h3>
+    <pre><code>EDITOR=code harness memory edit   # opens VS Code
+EDITOR=nvim harness memory edit
+harness memory show  # cat, no editor needed</code></pre>
+    <h3>CI vs local</h3>
+    <p>In CI (GitHub Actions sets <code>CI=true</code> automatically), harness changes behavior slightly:</p>
+    <ul>
+      <li><code>harness doctor --fix</code> will fail instead of trying to prompt you for input. Use <code>--strict</code> in CI so drift fails the build.</li>
+      <li><code>harness bench</code> runs non-interactive and writes <code>.harness/bench/results.json</code> without trying to open a browser.</li>
+      <li>Auto-approve instinct is disabled in CI even if configured.</li>
+    </ul>
+    <pre><code># .github/workflows/ci.yml
+- run: harness doctor --strict
+- run: harness bench --quick
+# locally you would run
+harness doctor --fix  # fixes in place
+# in CI you want
+CI=true harness doctor --fix  # will exit 1 on drift instead of fixing silently
+# so use --strict in CI
+harness doctor --strict
+CI=true harness doctor --strict</code></pre>
+    <h3>Other env and what harness ignores</h3>
+    <p><code>NODE_ENV</code>, <code>PYTHONPATH</code>, <code>VIRTUAL_ENV</code> are not read by harness (except indirectly via <code>PATH</code>). Keep env minimal — harness is files + git, not env-driven. If a hook needs env, read it explicitly in the <code>.sh</code>.</p>
+    <div class="pager">
+      <a href="#configuration"><span>← Previous</span><strong>Configuration</strong></a>
+      <a href="#upgrading"><span>Next →</span><strong>Upgrading</strong></a>
+    </div>
+
+
+    <h2 id="upgrading">Upgrading</h2>
+    <p>Harness follows semver on 0.x — minor may break config shape, patch is safe. Always run <code>harness doctor</code> after upgrading, and review <code>git diff</code>. This section covers how to upgrade global installs, per-project harness, skills, and brew formula, plus pinning and breaking changes.</p>
+    <h3>How to upgrade each package</h3>
+    <pre><code># npm (global)
+npm update -g @theelephantcoder/agent-harness
+# or pin to latest
+npm install -g @theelephantcoder/agent-harness@latest
+npm list -g @theelephantcoder/agent-harness  # verify
+
+# brew (macOS, single-repo tap)
+brew update
+brew upgrade agent-harness
+brew info agent-harness  # verify version and tap
+
+# pip / pipx
+pip install -U agent-harness-cli
+pipx upgrade agent-harness-cli
+pipx list | grep agent-harness
+
+# harness helper (if your version has it)
+harness upgrade  # pulls latest skills + adapters where available, may be a stub in 0.1.0</code></pre>
+    <table>
+      <tr><th>area</th><th>how it's versioned</th><th>where it's pinned</th><th>how to update</th><th>how to verify</th></tr>
+      <tr><td>CLI (TS + Python)</td><td><code>package.json:version</code> and <code>pyproject.toml:version</code></td><td>npm/pip registry, plus <code>Formula/agent-harness.rb:version + sha256</code></td><td><code>npm update -g</code> / <code>brew upgrade</code> / <code>pip install -U</code></td><td><code>harness --version</code></td></tr>
+      <tr><td>Skills</td><td><code>SKILL.md:version</code> (semver per skill)</td><td><code>.harness/config.json:skills.{name}.version + sha256</code></td><td><code>harness skill add owner/repo</code> again, then <code>harness doctor --fix</code></td><td><code>harness skill verify my-skill</code></td></tr>
+      <tr><td>Instincts</td><td><code>hook.json</code> + script content</td><td><code>.harness/config.json</code> + transpiled <code>.claude/settings.json:hooks</code> etc.</td><td><code>harness doctor --fix</code> after pulling</td><td><code>harness doctor --strict</code></td></tr>
+      <tr><td>Formula</td><td>git tag <code>vX.Y.Z</code> + tarball sha256</td><td><code>Formula/agent-harness.rb: sha256</code></td><td><code>./scripts/bump-brew.sh X.Y.Z</code></td><td><code>brew info agent-harness</code></td></tr>
+      <tr><td>Memory schema</td><td><code>memory/MEMORY.md</code> structure</td><td>your repo</td><td>manual, keep &lt;8k</td><td><code>wc -w memory/MEMORY.md</code></td></tr>
+    </table>
+    <h3>Per-project harness (after global upgrade)</h3>
+    <p>Global binary and per-project harness are separate. After updating the global <code>harness</code>, you need to re-transpile in each project:</p>
+    <pre><code>cd your-project
+harness --version  # new version?
+harness doctor --fix      # re-transpile adapters, update pinned shas
+git status
+git diff  # review what changed — often .claude/skills and opencode.json
+git diff .harness/config.json  # pinned versions
+git add -A && git commit -m "bump harness to 0.1.x"</code></pre>
+    <p>If a skill version bumped, <code>doctor --fix</code> will update the transpiled copies in <code>.claude/skills/</code> etc. and the pinned sha in <code>.harness/config.json</code>. Review with <code>git diff</code> before committing — a skill update can change prompts.</p>
+    <h3>When to run doctor and how to interpret</h3>
+    <pre><code>harness doctor         # human-readable, shows ok / warn per area
+harness doctor --fix   # fixes in place, overwrites generated files
+harness doctor --strict # fails with exit 1 on any drift, for CI
+# example output
+# [harness] ok - skills: 4 found
+# [harness] ok - instincts: 4 hooks
+# [harness] ok - memory: MEMORY.md 2.1k tokens
+# [harness] ok - security: no secrets in staged
+# [harness] ok - adapters: claude, opencode, codex, cursor in sync</code></pre>
+    <h3>Breaking changes on 0.x</h3>
+    <p>On 0.x, minor bumps (0.1.0 → 0.2.0) may change <code>.harness/config.json</code> shape, hook event names, or skill frontmatter. Patch (0.1.0 → 0.1.1) is safe. Check the changelog at <a href="#changelog">Changelog</a> and GitHub Releases, and run <code>harness doctor --strict</code> locally before pushing. If doctor flags drift after an upgrade, that's expected — run <code>--fix</code> and commit the result.</p>
+    <h3>Pinning and staying behind</h3>
+    <p>If you want to stay on an old version (e.g. you rely on a skill that changed), pin in your project's <code>package.json</code> or <code>pyproject.toml</code> and don't run <code>harness upgrade</code>. But you'll miss security fixes, so pin only if you have a reason. Document the pin in <code>memory/MEMORY.md</code> so the agent knows.</p>
+    <div class="callout"><strong>Tip:</strong> After any upgrade, run <code>harness bench --quick</code> to ensure perf didn't regress. If it did, check <code>docs/performance.md</code> for what changed.</div>
+    <div class="pager">
+      <a href="#environment"><span>← Previous</span><strong>Environment</strong></a>
+      <a href="#uninstalling"><span>Next →</span><strong>Uninstalling</strong></a>
+    </div>
+
+
+    <h2 id="uninstalling">Uninstalling</h2>
+    <p>Uninstalling is clean — everything is files in your project and global packages. No background service to stop unless you enabled a daemon for pre-warm (harness doesn't enable one by default). This covers global and per-project removal.</p>
+    <h3>Global package — remove the binary</h3>
+    <pre><code>npm uninstall -g @theelephantcoder/agent-harness
+# check
+which harness  # should be empty or point to another install
+harness --version  # should fail
+
+brew uninstall agent-harness
+brew untap TheElephantCoder/agent-harness  # optional, removes tap
+brew list | grep agent-harness  # should be empty
+
+pip uninstall agent-harness-cli
+pipx uninstall agent-harness-cli
+pip show agent-harness-cli  # should fail
+
+# if you had both npm and brew, remove both
+npm uninstall -g @theelephantcoder/agent-harness && brew uninstall agent-harness</code></pre>
+    <h3>Per-project harness — remove from a repo</h3>
+    <pre><code>cd your-project
+# check what harness added (should be ~10-15 files)
+git status
+git diff --stat HEAD
+# remove harness artifacts — keep or delete memory/research as you like
+rm -rf .harness
+rm -rf .claude/skills  # only the harness skills, keep your own if any
+# opencode
+rm -f opencode.json  # only if it was created by harness; if you had one before, restore from git
+git checkout -- opencode.json  # if you had a custom one
+rm -rf .opencode/skills
+# cursor
+rm -rf .cursor/rules/harness.mdc
+# or remove the whole cursor rules if you added only harness
+rm -rf .cursor/rules
+# codex
+rm -f .codex/hooks.json
+rm -rf .codex/skills
+# memory/research — your call
+rm -rf memory/research  # optional, if you added via harness and don't want it
+# keep or delete memory
+ls memory/
+# remove harness lines from configs by hand or via clean
+# if your version has it
+harness init --clean  # if available in your version, removes artifacts automatically
+# otherwise, edit by hand
+git status  # review again
+git diff .claude/settings.json  # ensure you didn't remove your own hooks
+git add -A && git commit -m "remove harness"</code></pre>
+    <h3>What to keep after removal</h3>
+    <p>Many teams keep <code>AGENTS.md</code> and <code>MEMORY.md</code> after removing harness — they're just markdown and useful without the hooks. If you want to keep research cache, keep <code>research/findings/</code> even after uninstalling the binary. The files are still readable as docs. If you keep <code>AGENTS.md</code>, the agent will still read it, just without the perf and guardrails.</p>
+    <div class="callout"><strong>Note:</strong> <code>harness init --clean</code> exists in some versions to remove artifacts automatically. If not in your version (check <code>harness --help</code>), remove by hand as above. The harness never touches files outside the allowed roots, so manual removal is safe.</div>
+    <h3>Re-installing later</h3>
+    <p>Just run <code>harness init</code> again in the same repo. It will re-create what you removed. If you kept <code>memory/MEMORY.md</code>, it will merge, not overwrite, with <code>--migrate</code>.</p>
+    <h3>Global vs per-project — what survives what</h3>
+    <table>
+      <tr><th>action</th><th>global binary</th><th>per-project files</th></tr>
+      <tr><td><code>npm uninstall -g</code></td><td>removed</td><td>stay, but <code>harness</code> command fails until you reinstall</td></tr>
+      <tr><td><code>rm -rf .harness</code></td><td>stays</td><td>removed, global <code>harness</code> still works elsewhere</td></tr>
+      <tr><td>both</td><td>removed</td><td>removed</td><td>clean slate</td></tr>
+    </table>
+    <div class="pager">
+      <a href="#upgrading"><span>← Previous</span><strong>Upgrading</strong></a>
+      <a href="#skills"><span>Next →</span><strong>Skills</strong></a>
+    </div>
+
+
+    <h2 id="skill-advanced">Skill authoring — advanced</h2>
+    <p>Beyond the minimal <code>SKILL.md</code>, skills can have scripts, references, assets, tests and versioning. This is how to make them robust, shareable and fast. The minimal skill is 7 lines of frontmatter + a paragraph. An advanced skill is a small package.</p>
+    <pre><code>skills/my-skill/
+  SKILL.md                 # required, frontmatter + instructions
+  scripts/
+    review.sh              # helper script, called by agent
+    generate.py            # or python
+    test.sh                # optional, for you
+  references/
+    api.md                 # long docs, loaded on demand
+    examples.md            # 3-4 end-to-end examples
+    patterns.md            # common pitfalls
+  assets/
+    logo.png
+    demo.gif
+    schema.json</code></pre>
+    <h3>References — the key to staying under 4k</h3>
+    <p>Put long docs in <code>references/</code> and link from <code>SKILL.md</code>. The agent will <code>read references/api.md</code> only when the skill triggers, not at boot. That's how you keep the main <code>SKILL.md</code> under 4k tokens but still thorough. The perf is the same — references are fetched on demand.</p>
+    <pre><code># In SKILL.md
+---
+name: my-skill
+description: does X for Y, use when you need X
+version: 1.0.0
+triggers: ["my-skill", "X"]
+---
+# My skill
+Does X. For full API see references/api.md. For 3 examples see references/examples.md.
+## Quick start
+1. read references/api.md
+2. run scripts/review.sh</code></pre>
+    <h3>Scripts — keep them small and executable</h3>
+    <p>Scripts in <code>scripts/</code> can be called by the agent with <code>bash skills/my-skill/scripts/review.sh</code> or <code>python3 scripts/generate.py</code>. Make them executable (<code>chmod +x scripts/*.sh</code>) and keep them small. They run with the same allowlist as other bash — add them to <code>security/bash-allowlist.json</code> if they need new commands. Prefer shell for speed, Python for complex logic.</p>
+    <pre><code>#!/usr/bin/env bash
+# scripts/review.sh — example, keep it small
+set -euo pipefail
+file="${1:?usage: review.sh <file>}"
+echo "reviewing $file"
+# your logic — keep it under 50 lines if you can
+rg -n "TODO|FIXME" "$file" | head -20
+if grep -q "console.log" "$file"; then
+  echo "found console.log, consider removing"
+fi</code></pre>
+    <h3>Testing a skill before sharing</h3>
+    <pre><code>harness skill create my-skill
+# edit skills/my-skill/SKILL.md
+# add references/api.md etc.
+harness doctor --fix
+# trigger via agent: "use my-skill to do X" and watch it load
+harness skill verify my-skill  # checks pinned sha vs current file
+# check transpiled copies exist and are correct
+cat .claude/skills/my-skill/SKILL.md
+cat .opencode/skills/my-skill/SKILL.md
+ls .cursor/rules/my-skill.mdc
+cat .cursor/rules/my-skill.mdc | head -30
+# test the script directly
+bash skills/my-skill/scripts/review.sh src/foo.ts
+# test in a clean repo
+mkdir /tmp/test-skill && cd /tmp/test-skill
+git init
+harness init --migrate
+harness skill add /path/to/agent-harness/skills/my-skill  # local path
+harness doctor --fix
+# now trigger it via agent in that clean repo</code></pre>
+    <h3>Versioning and distribution</h3>
+    <p>Bump <code>version</code> in frontmatter (semver: patch for fixes, minor for new triggers or allowed-tools, major for breaking frontmatter), push a tag in the skill repo, then users update via <code>harness skill add owner/repo</code> which updates the pinned sha in <code>.harness/config.json</code>. Keep a <code>CHANGELOG.md</code> in the skill repo so users know what changed. Don't forget to run <code>harness doctor --fix</code> after bumping and commit the transpiled copies.</p>
+    <pre><code># in skill repo
+# edit SKILL.md version: 1.0.0 -> 1.1.0
+git add SKILL.md CHANGELOG.md
+git commit -m "feat: add X"
+git tag v1.1.0
+git push origin main --tags
+# in consumer repo
+harness skill add owner/my-skill  # fetches new version, updates .harness/config.json
+harness doctor --fix
+git diff  # review pinned sha change
+git add .harness/config.json .claude/skills/my-skill
+git commit -m "bump my-skill to 1.1.0"</code></pre>
+    <h3>Performance for advanced skills</h3>
+    <p>Keep the main <code>SKILL.md</code> under 4k tokens — that's the budget that matters for p50. Put the rest in <code>references/</code>. A skill that loads at boot (no trigger, or broad trigger like "code") costs tokens every session. A skill that loads on a specific trigger like "my-skill" costs zero when not used. Prefer specific triggers.</p>
+    <h3>Common pitfalls</h3>
+    <ul>
+      <li>Don't put secrets in a skill — they get copied to every project that installs it.</li>
+      <li>Don't make a mega-skill that does 5 things — make 5 small skills that compose.</li>
+      <li>Don't forget to <code>chmod +x</code> scripts or they fail with permission denied.</li>
+      <li>Don't use absolute paths in scripts — use relative to repo root.</li>
+    </ul>
+    <div class="pager">
+      <a href="#skills"><span>← Previous</span><strong>Skills</strong></a>
+      <a href="#instincts"><span>Next →</span><strong>Instincts</strong></a>
+    </div>
+
+
+    <h2 id="instinct-advanced">Instinct authoring — advanced</h2>
+    <p>Advanced instincts handle debouncing, non-blocking vs blocking, per-harness quirks, timeouts and debugging. If basic instincts are muscle memory, advanced instincts are reflexes you tune.</p>
+    <table>
+      <tr><th>mode</th><th>exit code</th><th>agent does</th><th>use for</th><th>example</th><th>budget</th></tr>
+      <tr><td>blocking</td><td>2 = block, 0 = pass</td><td>waits, blocks tool</td><td>security, research-first</td><td><code>guard.sh</code>, <code>enforce.sh</code></td><td>&lt;50ms</td></tr>
+      <tr><td>non-blocking</td><td>any (0,1,2)</td><td>continues, logs only</td><td>post-edit format, typecheck</td><td><code>check.sh</code></td><td>&lt;2s, p99 &lt;100ms</td></tr>
+    </table>
+    <p>Blocking instincts must be fast (&lt;50-100ms p99) or they feel laggy because the agent waits. Non-blocking can be slower but should still be &lt;2s and not spam logs.</p>
+    <h3>Debouncing — coalescing rapid edits</h3>
+    <p><code>post-edit</code> is debounced 2s — multiple rapid edits (the agent often does 3-4 edits in a row) coalesce into one format run instead of 4. You can implement debouncing via a lock file and timestamp, or just make the script cheap to run multiple times so debouncing isn't needed. The harness's <code>post-edit/check.sh</code> is cheap — it just runs <code>prettier</code> on changed files.</p>
+    <pre><code>#!/usr/bin/env bash
+# check.sh — cheap to run, debounced by harness, no heavy Node startup if possible
+set -euo pipefail
+# only format changed files, not whole repo
+if command -v npx >/dev/null 2>&1 && [ -f package.json ]; then
+  files=$(git diff --name-only 2>/dev/null | head -20)
+  [ -z "$files" ] && exit 0
+  # call prettier directly if installed, avoid npx download overhead
+  if [ -f ./node_modules/.bin/prettier ]; then
+    ./node_modules/.bin/prettier --write --log-level silent $files 2>/dev/null || true
+  else
+    npx --yes prettier --write --log-level silent $files 2>/dev/null || true
+  fi
+fi
+# also typecheck if you want, but keep it non-blocking if it's slow
+# ./node_modules/.bin/tsc --noEmit --project tsconfig.json 2>&1 | head &</code></pre>
+    <h3>Per-harness event mapping</h3>
+    <p>Event names differ per harness. Harness maps generic <code>SessionStart</code> to <code>session_start</code> for Opencode, etc. Keep your <code>hook.json</code> using the generic name and let <code>harness doctor --fix</code> transpile. Don't hardcode per-harness names in your source.</p>
+    <table>
+      <tr><th>generic (you write)</th><th>Claude Code</th><th>Opencode</th><th>Codex</th><th>Cursor</th></tr>
+      <tr><td>SessionStart</td><td>SessionStart</td><td>session_start</td><td>session_start</td><td>sessionStart</td></tr>
+      <tr><td>PreToolUse</td><td>PreToolUse</td><td>pre_tool_use</td><td>pre_tool_use</td><td>preToolUse</td></tr>
+      <tr><td>PostToolUse</td><td>PostToolUse</td><td>post_tool_use</td><td>post_tool_use</td><td>postToolUse</td></tr>
+      <tr><td>PreCommit</td><td>PreCommit</td><td>pre_commit</td><td>pre_commit</td><td>preCommit</td></tr>
+      <tr><td>SessionEnd</td><td>SessionEnd</td><td>session_end</td><td>session_end</td><td>sessionEnd</td></tr>
+    </table>
+    <h3>Timeouts and what happens</h3>
+    <p>Each hook declares <code>timeout</code> in ms. The harness kills it if it overruns and logs. Blocking hooks that timeout block the agent (so keep them fast), non-blocking that timeout just log and the agent continues.</p>
+    <pre><code>{
+  "event": "PostToolUse",
+  "matcher": "Edit|Write",
+  "command": "./instincts/post-edit/check.sh",
+  "timeout": 5000,
+  "blocking": false
+}</code></pre>
+    <h3>Debugging instincts</h3>
+    <pre><code>harness bench --task hooks --profile
+cat .harness/bench/profile.json | jq .hooks
+# per-hook manual test — pipe the JSON the harness would send
+bash -x instincts/pre-tool/guard.sh &lt;&lt;&lt; '{"tool":"Bash","command":"echo hi"}'
+echo $?  # 0 pass, 2 block
+bash -x instincts/pre-tool/guard.sh &lt;&lt;&lt; '{"tool":"Bash","command":"curl http://169.254.169.254/"}'
+echo $?  # should be 2
+bash -x instincts/research-first/enforce.sh &lt;&lt;&lt; '{"file_path":"a.ts"}'
+# add set -x to hook to see where time goes
+# check transpiled hooks
+cat .claude/settings.json | jq .hooks
+cat opencode.json | jq .hooks</code></pre>
+    <h3>Disabling and scoping</h3>
+    <pre><code>harness instinct disable research-first   # temporarily, per-project
+harness instinct enable research-first
+# or set in .harness/config.json
+# or remove the hook file for a single harness: edit .claude/settings.json:hooks and remove one entry
+# or make a hook non-blocking by setting blocking:false</code></pre>
+    <p>If you disable an instinct globally, it’s disabled for that project only. Teammates still get it unless they also disable.</p>
+    <div class="pager">
+      <a href="#instincts"><span>← Previous</span><strong>Instincts</strong></a>
+      <a href="#memory"><span>Next →</span><strong>Memory</strong></a>
+    </div>
+
+
+    <h2 id="memory-cookbook">Memory cookbook</h2>
+    <p>Patterns that work well for keeping memory useful without letting it bloat. These are recipes from daily use, not rules set in stone. Pick what fits your repo.</p>
+    <h3>Hot tier — the 80% that always matters</h3>
+    <pre><code># memory/tiers/hot.md — always loaded, keep &lt;2k tokens, &lt;50ms
+Project: agent-harness TS + Python shim, 0.1.0, MIT
+Stack: Node 20, vitest, prettier, eslint, ruff, python 3.9, brew
+Conventions: commits feat:/fix:/docs:/perf:, file:line refs, no superlatives, verify via exec
+Gotchas: opencode.json at root not .opencode/, .claude/settings.json not .claude.json, .cursor/rules/*.mdc needs alwaysApply
+Perf targets: cold start &lt;15s (~13.2s), tokens &lt;50k (~48k), hook p99 &lt;100ms
+People: TheElephantCoder, prefers concise, factual, measure before claim
+Structure: skills/ instincts/ memory/ security/ research/ adapters/ Formula/ src/harness/</code></pre>
+    <p>Hot is the 80% context that every task needs. Keep it under 2k tokens so it loads in &lt;50ms. It should fit on one screen.</p>
+    <h3>Warm tier — the 15% that loads on keyword</h3>
+    <p>Warm loads only when the prompt contains its keywords. That's how you keep cold start small but still have deep context when needed. Put brew notes in warm and trigger on "brew" in the prompt. That way <code>warm.md</code> only loads when you ask about brew, saving ~4k tokens otherwise.</p>
+    <pre><code># memory/tiers/warm.md
+Keywords: brew, formula, tap, bottle, homebrew, bump-brew
+Brew: Formula/agent-harness.rb uses Language::Node.std_npm_install_args, bump via scripts/bump-brew.sh
+Tap: single-repo, brew tap TheElephantCoder/agent-harness, then brew install agent-harness
+Head: brew install --HEAD TheElephantCoder/agent-harness/agent-harness
+Cache: brew --cache, rm -rf $(brew --cache)/agent-harness--*
+Bottle: builds from source via npm, no bottle needed, &lt;30s</code></pre>
+    <h3>Cold tier — the 5% you read explicitly</h3>
+    <p>Cold is explicit read only. Put deep history, old ADRs, or per-feature notes there. Agent only reads it if you tell it to: <code>read memory/tiers/cold/old-decisions.md</code>. That's intentional — cold can be unbounded without affecting cold start.</p>
+    <pre><code>memory/tiers/cold/
+  old-auth-decisions-2024.md
+  2024-retro.md
+  legacy-migration-notes.md
+  archived-findings/</code></pre>
+    <h3>Pruning strategies — keep it under 8k</h3>
+    <pre><code>wc -w memory/MEMORY.md  # keep &lt; ~2000 words (~8k tokens)
+wc -l memory/MEMORY.md
+harness memory prune --dry-run  # shows what would be removed, grouped by age
+harness memory prune             # keeps recent + decisions, drops stale sessions
+# manual pruning:
+# - keep Project/Conventions/Gotchas/Perf targets — these are timeless
+# - keep recent Decisions (last 5 ADRs)
+# - drop old Decisions that are now code (e.g. ADR implemented and merged, no longer a decision)
+# - summarize Gotchas that are now fixed (move to cold or delete)
+# - compress People section to one line per person</code></pre>
+    <h3>ADRs vs sessions — when to write which</h3>
+    <p>Sessions are raw and verbose, pruned after ~30 days via <code>harness memory prune</code>. They're the log. Decisions are short ADRs when you considered 2+ approaches and picked one. They're the distilled knowledge. If you spent time choosing between 2+ approaches, write an ADR. If it was straightforward (fix typo), just let sessions prune. Template:</p>
+    <pre><code># ADR-005: tiered memory
+Date: 2026-09-04
+Status: accepted
+Context: MEMORY.md was 12k tokens, cold start 18s, tokens high
+Decision: split into hot/warm/cold tiers, hot &lt;2k, warm &lt;4k
+Consequences: harness init must hydrate tiers, doctor checks size, bench must measure per tier
+Alternatives: single MEMORY.md (rejected, too big, no progressive disclosure), SQLite (rejected, not git-friendly)
+References: docs/performance.md, bench results
+Supercedes: ADR-001 (research-first, still valid, this adds tiers)</code></pre>
+    <h3>Anti-patterns</h3>
+    <table>
+      <tr><th>anti-pattern</th><th>what it costs</th><th>do instead</th></tr>
+      <tr><td>MEMORY.md as append-only log</td><td>grows to 20k tokens, cold start 30s</td><td>curate, prune, distill</td></tr>
+      <tr><td>putting secrets in memory</td><td>they get copied to every session log</td><td>let security-guard redact, never paste keys</td></tr>
+      <tr><td>one big hot.md with everything</td><td>always loaded, always costs</td><td>split to warm/cold</td></tr>
+      <tr><td>never pruning</td><td>stale decisions confuse the agent</td><td>monthly prune</td></tr>
+    </table>
+    <div class="callout"><strong>Tip:</strong> No secrets in memory. <code>security-guard</code> redacts them before sync. If you paste a key, it gets dropped and you get a warning in the session log. Check <code>memory/sessions/</code> for redaction notes.</div>
+    <div class="pager">
+      <a href="#memory"><span>← Previous</span><strong>Memory</strong></a>
+      <a href="#security"><span>Next →</span><strong>Security</strong></a>
+    </div>
+
+
+    <h2 id="security-hardening">Security hardening</h2>
+    <p>Beyond the defaults, how to tighten a repo that runs agents on untrusted content. The defaults are good for your own code. If you run agents on open-source contributions, issue bodies, or webfetch from user-provided URLs, you should harden.</p>
+    <h3>Custom allowlists — start deny, add only what you need</h3>
+    <p>The default allowlist is permissive enough for dev (<code>git, npm, pip, cargo, node, harness, pytest, python, ls, cat via read</code>). For untrusted content, start deny and add only what the task needs. Review <code>security/bash-allowlist.json</code> in PRs like you review code.</p>
+    <pre><code>{
+  "mode": "allowlist",
+  "allow": ["git status", "git diff", "git log --oneline -10", "npm ci", "npm run build", "npm test", "harness doctor", "harness bench --quick"],
+  "ask": ["curl *", "wget *"],
+  "deny": ["rm -rf /*", "rm -rf ~/*", "sudo *", "chmod 777 *", "nc *", "nmap *", "mkfs *", "dd if=*", ":(){:|:&};:"]
+}</code></pre>
+    <p>Key difference: <code>allow</code> runs without prompt, <code>ask</code> prompts the user, <code>deny</code> blocks with exit 2. Use <code>ask</code> for <code>curl</code> so the agent can fetch docs but you see it.</p>
+    <h3>File boundaries — restrict where the agent can write</h3>
+    <p>Set <code>security/file-boundaries.json</code> to restrict writes to <code>src/, docs/, memory/, research/</code> only. That stops an agent from editing <code>scripts/deploy.sh</code> or <code>Dockerfile</code> when it shouldn't, especially if the prompt is from an untrusted issue body.</p>
+    <pre><code>{
+  "allowedRoots": ["src", "docs", "memory", "research", ".harness", "tests"],
+  "denied": ["/etc", "/var", "~/.ssh", "~/.aws", "/var", "~/Library", "/tmp", ".."],
+  "maxFileSize": "1MB",
+  "allowedOutsideWrite": []  # empty means deny all outside allowedRoots
+}</code></pre>
+    <h3>Network — allowlist fetch, block private IPs</h3>
+    <p>Add domains to <code>security/network-allowlist.txt</code> one per line. Block private IPs is on by default — don't add them. Test with <code>curl http://169.254.169.254/</code> via guard — it should block with exit 2 and log. That stops SSRF to AWS metadata endpoints.</p>
+    <pre><code># security/network-allowlist.txt
+github.com
+raw.githubusercontent.com
+registry.npmjs.org
+pypi.org
+docs.python.org
+nextjs.org
+vercel.com</code></pre>
+    <p>Add a domain with a line in the allowlist and re-run <code>harness doctor</code> to verify. Remove a domain by deleting the line.</p>
+    <h3>Secret scan in CI — don't just run locally</h3>
+    <pre><code># .github/workflows/security.yml already runs audit.sh on push + PR + weekly
+name: security
+on: [push, pull_request, schedule: [{cron: "0 6 * * 1"}]]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash security/audit.sh
+      - run: bash security/audit.sh --staged  # on PRs, only staged files
+      - run: harness security audit --staged  # same via CLI
+# and strict doctor
+- run: harness doctor --strict
+# and guard test
+- run: bash instincts/pre-tool/guard.sh &lt;&lt;&lt; '{"tool":"Bash","command":"test"}'</code></pre>
+    <h3>What to allowlist vs what to fix</h3>
+    <p>Allowlist a false positive with expiry and approver, don't broadly ignore. High entropy hashes in <code>package-lock.json</code> should be allowlisted with expiry, not by disabling the check. Example allowlist entry:</p>
+    <pre><code>src/demo/secrets.example.ts — example key for docs, not a real secret — expires: 2027-01-01 — approved: TheElephantCoder
+src/fixtures/high-entropy.json — contains SHA256 hashes for tests — expires: 2027-06-01 — approved: TheElephantCoder</code></pre>
+    <h3>Reporting private vulns</h3>
+    <p>Use DM <code>@theelephantcoder</code> on Discord or a GitHub issue marked private, not a public issue with details. Include what it is, impact, and repro steps. See <code>SECURITY.md</code>.</p>
+    <div class="pager">
+      <a href="#security"><span>← Previous</span><strong>Security</strong></a>
+      <a href="#research"><span>Next →</span><strong>Research-first</strong></a>
+    </div>
+
+
+    <h2 id="templates">Research templates deep dive</h2>
+    <p>Templates are in <code>research/template.md</code>. Copy it for each new finding or plan. The finding informs the plan, the plan gates the edit. Keep them short — findings under 8k tokens so they can be loaded as context without blowing the window. Plans under 4k. This is the deep dive on how to fill them well.</p>
+    <h3>Findings template — the 7 parts</h3>
+    <pre><code># Findings: &lt;topic&gt; — one line slug, e.g. nextjs-15-caching
+Date: 2026-09-04
+Status: draft | verified | stale
+Sources:
+  - https://...  # primary docs, not a blog summarizing docs
+  - https://...  # second source if needed
+  - file:line — what we saw in code, e.g. src/app/api/route.ts:18
+  - research/evidence/&lt;slug&gt;-repro.py — repro output
+## Summary
+One paragraph, what should we do. This is the verdict the plan will use.
+## Evidence
+- API foo() at src/bar.ts:42 — verified by reading file
+- docs say X (link) — citation
+- repro research/evidence/&lt;slug&gt;-repro.py output: status 200, x-cache: MISS — verified 2026-09-04
+- existing finding research/findings/old-topic.md says Y — reused
+## Options
+| Option | Pros | Cons | Effort |
+| A: noStore() | correct, simple | extra DB hits | low |
+| B: revalidate:0 | also correct | more code | medium |
+| C: export dynamic | not needed | — | high |
+## Recommendation
+Why this one — cite evidence, not opinion. A is recommended because repro shows it fixes the cache and docs say it's the intended API for auth routes.
+## Risks
+- risk: extra DB hits on auth route, mitigated by 60s revalidate on non-auth routes
+- risk: stale finding if Next changes API, mitigated by status: verified + date
+## Plan sketch
+- files: [src/app/api/auth/route.ts, tests/auth.test.ts]
+- tests: unit for jwt, e2e for route
+- bench: harness bench --task cold-start
+## Open questions
+- what we still don't know, if any</code></pre>
+    <h3>Plans template — the 8 parts</h3>
+    <pre><code># Plan: add auth
+Research: research/findings/auth-system.md
+Status: draft | approved | done
+Approach: JWT via middleware, 3 files, no DB, 401 fallback
+Files: [src/auth/*, middleware.ts, tests/auth.test.ts, research/plans/add-auth.md]
+Tests: unit for jwt sign/verify, e2e for middleware, bench cold-start before/after
+Risks: token expiry edge (mitigated by 60s leeway), fallback 401 (tested)
+Alternatives: session cookies (rejected, needs DB, more infra), Clerk (rejected, external dep)
+Rollback: revert 3 files, clear .harness cache, re-run harness doctor --fix, git revert HEAD
+Estimate: 1-2 hours, 1 PR
+Checklist:
+- [ ] findings verified
+- [ ] plan approved
+- [ ] implement
+- [ ] tests pass
+- [ ] bench not regressed
+- [ ] security audit clean
+- [ ] memory sync</code></pre>
+    <h3>Status lifecycle</h3>
+    <table>
+      <tr><th>status</th><th>when to use</th><th>next step</th><th>who sets it</th></tr>
+      <tr><td>draft</td><td>researching, not yet verified</td><td>verified after repro passes</td><td>you/agent</td></tr>
+      <tr><td>verified</td><td>repro passed, cited, reviewed</td><td>stale after 30d or code change</td><td>you</td></tr>
+      <tr><td>stale</td><td>&gt;30d old or code drifted (file:line no longer exists)</td><td>prune or re-verify, update date</td><td>prune job or you</td></tr>
+      <tr><td>approved (plan)</td><td>you approved the plan</td><td>done after implement</td><td>you</td></tr>
+      <tr><td>done (plan)</td><td>implemented and verified</td><td>archive or keep for history</td><td>you</td></tr>
+    </table>
+    <p>Prune stale findings monthly — a stale finding that points to an old API is worse than no finding because it gives the agent false confidence. Run <code>ls -lt research/findings/</code> and check dates.</p>
+    <h3>Tips for good templates</h3>
+    <ul>
+      <li>One finding per topic, one plan per task. Don't bundle 3 features into one plan — it makes approval hard.</li>
+      <li>Keep findings under 8k tokens so they can be loaded as context without blowing the window. Put long logs in <code>evidence/</code>.</li>
+      <li>Findings are cheap to write (10-15 min), rework is expensive (hours). Write the finding before the plan, always.</li>
+      <li>Copy the template, don't write from scratch — it reminds you to cite and consider alternatives.</li>
+    </ul>
+    <div class="pager">
+      <a href="#research"><span>← Previous</span><strong>Research-first</strong></a>
+      <a href="#evidence"><span>Next →</span><strong>Evidence</strong></a>
+    </div>
+
+
+    <h2 id="evidence">Evidence & repros</h2>
+    <p>Evidence is what makes research trustworthy. A finding without evidence is just an opinion, and the agent will treat it as such. A finding with evidence (file:line + URL + repro output) is something the agent can trust and the next session can reuse without re-researching. This is how to collect it well.</p>
+    <h3>What counts as evidence</h3>
+    <ul>
+      <li><code>file:line</code> where the API actually lives (<code>src/harness/cli.ts:22</code> where <code>VERSION</code> is defined), not a guess or "somewhere in src/".</li>
+      <li>URL to primary docs (e.g. https://nextjs.org/docs/app/api-reference/functions/fetch, https://opencode.ai/docs), not a blog summarizing docs or an LLM summary.</li>
+      <li>Repro script output in <code>research/evidence/&lt;slug&gt;-repro.py</code> or <code>.ts</code> — runnable, not hand-waved. Include the command you ran and the output.</li>
+      <li>Bench numbers from <code>harness bench</code> with before/after and machine info.</li>
+      <li>Existing findings that you reused — cite them as <code>research/findings/old-topic.md</code>.</li>
+      <li>Git history: <code>git log --oneline -10 -- src/foo.ts</code> showing when the API was added.</li>
+    </ul>
+    <h3>What doesn't count</h3>
+    <p>"I think the API is X" or "LLM said Y" without a file or URL is not evidence. If you can't cite a file or URL and show a repro, write a hypothesis and verify with a tiny repro before writing the finding.</p>
+    <h3>Writing a repro — keep it small, runnable, and checked in</h3>
+    <p>Keep it under 50 lines, runnable with <code>python3</code> or <code>node</code>, and checked in so the next session can re-run it.</p>
+    <pre><code># research/evidence/nextjs-cache-repro.ts — runnable with tsx
+import { fetch } from "next/dist/compiled/react";
+async function main() {
+  // simulate auth route fetch without noStore — should be cached
+  const r1 = await fetch("http://localhost:3000/api/auth");
+  console.log("without noStore, x-cache:", r1.headers.get("x-cache")); // expect HIT
+  // with noStore — should not cache
+  const r2 = await fetch("http://localhost:3000/api/auth", {cache: "no-store"});
+  console.log("with noStore, x-cache:", r2.headers.get("x-cache")); // expect MISS
+  console.log("verified Next 15 caches by default, need noStore for auth");
+}
+main().catch(e => { console.error(e); process.exit(1) })</code></pre>
+    <pre><code># research/evidence/auth-repro.py — runnable with python3
+from harness.cli import VERSION
+import pathlib
+print("harness", VERSION)
+# simulate a finding: does the API exist at the expected file:line?
+p = pathlib.Path("src/harness/cli.ts")
+text = p.read_text()
+assert "VERSION" in text, "no VERSION found"
+assert 'harness' in text.lower()
+print("api exists at src/harness/cli.ts:22 — verified")
+# run with: python3 research/evidence/auth-repro.py</code></pre>
+    <p>Run it, paste output into findings:</p>
+    <pre><code># In research/findings/nextjs-15-caching.md
+Evidence:
+- repro research/evidence/nextjs-cache-repro.ts output (2026-09-04, locally):
+  without noStore, x-cache: HIT — cached (bad for auth)
+  with noStore, x-cache: MISS — not cached (correct)
+  => verified Next 15 caches by default, need noStore for auth route
+- docs https://nextjs.org/docs/app/api-reference/functions/fetch says fetch caches by default, use noStore() to opt out — cited
+- existing finding research/findings/nextjs-15-caching.md was stale (2024), this one is verified</code></pre>
+    <h3>Storing and versioning evidence</h3>
+    <p>Keep repros in <code>research/evidence/</code>, not in <code>findings/</code>. Findings cite them and stay short. Gitignore doesn't ignore <code>evidence/</code> so repros are versioned and future sessions can re-run them. Findings that are <code>verified</code> should have at least one repro or bench. If a finding is <code>draft</code>, it's okay to have no repro yet, but don't mark it verified until you do.</p>
+    <h3>Evidence vs citation — both needed</h3>
+    <p>Citation is a URL or file:line (where you read it). Evidence is a runnable thing or measured number (what you ran). Both are needed — citation for where you read it, evidence for what you ran. A good finding has both.</p>
+    <div class="pager">
+      <a href="#templates"><span>← Previous</span><strong>Templates</strong></a>
+      <a href="#adapters"><span>Next →</span><strong>Adapters</strong></a>
+    </div>
+
+
+    <h2 id="adapter-internals">Adapter internals</h2>
+    <p>Adapters are the thinnest layer — just mapping from shared to per-harness. No logic, just paths and event name translation. This is the deep dive on how they work, why they're idempotent, and how to debug when doctor says drift.</p>
+    <h3>What an adapter does, step by step, with files</h3>
+    <ol>
+      <li>Reads <code>adapters/&lt;name&gt;/adapter.json</code> for <code>skillPath</code>, <code>hookPath</code>, <code>memoryPath</code>, <code>agentsPath</code>, <code>transpile</code>. Example for Claude:</li>
+    </ol>
+    <pre><code>{
+  "name": "claude",
+  "displayName": "Claude Code",
+  "skillPath": ".claude/skills",
+  "hookPath": ".claude/settings.json",
+  "memoryPath": "MEMORY.md",
+  "agentsPath": "AGENTS.md",
+  "transpile": "./transpile.sh"
+}</code></pre>
+    <ol start="2">
+      <li>Copies <code>skills/*/SKILL.md</code> to <code>skillPath</code>. For Cursor, converts to <code>.mdc</code> with frontmatter <code>description</code> and <code>alwaysApply</code>.</li>
+      <li>Merges <code>instincts/*/hook.json</code> into the harness's hook config, mapping generic event names to harness-specific (see table below).</li>
+      <li>Copies or symlinks <code>AGENTS.md</code> and <code>MEMORY.md</code> to <code>agentsPath</code>/<code>memoryPath</code> where each harness expects them. Some harnesses read <code>AGENTS.md</code> at root, others need it in <code>.claude/</code> — adapter handles both.</li>
+      <li>Writes or merges the harness config (e.g. <code>.claude/settings.json:hooks</code>, <code>opencode.json:hooks</code>). Merge is shallow — it keeps your existing permissions and adds harness hooks.</li>
+    </ol>
+    <h3>Event mapping — the only logic</h3>
+    <table>
+      <tr><th>generic (you write)</th><th>Claude Code</th><th>Opencode</th><th>Codex</th><th>Cursor</th><th>Generic</th></tr>
+      <tr><td>SessionStart</td><td>SessionStart</td><td>session_start</td><td>session_start</td><td>sessionStart</td><td>SessionStart</td></tr>
+      <tr><td>PreToolUse</td><td>PreToolUse</td><td>pre_tool_use</td><td>pre_tool_use</td><td>preToolUse</td><td>PreToolUse</td></tr>
+      <tr><td>PostToolUse</td><td>PostToolUse</td><td>post_tool_use</td><td>post_tool_use</td><td>postToolUse</td><td>PostToolUse</td></tr>
+      <tr><td>PreCommit</td><td>PreCommit</td><td>pre_commit</td><td>pre_commit</td><td>preCommit</td><td>PreCommit</td></tr>
+      <tr><td>SessionEnd</td><td>SessionEnd</td><td>session_end</td><td>session_end</td><td>sessionEnd</td><td>SessionEnd</td></tr>
+    </table>
+    <h3>Debugging transpilation</h3>
+    <pre><code>harness doctor
+cat .claude/settings.json | jq .hooks
+cat opencode.json | jq '.hooks, .instructions'
+cat .cursor/rules/harness.mdc | head -20
+cat .codex/hooks.json | jq .
+harness doctor --fix --verbose 2>&1 | head  # if available, shows each copy
+git diff --stat  # shows what transpilation changed — should be empty on second run
+git diff .claude/settings.json  # check merge didn't clobber your permissions</code></pre>
+    <h3>Idempotency and drift</h3>
+    <p>Running <code>harness init --migrate</code> twice should produce the same files. The transpiler overwrites but doesn't duplicate or append. Check with <code>git diff</code> after a second run — it should be empty. <code>harness doctor --strict</code> fails if generated files drift from source, which is what CI checks. That's how you catch a skill edit that wasn't transpiled.</p>
+    <h3>Custom transpilation</h3>
+    <p>If a harness needs custom logic (e.g. Cursor's frontmatter), add a <code>transpile.sh</code> in its adapter dir. It receives source and dest paths and can do any conversion. Keep it under 100ms and shell-based. Example for Cursor:</p>
+    <pre><code>#!/usr/bin/env bash
+# adapters/cursor/transpile.sh
+src="$1" dest="$2"
+mkdir -p "$(dirname "$dest")"
+# convert SKILL.md to .mdc with frontmatter
+awk 'NR==1 && /^---/{p=1} p; END{print "alwaysApply: false"}' "$src" > "$dest"</code></pre>
+    <div class="pager">
+      <a href="#adapters"><span>← Previous</span><strong>Adapters</strong></a>
+      <a href="#hook-lifecycle"><span>Next →</span><strong>Hook lifecycle</strong></a>
+    </div>
+
+
+    <h2 id="hook-lifecycle">Hook lifecycle</h2>
+    <p>When hooks fire, what they can do, how they interact, and how timeouts and exit codes work. Understanding the order helps you place logic in the right hook and not in the wrong one. This is the lifecycle deep dive companion to <a href="#instincts">Instincts</a>.</p>
+    <pre><code>SessionStart → hydrate (blocking, &lt;15s, must finish before prompt)
+  → prompt → skill load (if trigger matches, on demand)
+  → research → plan → approve (research-first gate, blocks multi-file edits)
+  → PreToolUse → guard (blocking, &lt;50ms) + research-first (blocking, &lt;10ms)
+    → Edit/Write/Bash executes (only if guards passed, otherwise blocked with stderr)
+    → PostToolUse → format (non-blocking, debounced 2s, runs in background)
+  → repeat for next edit (pre-tool → edit → post-tool)
+→ SessionEnd → distill + prune (non-blocking, &lt;5s, after agent exits)
+→ PreCommit → audit (blocking, &lt;3s, before git commit succeeds)</code></pre>
+    <h3>Timeouts — declared and enforced</h3>
+    <table>
+      <tr><th>hook</th><th>timeout in hook.json</th><th>blocking?</th><th>what happens on timeout</th><th>budget p99</th></tr>
+      <tr><td>session-start</td><td>15000ms</td><td>yes (must finish)</td><td>session start fails, agent retries or shows error</td><td>&lt;2s</td></tr>
+      <tr><td>pre-tool (guard)</td><td>5000ms</td><td>yes</td><td>blocks tool, logs timeout, shows to user</td><td>&lt;50ms</td></tr>
+      <tr><td>research-first</td><td>2000ms</td><td>yes</td><td>blocks edit, tells you to create plan</td><td>&lt;10ms</td></tr>
+      <tr><td>post-edit</td><td>5000ms</td><td>no</td><td>logs timeout, agent continues, format may be incomplete</td><td>&lt;100ms</td></tr>
+      <tr><td>pre-commit</td><td>10000ms</td><td>yes</td><td>blocks commit</td><td>&lt;3s</td></tr>
+      <tr><td>session-end</td><td>5000ms</td><td>no</td><td>logs, memory may not distill until next sync</td><td>&lt;5s</td></tr>
+    </table>
+    <h3>Exit codes — the contract</h3>
+    <table>
+      <tr><th>exit</th><th>meaning</th><th>example</th><th>agent does</th><th>log</th></tr>
+      <tr><td>0</td><td>pass</td><td>guard allows, research has plan, format succeeded</td><td>continues</td><td>no</td></tr>
+      <tr><td>2</td><td>block</td><td>guard blocks injection, research blocks without plan, audit blocks secret</td><td>blocks tool/edit/commit, shows stderr to user</td><td>yes, to sessions/</td></tr>
+      <tr><td>1 or other (1, 127, etc.)</td><td>warn/log, don't block</td><td>post-edit format failed, hook crashed</td><td>logs, continues (does not block)</td><td>yes</td></tr>
+    </table>
+    <p>Use exit 2 only for intentional blocks. Use 0 for pass. Use 1 for unexpected errors that shouldn't block the agent but should be logged.</p>
+    <h3>Ordering and independence</h3>
+    <p>Hooks for the same event run in the order they appear in the generated config, which is alphabetical from <code>instincts/*/hook.json</code> (session-start, pre-tool, research-first, etc.). Keep them independent so order doesn't matter — don't make <code>post-edit</code> depend on <code>pre-tool</code> having set a file. If you need ordering, merge them into one hook.</p>
+    <h3>Testing the lifecycle end to end</h3>
+    <pre><code>harness bench --task hooks --profile
+cat .harness/bench/profile.json | jq .hooks
+# per-hook manual, pipe the JSON the harness would send
+bash -x instincts/session-start/hydrate.sh
+bash -x instincts/pre-tool/guard.sh &lt;&lt;&lt; '{"tool":"Bash","command":"echo hi"}'; echo $?
+bash -x instincts/pre-tool/guard.sh &lt;&lt;&lt; '{"tool":"Bash","command":"curl http://169.254.169.254/"}'; echo $?
+bash -x instincts/research-first/enforce.sh &lt;&lt;&lt; '{"file_path":"a.ts"}'; echo $?
+bash -x instincts/research-first/enforce.sh &lt;&lt;&lt; '{"file_path":"a.ts","file_path":"b.ts","file_path":"c.ts"}'; echo $?
+bash -x instincts/post-edit/check.sh; echo $?
+bash security/audit.sh --staged; echo $?
+# check transpiled hooks
+cat .claude/settings.json | jq .hooks
+cat opencode.json | jq .hooks</code></pre>
+    <h3>Common mistakes</h3>
+    <ul>
+      <li>Making a blocking hook that does <code>npx</code> — startup is 500ms-2s, blows the budget. Call the binary directly.</li>
+      <li>Writing a hook that always exits 2 — it will block every tool. Check your condition.</li>
+      <li>Forgetting <code>chmod +x</code> on the .sh — it fails with 126, logs but doesn't block, and you think it's working.</li>
+    </ul>
+    <div class="pager">
+      <a href="#adapter-internals"><span>← Previous</span><strong>Adapter internals</strong></a>
+      <a href="#transpilation"><span>Next →</span><strong>Transpilation</strong></a>
+    </div>
+
+
+    <h2 id="transpilation">Transpilation details</h2>
+    <p>How the shared files in <code>skills/</code> and <code>instincts/</code> become per-harness files in <code>.claude/</code>, <code>opencode.json</code>, etc. This is what <code>harness doctor --fix</code> does under the hood, and what <code>harness init</code> does on first run. Understanding it helps you debug drift and add a new harness.</p>
+    <h3>Skills transpilation — per harness</h3>
+    <ul>
+      <li><strong>Claude Code:</strong> copy <code>skills/&lt;name&gt;/SKILL.md</code> → <code>.claude/skills/&lt;name&gt;/SKILL.md</code> verbatim. Also update <code>.claude/settings.json:skills</code> list if your version uses it. No conversion needed — Claude reads <code>SKILL.md</code> directly.</li>
+      <li><strong>Opencode:</strong> copy to <code>.opencode/skills/&lt;name&gt;/SKILL.md</code> or set <code>opencode.json:skills</code> array to include <code>"./skills/*"</code> depending on Opencode version. The harness supports both; check <code>opencode.json</code> after transpile.</li>
+      <li><strong>Codex:</strong> copy to <code>.codex/skills/&lt;name&gt;/SKILL.md</code>. Codex also reads <code>SKILL.md</code> directly.</li>
+      <li><strong>Cursor:</strong> convert to <code>.cursor/rules/&lt;name&gt;.mdc</code> with frontmatter. This is the only non-verbatim conversion. Example:</li>
+    </ul>
+    <pre><code>---
+description: Keep sessions fast and cheap. Always on.
+alwaysApply: false
+---
+# Performance
+Make it fast, keep tokens low.
+## How
+Batch things. Grep before read.
+... body from SKILL.md ...</code></pre>
+    <p>If trigger is broad (e.g. always, or empty triggers), set <code>alwaysApply: true</code> manually in the generated <code>.mdc</code> or via <code>adapter.json:alwaysApply</code> if your adapter supports it. For most skills, <code>false</code> is correct so they load on demand.</p>
+    <ul>
+      <li><strong>Generic:</strong> copy to <code>.harness/skills/</code> as <code>SKILL.md</code> verbatim. Generic is for any harness that reads <code>AGENTS.md</code> + <code>MEMORY.md</code>.</li>
+    </ul>
+    <h3>Instincts transpilation — merging hooks</h3>
+    <p>Merge all <code>instincts/*/hook.json</code> into one hooks object per harness. The generic event <code>SessionStart</code> becomes <code>session_start</code> for Opencode, <code>sessionStart</code> for Cursor, etc. Timeout and blocking are preserved. Example for Opencode:</p>
+    <pre><code>// source: instincts/session-start/hook.json
+{
+  "event": "SessionStart",
+  "command": "./instincts/session-start/hydrate.sh",
+  "timeout": 15000,
+  "blocking": true
+}
+// generated opencode.json snippet after transpile
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md", "memory/MEMORY.md"],
+  "skills": ["./skills/*"],
+  "hooks": {
+    "session_start": "./instincts/session-start/hydrate.sh",
+    "pre_tool_use": "./instincts/pre-tool/guard.sh",
+    "post_tool_use": "./instincts/post-edit/check.sh"
+  }
+}</code></pre>
+    <h3>Memory and AGENTS.md</h3>
+    <p>Copied or symlinked to where each harness reads. <code>AGENTS.md</code> at root is already where many harnesses look (generic, Claude). <code>MEMORY.md</code> is added to <code>instructions</code> array in <code>opencode.json</code> (<code>["AGENTS.md", "memory/MEMORY.md"]</code>) and <code>.claude/settings.json:permissions</code> etc. so it's loaded at session start. Some adapters symlink to save space, others copy for Windows compatibility — both work.</p>
+    <h3>Idempotency and drift — the key property</h3>
+    <p>Running <code>harness init --migrate</code> twice should produce the same files, byte for byte. The transpiler is idempotent — it overwrites but doesn't duplicate, append, or reorder. Check with <code>git diff</code> after a second run — it should be empty. <code>harness doctor --strict</code> fails if generated files drift from source, which is what CI checks. That's how you catch a skill edit that wasn't transpiled (you edited <code>skills/performance/SKILL.md</code> but forgot <code>harness doctor --fix</code>, so <code>.claude/skills/performance/SKILL.md</code> is stale).</p>
+    <pre><code>harness doctor --fix
+git diff --stat  # should show transpiled files updated
+git diff  # review
+# run again — should be empty
+harness doctor --fix
+git diff  # should be empty, proving idempotency</code></pre>
+    <h3>Custom transpilation per harness</h3>
+    <p>If a harness needs custom logic beyond copy/convert, add a <code>transpile.sh</code> in its adapter dir. It receives source and dest paths and can do any conversion. Keep it under 100ms and shell-based. Example for Cursor's frontmatter tweak:</p>
+    <pre><code>#!/usr/bin/env bash
+# adapters/cursor/transpile.sh — called as ./transpile.sh src/skills/my-skill/SKILL.md dest/.cursor/rules/my-skill.mdc
+set -euo pipefail
+src="$1" dest="$2"
+mkdir -p "$(dirname "$dest")"
+# extract frontmatter description
+desc=$(grep -m1 "^description:" "$src" | cut -d: -f2- | xargs)
+# write mdc with frontmatter
+{
+  echo "---"
+  echo "description: $desc"
+  echo "alwaysApply: false"
+  echo "---"
+  echo ""
+  sed -n '/^---$/,/^---$/!p' "$src" | tail -n +2
+} > "$dest"</code></pre>
+    <div class="pager">
+      <a href="#hook-lifecycle"><span>← Previous</span><strong>Hook lifecycle</strong></a>
+      <a href="#cli"><span>Next →</span><strong>CLI reference</strong></a>
+    </div>
+
+
+    <h2 id="tuning">Performance tuning — advanced</h2>
+    <p>Beyond the defaults in <a href="#performance">Performance</a>, how to squeeze more out of harness on large repos (250k+ LOC, many sessions per day, or slow machines). These are the levers that actually move the numbers.</p>
+    <h3>Memory tuning — the biggest lever</h3>
+    <ul>
+      <li>Split large <code>MEMORY.md</code> into tiers — move tool-specific notes (e.g. brew, docker, deploy) to <code>warm.md</code> with a keyword trigger like <code>brew</code>. That way <code>warm.md</code> only loads when the prompt contains "brew", saving ~4k tokens otherwise. Hot stays under 2k, warm under 4k.</li>
+      <li>Prune <code>decisions/</code> — keep only ADRs that are still relevant (last 5), archive the rest to <code>tiers/cold/</code> or delete if the decision is now code. An ADR for a choice you already implemented and merged is just history.</li>
+      <li>Measure with <code>wc -w memory/MEMORY.md</code> (keep &lt;2000 words) and <code>harness bench --task memory</code> (&lt;50ms/tier). If hot is &gt;3000 words, split it.</li>
+      <li>Use <code>harness memory prune --dry-run</code> to see what would be removed before committing. It shows grouped by age and tier.</li>
+      <li>Don't put code snippets in MEMORY.md — put them in <code>research/findings/</code> or <code>references/</code> and cite.</li>
+    </ul>
+    <h3>Skills tuning — disable what you don't use</h3>
+    <p>Disable unused skills: comment them out in <code>.harness/config.json</code> and run <code>harness doctor --fix</code> to remove transpiled copies. Each disabled skill saves its trigger check (tiny) and, more importantly, its context when it would have loaded. If a skill is only needed for one sub-project (e.g. a Next.js skill in a turborepo with a Python package), scope it to that sub-project via per-directory <code>skillPath</code> in adapter if your harness supports it, or just enable it only in that sub-project's <code>.harness/config.json</code>.</p>
+    <pre><code># .harness/config.json — disable a skill you don't need in this repo
+{
+  "skills": {
+    "performance": {"enabled": true},
+    "security-guard": {"enabled": true},
+    "my-old-skill": {"enabled": false}  # will be removed on next doctor --fix
+  }
+}</code></pre>
+    <h3>Hooks tuning — make heavy hooks non-blocking</h3>
+    <p>If <code>post-edit</code> typecheck is slow (&gt;500ms), run it as <code>blocking: false</code> so the agent continues and the check runs in background. The harness already does this for <code>post-edit</code>. For shell, avoid <code>npx</code> startup — call the binary directly if installed, it's 10x faster.</p>
+    <pre><code># slow — npx downloads/checks each time, 800ms
+npx --yes prettier --write --log-level silent $files
+
+# faster — direct binary, 80ms
+./node_modules/.bin/prettier --write --log-level silent $files
+
+# even faster — if you have it globally
+prettier --write --log-level silent $files
+
+# or use the project's yarn/pnpm
+yarn prettier --write --log-level silent $files
+pnpm exec prettier --write --log-level silent $files</code></pre>
+    <h3>Research cache tuning</h3>
+    <p>Prune stale findings monthly. A stale finding that points to an old API is worse than no finding — it gives the agent false confidence and it won't re-research because it thinks it's cached. Status <code>stale</code> in frontmatter marks it for prune. Keep <code>research/findings/</code> under ~20 files, each &lt;8k tokens. Use <code>ls -lt research/findings/</code> and check dates.</p>
+    <pre><code>ls -lt research/findings/ | head -20
+# mark stale
+# edit research/findings/old-topic.md: Status: stale
+# or delete
+rm research/findings/stale-topic.md
+git add -A && git commit -m "prune stale findings"</code></pre>
+    <h3>Batching — the tool-call saver</h3>
+    <p>Teach the agent to batch: <code>read</code> 3 files in one turn, not 3 turns; <code>grep</code> before <code>read</code>. That's the biggest tool-call saver (87 → 51 in the bench). The <code>performance</code> skill already enforces this, but you can reinforce in <code>AGENTS.md</code> with a one-liner: "Batch independent reads and greps in the same turn. Grep before read."</p>
+    <h3>When to ignore a regression</h3>
+    <p>If you added a big skill that's worth the tokens (e.g. a thorough Next.js skill that adds 2k tokens but saves hours of rework), note it in the PR and bump the target in <code>docs/performance.md</code> or <code>bench.ts</code>. Don't hide a 20% regression without calling it out — the bench is there to make the tradeoff explicit.</p>
+    <div class="pager">
+      <a href="#performance"><span>← Previous</span><strong>Performance</strong></a>
+      <a href="#benchmarking"><span>Next →</span><strong>Benchmarking</strong></a>
+    </div>
+
+
+    <h2 id="profiling">Profiling guide</h2>
+    <p>How to find what's slow when harness feels laggy or tokens are high. This is the companion to <a href="#benchmarking">Benchmarking</a> — benchmarking measures, profiling tells you why.</p>
+    <h3>Bench with profile — the main tool</h3>
+    <pre><code>harness bench --profile --harness claude
+cat .harness/bench/profile.json | jq
+# example output
+{
+  "cold-start": {"p50": 13.2, "p95": 14.8, "target": 15, "samples": 100},
+  "tokens": {"avg": 48000, "p50": 47000, "target": 50000},
+  "hooks": {
+    "session-start": {"p50": 12, "p99": 87, "samples": 100, "timeout": 15000},
+    "pre-tool": {"p50": 8, "p99": 22, "samples": 200, "timeout": 5000},
+    "post-edit": {"p50": 120, "p99": 420, "samples": 80, "timeout": 5000},
+    "research-first": {"p50": 4, "p99": 9, "samples": 50, "timeout": 2000}
+  },
+  "memory": {"hot": 8, "warm": 45, "cold": 0, "total": 53},
+  "tokens": {"avg": 48000, "target": 50000}
+}</code></pre>
+    <p>Look at <code>p99</code> for hooks — p50 can be fine while p99 is blown. <code>post-edit</code> at p99 420ms in the example is over budget (100ms) — that's the one to fix.</p>
+    <h3>What to fix by symptom — table</h3>
+    <table>
+      <tr><th>symptom</th><th>likely cause</th><th>fix</th><th>how to verify</th></tr>
+      <tr><td>hook p99 &gt;100ms (often post-edit)</td><td>Node startup via <code>npx</code>, or running <code>tsc</code> in hook</td><td>rewrite as shell, call binary directly (<code>./node_modules/.bin/prettier</code>), or make non-blocking</td><td><code>harness bench --task hooks</code> again, p99 should drop</td></tr>
+      <tr><td>cold start &gt;15s or &gt;2s just for memory</td><td>MEMORY.md too big (&gt;8k) or many skills at boot</td><td>prune MEMORY to &lt;8k, split to tiers, make skills on-demand</td><td><code>wc -w memory/MEMORY.md</code> and <code>harness bench --task memory</code></td></tr>
+      <tr><td>tokens high (e.g. &gt;60k)</td><td>verbose logs pasted as context, or findings not cached so agent re-researches</td><td>summarize logs, reuse findings, keep MEMORY small</td><td><code>harness bench --task tokens --compare main</code></td></tr>
+      <tr><td>tool calls high (e.g. &gt;70)</td><td>not batching reads, or reading whole directories</td><td>enforce batch in AGENTS.md, check performance skill is enabled</td><td><code>harness bench --task tool-calls</code></td></tr>
+      <tr><td>bench variance high (p95 far from p50)</td><td>machine was busy, or hook sometimes hits network</td><td>close other apps, make hooks not hit network</td><td>run 3 times, check stddev</td></tr>
+    </table>
+    <h3>Manual profiling per hook — when bench isn't enough</h3>
+    <pre><code>time bash instincts/session-start/hydrate.sh
+# should be &lt;50ms for hot, &lt;200ms for warm
+time bash instincts/pre-tool/guard.sh &lt;&lt;&lt; '{"tool":"Bash","command":"echo hi"}' 2>&1 | head
+time bash instincts/pre-tool/guard.sh &lt;&lt;&lt; '{"tool":"Bash","command":"curl http://example.com"}' 2>&1 | head
+time bash instincts/post-edit/check.sh 2>&1 | head
+time bash instincts/research-first/enforce.sh &lt;&lt;&lt; '{"file_path":"a.ts"}'
+# add set -x to hook to see where time goes
+bash -x instincts/post-edit/check.sh 2>&1 | head -20
+bash -x instincts/pre-tool/guard.sh &lt;&lt;&lt; '{"tool":"Edit","file_path":"test.ts"}' 2>&1 | tail
+# for TS hooks or CLI
+time node src/harness/cli.ts doctor --strict
+time python3 src/harness/cli.py doctor --fix</code></pre>
+    <h3>When to profile</h3>
+    <p>Profile when you add a new skill or instinct, when you notice the agent feels slower than before, or when bench shows a regression. Add <code>harness bench --quick</code> to your PR checklist so regressions are caught before merge, not after. Keep a bench log in <code>research/evidence/</code> if you want to track over time.</p>
+    <h3>Flamegraphs (if you really need it)</h3>
+    <p>For Node hooks, you can use <code>node --inspect</code> or <code>clinic</code>, but it's rarely needed — shell hooks are simple enough that <code>time</code> and <code>bash -x</code> are usually enough. Keep hooks shell-first to avoid needing Node profiling at all.</p>
+    <div class="pager">
+      <a href="#benchmarking"><span>← Previous</span><strong>Benchmarking</strong></a>
+      <a href="#brew"><span>Next →</span><strong>Brew</strong></a>
+    </div>
+
+
+    <h2 id="cicd">CI/CD integration</h2>
+    <p>Harness is built to run in CI with the same commands you use locally. No separate CI mode, just the same <code>harness doctor --strict</code> and <code>harness bench --quick</code> you run locally. The repo's own CI is in <code>.github/workflows/ci.yml</code> and <code>security.yml</code> — copy it as a starting point.</p>
+    <pre><code># .github/workflows/ci.yml snippet — the harness part
+name: ci
+on: [push, pull_request]
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: npm ci || npm install
+      - run: npx tsc --noEmit
+      - run: python -m pip install -e ".[dev]" || pip install -e .
+      - run: ./security/audit.sh
+      - run: node src/harness/cli.ts doctor --strict
+      - run: node src/harness/cli.ts bench --quick
+      # or if harness is installed globally in CI
+      - run: harness doctor --strict
+      - run: harness bench --quick
+      # optional: bench compare
+      - run: harness bench --compare origin/main --threshold 10</code></pre>
+    <h3>Strict mode — the key difference for CI</h3>
+    <p><code>harness doctor --fix</code> is for local dev — it fixes drift in place, overwriting generated files. <code>--strict</code> is for CI — it fails with exit 1 on any drift instead of fixing, so a PR that changed a skill without updating transpiled copies fails. Locally, developers run <code>--fix</code> and commit the result; in CI you run <code>--strict</code> to enforce they did.</p>
+    <pre><code># locally, after editing a skill
+harness doctor --fix
+git diff --stat  # shows .claude/skills/my-skill, .opencode/skills, etc.
+git add -A && git commit -m "update skill"
+
+# in CI, to enforce no drift
+harness doctor --strict  # exits 1 if generated files don't match source
+# if CI fails on doctor --strict, the fix is to run doctor --fix locally and push</code></pre>
+    <h3>Security in CI</h3>
+    <pre><code># .github/workflows/security.yml
+name: security
+on: [push, pull_request, schedule: [{cron: "0 6 * * 1"}]]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash security/audit.sh
+      - run: bash security/audit.sh --staged  # on PRs, only staged files
+      - run: bash instincts/pre-tool/guard.sh &lt;&lt;&lt; '{"tool":"Bash","command":"test"}'
+      - run: harness security audit --staged  # same via CLI
+      - run: harness doctor --strict</code></pre>
+    <p>Security audit runs on every push, PR, and weekly on Monday. It checks for secrets, private IPs, and allowlist violations. Don't add <code>allowlist.txt</code> entries without a reason and expiry.</p>
+    <h3>Bench in CI — catching regressions</h3>
+    <pre><code># fail if bench regresses &gt;10% vs main
+- run: harness bench --quick
+- run: harness bench --compare origin/main --threshold 10
+# profile on demand, upload as artifact
+- run: harness bench --profile --harness claude
+- run: cat .harness/bench/profile.json | jq .hooks
+- uses: actions/upload-artifact@v4
+  with:
+    name: bench-profile
+    path: .harness/bench/profile.json
+# adjust threshold per repo — small repos can use 10, large monorepos maybe 15</code></pre>
+    <p>Store bench results as artifacts if you want to track over time. The harness bench writes <code>.harness/bench/results.json</code> and <code>profile.json</code> — upload them and compare across runs. For PRs, <code>bench --compare</code> is the gate.</p>
+    <h3>CI for docs site</h3>
+    <p>The docs site is on <code>gh-pages</code> branch, root. It deploys automatically when you push to <code>gh-pages</code>. No build step — it's static HTML + CSS. To test locally, just open <code>index.html</code> in a browser or <code>python3 -m http.server 8000</code> in the <code>gh-pages</code> checkout.</p>
+    <div class="pager">
+      <a href="#deployment"><span>← Previous</span><strong>Deployment</strong></a>
+      <a href="#testing"><span>Next →</span><strong>Testing</strong></a>
+    </div>
+
+
+    <h2 id="deployment">Deployment</h2>
+    <p>Harness itself doesn't deploy your app — it's a dev layer that lives in your repo and runs locally or in CI. It doesn't manage infra, env vars, or release channels. But its guardrails help before deploy, and it works fine with any deploy target you already use.</p>
+    <h3>Pre-deploy checks harness helps with — the checklist</h3>
+    <pre><code>harness doctor --strict  # no drift between source and generated, fail if so
+harness security audit   # no secrets in the image or env
+harness bench --quick    # no perf regression vs main
+npm test || pytest       # your tests, not harness's
+npm run build            # ensure it builds before you deploy
+# then deploy with your normal tool
+vercel --prod
+# or
+fly deploy
+# or
+docker build -t my-app . && docker run --rm my-app npm test
+# or
+git push origin main  # if you deploy on push via GitHub Actions</code></pre>
+    <h3>What harness adds to a deploy pipeline</h3>
+    <ul>
+      <li><strong>Research findings ensure you're deploying the right approach</strong>, not a guessed one that breaks in prod. A finding like <code>nextjs-15-caching.md</code> ensures you use <code>noStore()</code> for auth routes before you ship.</li>
+      <li><strong>Security audit blocks secrets before they reach the Docker image</strong> or Vercel env. It's cheaper to block at PR time than to rotate a leaked key after deploy.</li>
+      <li><strong>Memory ensures the agent that helps with deploy scripts remembers your infra</strong> (e.g. "deploy to Vercel prod, not preview", "Docker image is my-app, not my-app-dev"). Put that in <code>memory/MEMORY.md</code> so the agent doesn't guess.</li>
+      <li><strong>Bench ensures you don't ship a perf regression</strong> that makes cold start 30s again.</li>
+    </ul>
+    <h3>What it doesn't do and what to use instead</h3>
+    <p>It doesn't manage infra, env vars, secrets at runtime, or release channels. Use your normal deploy tool for that:</p>
+    <table>
+      <tr><th>need</th><th>use</th><th>harness role</th></tr>
+      <tr><td>deploy Next.js</td><td>Vercel, Netlify</td><td>research before, audit before</td></tr>
+      <tr><td>deploy container</td><td>Docker, Fly, ECS</td><td>ensure Dockerfile is correct via research</td></tr>
+      <tr><td>env vars</td><td>Vercel env, Doppler, 1Password</td><td>block secrets at commit, not manage them</td></tr>
+      <tr><td>release</td><td>GitHub Releases, tags</td><td>bump brew sha after tag</td></tr>
+    </table>
+    <h3>Deploying harness itself — releasing a new version</h3>
+    <p>Harness is installed via npm/brew/pip, not deployed to your infra. To release a new version of harness itself:</p>
+    <pre><code>git tag v0.1.1
+git push origin v0.1.1
+# wait for GitHub tarball to appear (a few seconds)
+./scripts/bump-brew.sh 0.1.1
+git add Formula/agent-harness.rb
+git commit -m "bump brew to v0.1.1"
+git push origin main
+# or via GitHub Actions
+# Actions → brew → Run workflow → version 0.1.1
+# also runs automatically on release: published</code></pre>
+    <p>Users then update via <code>npm update -g</code>, <code>brew upgrade</code>, or <code>pip install -U</code>.</p>
+    <div class="pager">
+      <a href="#migration"><span>← Previous</span><strong>Migration</strong></a>
+      <a href="#cicd"><span>Next →</span><strong>CI/CD</strong></a>
+    </div>
+
+
+    <h2 id="integrations">Integrations</h2>
+    <p>How harness plays with common tools you already use. It's intentionally not a plugin system with a heavy SDK — just files that other tools already read, so integration is mostly about putting the right file in the right place and noting it in memory.</p>
+    <h3>Vercel / Next.js — the most common</h3>
+    <p>Next.js and Vercel read <code>.cursor/rules/</code> and <code>AGENTS.md</code> natively. Harness's research cache for Next 15 caching (noStore vs revalidate) is a common finding that saves hours. Keep it in <code>research/findings/nextjs-15-caching.md</code> so the agent knows before it writes a route.</p>
+    <pre><code># research/findings/nextjs-15-caching.md — verified example
+Date: 2026-09-04
+Status: verified
+Sources: https://nextjs.org/docs/app/api-reference/functions/fetch, src/app/api/route.ts:18
+Summary: Next 15 fetch caches by default, need noStore() for auth route, revalidate for others.
+Evidence: Route uses fetch without noStore, docs say cached, repro research/evidence/nextjs-cache-repro.ts shows HIT without noStore.
+Recommendation: noStore() in auth route (src/app/api/auth/route.ts:12), keep cache + revalidate 60s for non-auth.
+Risks: extra DB hits on auth, mitigated by 60s revalidate on non-auth routes.
+Plan sketch: files [src/app/api/auth/route.ts], tests [tests/auth.test.ts], bench cold-start.</code></pre>
+    <h3>Turborepo / pnpm / npm workspaces — monorepos</h3>
+    <p>Harness works with monorepos — just run <code>harness init --migrate</code> at the root, not in each package. Memory should note the package manager and turbo pipeline so the agent doesn't guess <code>npm</code> when you use <code>pnpm</code>.</p>
+    <pre><code># memory/MEMORY.md snippet for monorepo
+Project: my-monorepo, turborepo + pnpm, 0.1.0
+Stack: Node 20, pnpm, turborepo, Next.js 15, TypeScript
+Structure: apps/web (Next), apps/docs (Docusaurus), packages/ui (shared), packages/config
+Commands: pnpm turbo run build, pnpm test, pnpm lint, pnpm --filter web dev
+Gotchas: run from root, not apps/web; pnpm --filter to run in one package</code></pre>
+    <h3>Docker — containerizing with harness</h3>
+    <p>If you containerize, mounts for harness files should be read-only in the container if you run the agent inside Docker. Usually you don't — you run harness on the host and only the app in Docker. The harness files don't need to be in the image.</p>
+    <pre><code># Dockerfile — don't need harness inside the image
+FROM node:20-alpine
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
+# harness files (.harness, memory, research) are not needed in the image, but AGENTS.md can stay for docs
+# .dockerignore should ignore them
+# .harness
+# memory/sessions</code></pre>
+    <h3>Other harnesses and tools</h3>
+    <p>Adding a new harness is just <code>adapters/my-harness/adapter.json</code> + <code>transpile.sh</code>. See <a href="#adapters">Adapters</a> and <a href="#adapter-internals">Adapter internals</a>. If a tool reads <code>AGENTS.md</code> already (most do), the generic adapter is enough.</p>
+    <div class="pager">
+      <a href="#theming"><span>← Previous</span><strong>Theming</strong></a>
+      <a href="#plugins"><span>Next →</span><strong>Plugins</strong></a>
+    </div>
+
+
+    <h2 id="plugins">Plugins & extensions</h2>
+    <p>Skills are the plugin system. You can extend harness by writing skills, instincts, or adapters. No need to fork the core, no need to wait for a release. Publish a repo and users add it via <code>harness skill add</code>.</p>
+    <h3>Skill as plugin — the main way</h3>
+    <p>Publish a repo with <code>SKILL.md</code> at root or in <code>skills/</code>. Users add it via <code>harness skill add owner/repo</code> which pins version + sha256 in <code>.harness/config.json</code>. Keep it small and focused — one skill, one job.</p>
+    <pre><code># my-plugin/SKILL.md — minimal plugin skill
+---
+name: my-plugin
+description: does X for Y, use when you need X
+version: 1.0.0
+triggers: ["my-plugin", "X"]
+allowed-tools: [read, grep, bash]
+license: MIT
+---
+# My plugin
+Does X for Y. Use when the task mentions X or Y.
+## When to use
+When the task mentions X.
+
+## How
+1. read references/api.md for full API
+2. run scripts/review.sh on the file
+3. check references/examples.md for 3 examples
+
+## References
+- references/api.md
+- references/examples.md</code></pre>
+    <h3>Instinct as plugin — hooks</h3>
+    <p>Instincts are hooks. Publish them as part of a skill repo or separately, and users copy the <code>hook.json + .sh</code> to <code>instincts/</code> and run <code>harness doctor --fix</code> to transpile. Keep them fast (&lt;100ms) or make them non-blocking so they don't feel laggy.</p>
+    <pre><code># instincts/my-check/hook.json — example plugin instinct
+{
+  "event": "PostToolUse",
+  "matcher": "Edit|Write",
+  "command": "./instincts/my-check/check.sh",
+  "timeout": 3000,
+  "blocking": false
+}
+# instincts/my-check/check.sh
+#!/usr/bin/env bash
+set -euo pipefail
+# your check — keep it under 100ms
+if grep -q "TODO" "$1"; then
+  echo "found TODO, consider fixing" >&2
+fi</code></pre>
+    <h3>Adapter as plugin — the most involved</h3>
+    <p>Adapters are the most involved — they need <code>adapter.json</code> plus a <code>transpile.sh</code>. Keep them small, just mapping. See <a href="#adapters">Adapters</a> and <a href="#adapter-internals">Adapter internals</a> for schema. Test with <code>harness adapter add my-harness && harness doctor --fix</code>.</p>
+    <h3>Distribution and versioning</h3>
+    <p>For now, distribution is via GitHub repos + <code>harness skill add</code>. The pinned sha in <code>.harness/config.json</code> ensures reproducibility — users get the same version until they explicitly update. A registry is on the <a href="#roadmap">Roadmap</a>, but not yet — keep it simple via GitHub for now.</p>
+    <pre><code># in skill repo, bump version
+# edit SKILL.md version: 1.0.0 -> 1.1.0
+git add SKILL.md CHANGELOG.md
+git commit -m "feat: add X"
+git tag v1.1.0
+git push origin main --tags
+# in consumer repo, update
+harness skill add owner/my-plugin  # fetches new version, updates .harness/config.json:sha
+harness doctor --fix
+git diff  # review pinned sha change
+git add .harness/config.json .claude/skills/my-plugin
+git commit -m "bump my-plugin to 1.1.0"</code></pre>
+    <h3>What not to plugin</h3>
+    <p>Don't make a mega-skill that does 5 things — make 5 small skills that compose. Don't put secrets in a skill — they get copied to every project that installs it. Don't use absolute paths in scripts.</p>
+    <div class="pager">
+      <a href="#integrations"><span>← Previous</span><strong>Integrations</strong></a>
+      <a href="#migration"><span>Next →</span><strong>Migration</strong></a>
+    </div>
+
+
+    <h2 id="theming">Theming & styling</h2>
+    <p>This docs site is on <code>gh-pages</code> branch, root. It's static HTML + CSS with no build step so it's easy to maintain without a framework. No Jekyll, no bundler, just two files plus <code>.nojekyll</code>. Theming is via CSS variables and a toggle that respects system preference.</p>
+    <h3>Colors and variables — where to edit</h3>
+    <p>All colors are CSS variables in <code>style.css:1</code>. Light is in <code>:root</code>, dark in <code>@media (prefers-color-scheme: dark)</code> and <code>[data-theme="dark"]</code> (for toggle override). Toggle sets <code>data-theme</code> on <code>&lt;html&gt;</code> and saves to <code>localStorage</code> key <code>ah-theme</code>.</p>
+    <pre><code>/* light — default */
+:root{
+  --bg:#fbfbf9;
+  --fg:#161616;
+  --muted:#6b6b6b;
+  --line:#e9e9e7;
+  --card:#ffffff;
+  --accent:#111;
+  --code:#f3f3f1;
+  --blob-a:#a78bfa;
+}
+/* dark — system */
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f0f0e;
+    --fg:#ececec;
+    --muted:#9a9a9a;
+    --line:#262625;
+    --card:#181817;
+  }
+}
+/* dark — toggle override */
+[data-theme="dark"]{ --bg:#0f0f0e; --fg:#ececec; }
+[data-theme="light"]{ --bg:#fbfbf9; --fg:#161616; }</code></pre>
+    <h3>Purple blob — the hero decoration</h3>
+    <p>The hero blob is <code>.blob</code> — two radial gradients (purple) blurred 44px, opacity .5 in light, .42 in dark, rotated -10deg. It's in <code>style.css:68</code>. It's positioned absolute behind the hero, so content stays readable. Swap the hexes for your brand or remove it entirely — it's just decoration.</p>
+    <pre><code>.blob{
+  position:absolute; width:720px; height:560px; right:-140px; top:-160px;
+  background:
+    radial-gradient(ellipse 55% 45% at 30% 30%, var(--blob-a) 0%, var(--blob-b) 28%, var(--blob-c) 55%, transparent 72%),
+    radial-gradient(ellipse 45% 35% at 70% 70%, #c084fc 0%, #a855f7 32%, transparent 68%);
+  filter:blur(44px) saturate(1.15);
+  opacity:.5; pointer-events:none; border-radius:50%; transform:rotate(-10deg)
+}
+[data-theme="dark"] .blob{ opacity:.42; filter:blur(46px) saturate(1.05); }</code></pre>
+    <h3>Toggle — how it works</h3>
+    <p>Button is <code>#theme-toggle</code> with sun/moon SVG. Sun is outline stroke <code>currentColor</code>, moon is filled <code>#fff</code> so it's white in dark mode (the earlier text moon didn't take color in some browsers, so it was switched to SVG). JS in <code>index.html:script</code> reads <code>localStorage</code> and <code>matchMedia</code>. Default is system, toggle overrides and saves.</p>
+    <pre><code>const key='ah-theme';
+const btn=document.getElementById('theme-toggle');
+const mq=window.matchMedia('(prefers-color-scheme: dark)');
+function apply(t){
+  if(t==='dark') document.documentElement.setAttribute('data-theme','dark');
+  else if(t==='light') document.documentElement.setAttribute('data-theme','light');
+  else document.documentElement.removeAttribute('data-theme');
+}
+const saved=localStorage.getItem(key);
+if(saved) apply(saved);
+mq.addEventListener('change',()=>{
+  if(!localStorage.getItem(key)) apply(mq.matches ? 'dark' : 'light');
+});
+btn.addEventListener('click',()=>{
+  const cur=document.documentElement.getAttribute('data-theme') || (mq.matches ? 'dark' : 'light');
+  const next=cur==='dark' ? 'light' : 'dark';
+  localStorage.setItem(key,next);
+  apply(next);
+});</code></pre>
+    <h3>Changing theme or blob</h3>
+    <p>Edit <code>style.css</code> variables for colors, <code>.blob</code> for gradients, keep the JS that reads <code>localStorage</code> and <code>matchMedia</code>. The <code>.nojekyll</code> file at the root is required so GitHub Pages doesn't run Jekyll and break the CSS. Test in both themes: toggle, then reload, then change system preference and reload without a saved preference.</p>
+    <div class="pager">
+      <a href="#best-practices"><span>← Previous</span><strong>Best practices</strong></a>
+      <a href="#integrations"><span>Next →</span><strong>Integrations</strong></a>
+    </div>
+
+
+    <h2 id="accessibility">Accessibility</h2>
+    <p>Docs site is static HTML, should be usable with keyboard and screen reader without extra work. It's not perfect, but the basics are there and it's easy to improve.</p>
+    <ul>
+      <li>All interactive elements are <code>button</code> or <code>a</code> with <code>aria-label</code> where needed (theme toggle <code>aria-label="toggle theme"</code>, copy button <code>aria-label="copy"</code>, tabs with proper roles).</li>
+      <li>Side nav uses real links with <code>href="#id"</code> so screen readers can jump and browser history works. The active link gets <code>class="active"</code> via IntersectionObserver.</li>
+      <li>Color contrast meets WCAG AA for text on <code>--bg</code> vs <code>--fg</code> in both themes. Muted text (#6b6b6b on #fbfbf9, #9a9a9a on #0f0f0e) is still &gt;4.5:1. Code blocks are dark in both themes for contrast (#eaeaea on #0f0f0f).</li>
+      <li>Code blocks have horizontal scroll, not truncated, so they don't overflow on mobile and are keyboard scrollable.</li>
+      <li>Tabs use <code>button</code> elements and are keyboard reachable via Tab, with panels shown via CSS <code>.active</code> and <code>display:block</code>.</li>
+      <li>Hero and docs layout use semantic <code>header, main, section, aside, footer</code> so screen readers can navigate landmarks.</li>
+      <li>All images (there are none except the blob, which is CSS) would need <code>alt</code> if added.</li>
+    </ul>
+    <h3>Improving a11y</h3>
+    <p>If you find an a11y issue (contrast, keyboard trap, missing alt, focus not visible), open an issue with the page URL, browser and screen reader you used, and steps to repro. Small PRs that add <code>alt</code>, <code>aria</code> or focus styles are welcome. Check with <code>axe</code> or Lighthouse:</p>
+    <pre><code>npx @axe-core/cli https://theelephantcoder.github.io/agent-harness/
+npx @axe-core/cli https://theelephantcoder.github.io/agent-harness/docs/
+# or Lighthouse in Chrome DevTools → Lighthouse → Accessibility
+# or
+npm install -g lighthouse
+lighthouse https://theelephantcoder.github.io/agent-harness/ --only-categories=accessibility --view</code></pre>
+    <h3>Known limitations</h3>
+    <ul>
+      <li>Code blocks are not line-wrapped, so screen readers read them as long lines — that's intentional for code.</li>
+      <li>The purple blob is <code>aria-hidden="true"</code> so it's ignored.</li>
+      <li>Theme toggle is a button, not a select — it cycles light/dark, not system. To reset to system, clear <code>localStorage</code> key <code>ah-theme</code>.</li>
+    </ul>
+    <div class="pager">
+      <a href="#testing"><span>← Previous</span><strong>Testing</strong></a>
+      <a href="#troubleshooting"><span>Next →</span><strong>Troubleshooting</strong></a>
+    </div>
+
+
+    <h2 id="license">License & acknowledgements</h2>
+    <p>MIT — see <code>LICENSE</code>. You can use, modify, distribute, sell, private or public, with the copyright notice kept. No CLA, no extra restrictions. This is the most permissive option so you can use harness in commercial projects without worrying.</p>
+    <pre><code>MIT License
+Copyright (c) 2026 TheElephantCoder
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.</code></pre>
+    <h3>Acknowledgements</h3>
+    <p>Built on the shoulders of the agent skills spec and the harness conventions from Claude Code, Opencode, Cursor and Codex. Thanks to those teams for the docs that make research-first possible — without their docs, the research cache would be empty. And to the early testers who pointed out the cold start pain and the need for tiered memory.</p>
+    <h3>Contributing and CLA — none</h3>
+    <p>No CLA. MIT keeps it simple. By contributing you agree your PR is MIT as well. Small PRs are easiest to review — keep them under ~400 lines if you can. See <a href="#contributing">Contributing</a> for setup.</p>
+    <h3>Using in commercial projects</h3>
+    <p>Yes, MIT allows it, even closed source. Keep the LICENSE file with the copyright notice, that's it. No need to open source your own project that uses harness. If you do something cool with it, let me know via Discord or an issue — I'd love to see it.</p>
+    <div class="pager">
+      <a href="#community"><span>← Previous</span><strong>Community</strong></a>
       <a href="#glossary"><span>Next →</span><strong>Glossary</strong></a>
     </div>
 
-    <h2 id="glossary">Glossary</h2>
+
+<h2 id="glossary">Glossary</h2>
     <p>Terms used across the docs and code.</p>
     <table>
       <tr><th>term</th><th>what it means</th></tr>
@@ -1494,7 +2884,7 @@ harness bench --quick</code></pre>
     </table>
     <p class="muted small" style="margin-top:18px">That’s it. If something’s missing or confusing, open an issue with what you expected to find and where you looked.</p>
     <div class="pager">
-      <a href="#community"><span>← Previous</span><strong>Community</strong></a>
+      <a href="#license"><span>← Previous</span><strong>License</strong></a>
       <a class="muted"></a>
     </div>
 
