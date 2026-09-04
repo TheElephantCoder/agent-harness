@@ -1,0 +1,7 @@
+{
+  "event": "SessionStart",
+  "command": "./instincts/session-start/hydrate.sh",
+  "timeout": 15000,
+  "blocking": false,
+  "description": "Hydrate MEMORY.md + hot tier in <15s"
+}

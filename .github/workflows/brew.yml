@@ -1,0 +1,41 @@
+name: brew
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "version e.g. 0.1.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: get version
+        id: v
+        run: |
+          if [ "${{ inputs.version }}" != "" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+      - name: bump formula sha
+        run: ./scripts/bump-brew.sh ${{ steps.v.outputs.version }}
+      - name: commit bump
+        run: |
+          if git diff --quiet; then
+            echo "no changes"
+            exit 0
+          fi
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add Formula/agent-harness.rb
+          git commit -m "bump brew to v${{ steps.v.outputs.version }}"
+          git push origin main

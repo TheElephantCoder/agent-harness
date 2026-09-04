@@ -1,0 +1,27 @@
+{
+  "mode": "allowlist",
+  "allow": [
+    "git *",
+    "npm *",
+    "npx *",
+    "pip *",
+    "pipx *",
+    "cargo *",
+    "python3 *",
+    "python *",
+    "node *",
+    "harness *",
+    "pytest *",
+    "vitest *",
+    "ls *",
+    "cat *",
+    "grep *",
+    "rg *",
+    "find *",
+    "head *",
+    "tail *",
+    "wc *"
+  ],
+  "ask": ["curl *", "wget *", "sudo *", "chmod *", "rm -rf *"],
+  "deny": ["rm -rf /*", "mkfs *", "dd if=*", "nc *", ":(){:|:&};:"]
+}

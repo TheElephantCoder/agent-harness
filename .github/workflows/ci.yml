@@ -1,0 +1,29 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: npm ci || npm install
+      - run: npx tsc --noEmit
+      - run: python -m pip install -e ".[dev]" || pip install -e .
+      - run: ./security/audit.sh
+      - run: node src/harness/cli.ts doctor --strict
+      - run: node src/harness/cli.ts bench --quick
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash security/audit.sh
+      - run: bash instincts/pre-tool/guard.sh < /dev/null

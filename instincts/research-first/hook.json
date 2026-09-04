@@ -1,0 +1,8 @@
+{
+  "event": "PreToolUse",
+  "matcher": "Edit|Write",
+  "command": "./instincts/research-first/enforce.sh",
+  "timeout": 2000,
+  "blocking": true,
+  "description": "Enforce research-first: require research/plans/ before multi-file edits"
+}

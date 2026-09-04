@@ -1,0 +1,8 @@
+{
+  "event": "PreToolUse",
+  "matcher": "Bash|Edit|Write",
+  "command": "./instincts/pre-tool/guard.sh",
+  "timeout": 5000,
+  "blocking": true,
+  "description": "Security guard: injection, allowlist, boundaries"
+}

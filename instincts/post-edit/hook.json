@@ -1,0 +1,8 @@
+{
+  "event": "PostToolUse",
+  "matcher": "Edit|Write",
+  "command": "./instincts/post-edit/check.sh",
+  "timeout": 5000,
+  "blocking": false,
+  "description": "Post-edit: format + typecheck (batched)"
+}

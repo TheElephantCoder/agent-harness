@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(harness *)",
+      "Bash(python3 *)",
+      "Bash(pytest *)",
+      "Bash(cargo *)"
+    ],
+    "ask": ["Bash(curl *)", "Bash(sudo *)", "Write(/etc/*)"],
+    "deny": ["Bash(rm -rf /*)", "Read(~/.ssh/*)", "Read(~/.aws/*)"]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "./instincts/session-start/hydrate.sh", "timeout": 15000 }]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [{ "type": "command", "command": "./instincts/pre-tool/guard.sh", "timeout": 5000 }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "./instincts/post-edit/check.sh", "timeout": 5000 }]
+      }
+    ],
+    "PreCommit": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "./security/audit.sh --staged", "timeout": 10000 }]
+      }
+    ]
+  },
+  "instructions": ["AGENTS.md", "memory/MEMORY.md"],
+  "skills": ["./skills/*"]
+}

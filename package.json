@@ -1,0 +1,55 @@
+{
+  "name": "@theelephantcoder/agent-harness",
+  "version": "0.1.0",
+  "description": "Performance layer for coding agents. Skills, instincts, memory, security and research-first that works across Claude Code, Codex, Opencode, Cursor.",
+  "type": "module",
+  "bin": {
+    "harness": "./src/harness/cli.ts"
+  },
+  "main": "./src/harness/index.ts",
+  "scripts": {
+    "bench": "tsx src/harness/bench.ts",
+    "build": "tsc --noEmit",
+    "doctor": "tsx src/harness/cli.ts doctor",
+    "test": "vitest run",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write src"
+  },
+  "keywords": [
+    "agent",
+    "harness",
+    "claude-code",
+    "opencode",
+    "codex",
+    "cursor",
+    "skills"
+  ],
+  "author": "TheElephantCoder",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TheElephantCoder/agent-harness.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^1.0.0"
+  },
+  "files": [
+    "src/",
+    "skills/",
+    "instincts/",
+    "memory/",
+    "security/",
+    "research/",
+    "adapters/",
+    "docs/",
+    "AGENTS.md",
+    "README.md",
+    "LICENSE"
+  ]
+}

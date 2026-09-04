@@ -1,0 +1,9 @@
+{
+  "name": "codex",
+  "displayName": "Codex",
+  "skillPath": ".codex/skills",
+  "hookPath": ".codex/hooks.json",
+  "memoryPath": "MEMORY.md",
+  "agentsPath": "AGENTS.md",
+  "transpile": "./transpile.sh"
+}

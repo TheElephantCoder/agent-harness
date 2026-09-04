@@ -1,0 +1,9 @@
+{
+  "name": "opencode",
+  "displayName": "Opencode",
+  "skillPath": ".opencode/skills",
+  "hookPath": "opencode.json",
+  "memoryPath": "MEMORY.md",
+  "agentsPath": "AGENTS.md",
+  "transpile": "./transpile.sh"
+}

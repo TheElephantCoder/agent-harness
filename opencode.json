@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md", "memory/MEMORY.md"],
+  "skills": ["./skills/*"],
+  "hooks": {
+    "session_start": "./instincts/session-start/hydrate.sh",
+    "pre_tool_use": "./instincts/pre-tool/guard.sh",
+    "post_tool_use": "./instincts/post-edit/check.sh"
+  },
+  "permission": {
+    "bash": {
+      "git *": "allow",
+      "npm *": "allow",
+      "pip *": "allow",
+      "cargo *": "allow",
+      "harness *": "allow",
+      "pytest": "allow",
+      "python3 *": "allow",
+      "node *": "allow",
+      "*": "ask"
+    }
+  }
+}

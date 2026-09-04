@@ -1,0 +1,3 @@
+# allowlist entries require justification and expiry
+# format: <file> — <reason> — expires: YYYY-MM-DD — approved: <who>
+# example: src/demo/secrets.example.ts — example key for docs — expires: 2027-01-01 — approved: TheElephantCoder

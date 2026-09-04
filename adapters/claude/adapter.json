@@ -1,0 +1,9 @@
+{
+  "name": "claude",
+  "displayName": "Claude Code",
+  "skillPath": ".claude/skills",
+  "hookPath": ".claude/settings.json",
+  "memoryPath": "MEMORY.md",
+  "agentsPath": "AGENTS.md",
+  "transpile": "./transpile.sh"
+}

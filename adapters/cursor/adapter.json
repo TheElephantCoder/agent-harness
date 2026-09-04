@@ -1,0 +1,9 @@
+{
+  "name": "cursor",
+  "displayName": "Cursor",
+  "skillPath": ".cursor/rules",
+  "hookPath": ".cursor/hooks.json",
+  "memoryPath": "MEMORY.md",
+  "agentsPath": "AGENTS.md",
+  "transpile": "./transpile.sh"
+}
