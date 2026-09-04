@@ -19,12 +19,16 @@
       <a href="#start">Docs</a>
       <a href="https://github.com/TheElephantCoder/agent-harness">GitHub</a>
       <a class="btn-small" href="https://github.com/TheElephantCoder/agent-harness">Star →</a>
+      <button class="theme-toggle" id="theme-toggle" aria-label="toggle theme" title="toggle theme">
+        <span class="icon-sun">☀</span><span class="icon-moon">☾</span>
+      </button>
     </nav>
   </div>
 </header>
 
 <main>
 <section class="hero">
+  <div class="blob" aria-hidden="true"></div>
   <div class="wrap">
     <p class="eyebrow">Claude Code • Codex • Opencode • Cursor</p>
     <h1>Your agents should remember things.</h1>
@@ -200,6 +204,30 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.getElementById('panel-'+t.dataset.tab).classList.add('active');
   });
 });
+(function(){
+  const key='ah-theme';
+  const btn=document.getElementById('theme-toggle');
+  const mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function apply(t){
+    if(t==='dark') document.documentElement.setAttribute('data-theme','dark');
+    else if(t==='light') document.documentElement.setAttribute('data-theme','light');
+    else document.documentElement.removeAttribute('data-theme');
+  }
+  function initial(){
+    const saved=localStorage.getItem(key);
+    if(saved) apply(saved);
+  }
+  initial();
+  mq.addEventListener('change',()=>{
+    if(!localStorage.getItem(key)) apply(mq.matches ? 'dark' : 'light');
+  });
+  btn.addEventListener('click',()=>{
+    const cur=document.documentElement.getAttribute('data-theme') || (mq.matches ? 'dark' : 'light');
+    const next=cur==='dark' ? 'light' : 'dark';
+    localStorage.setItem(key,next);
+    apply(next);
+  });
+})();
 </script>
 </body>
 </html>
