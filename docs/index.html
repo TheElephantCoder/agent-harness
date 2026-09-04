@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Documentation — agent-harness</title>
+<meta name="description" content="Thorough documentation for agent-harness — install, skills, instincts, memory, security, research-first, adapters, CLI, performance and brew.">
+<link rel="stylesheet" href="../style.css">
+<style>
+.docs-layout{display:grid;grid-template-columns:260px 1fr;gap:0;min-height:calc(100vh - 57px)}
+@media (max-width:900px){.docs-layout{grid-template-columns:1fr} .docs-sidebar{position:static!important; height:auto!important; border-right:0!important; border-bottom:1px solid var(--line)}}
+.docs-sidebar{position:sticky;top:56px;height:calc(100vh - 56px);overflow:auto;border-right:1px solid var(--line);background:color-mix(in srgb, var(--card) 96%, var(--bg));padding:18px 14px}
+.docs-sidebar h4{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+.docs-sidebar h4:first-child{margin-top:6px}
+.docs-sidebar a{display:block;padding:7px 10px;border-radius:8px;text-decoration:none;font-size:13px;line-height:1.4;color:var(--muted);border:1px solid transparent}
+.docs-sidebar a:hover{background:var(--code);color:var(--fg)}
+.docs-sidebar a.active{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.docs-content{padding:32px 28px;max-width:860px}
+@media (max-width:900px){.docs-content{padding:22px 16px}}
+.docs-content h1{font-size:32px;letter-spacing:-.03em;margin:0 0 8px}
+.docs-content h2{font-size:22px;letter-spacing:-.02em;margin:42px 0 12px;padding-top:18px;border-top:1px solid var(--line)}
+.docs-content h2:first-of-type{border-top:0;padding-top:0}
+.docs-content h3{font-size:15px;margin:22px 0 8px}
+.docs-content p{line-height:1.7;color:var(--fg);opacity:.9;max-width:70ch}
+.docs-content ul,.docs-content ol{line-height:1.7;max-width:70ch}
+.docs-content code{font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:13px}
+.docs-content pre{margin:12px 0}
+.docs-content .callout{border:1px solid var(--line);background:color-mix(in srgb, var(--card) 80%, var(--bg));border-radius:12px;padding:14px 16px;margin:16px 0;max-width:70ch}
+.docs-content table{width:100%;border-collapse:collapse;margin:14px 0;max-width:70ch;font-size:13px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.docs-content th,.docs-content td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line)}
+.docs-content th{background:var(--card);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.docs-content kbd{border:1px solid var(--line);background:var(--card);padding:1px 6px;border-radius:6px;font-family:ui-monospace,monospace;font-size:12px}
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="logo" href="../">agent-harness</a>
+    <nav class="nav-links">
+      <a href="../">Home</a>
+      <a href="./" style="color:var(--fg);font-weight:600">Docs</a>
+      <a href="https://github.com/TheElephantCoder/agent-harness">GitHub</a>
+      <button class="theme-toggle" id="theme-toggle" aria-label="toggle theme"><span class="icon-sun">☀</span><span class="icon-moon">☾</span></button>
+    </nav>
+  </div>
+</header>
+<div class="docs-layout">
+  <aside class="docs-sidebar" id="sidebar">
+    <h4>Start</h4>
+    <a href="#overview" class="active">Overview</a>
+    <a href="#install">Installation</a>
+    <a href="#quickstart">Quick start</a>
+    <a href="#concepts">Core concepts</a>
+    <h4>Building blocks</h4>
+    <a href="#skills">Skills</a>
+    <a href="#instincts">Instincts</a>
+    <a href="#memory">Memory</a>
+    <a href="#security">Security</a>
+    <a href="#research">Research-first</a>
+    <h4>Integration</h4>
+    <a href="#adapters">Adapters</a>
+    <a href="#cli">CLI reference</a>
+    <a href="#performance">Performance</a>
+    <a href="#brew">Brew</a>
+    <h4>More</h4>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#faq">FAQ</a>
+    <a href="#contributing">Contributing</a>
+  </aside>
+  <main class="docs-content">
+    <h1>Documentation</h1>
+    <p class="muted">Everything for running agent-harness in your repos. This page covers install, the five building blocks, adapters for every harness, full CLI, performance numbers and brew. Keep <code>AGENTS.md</code> in the repo as the short version. This is the long one.</p>
+
+    <h2 id="overview">Overview</h2>
+    <p>agent-harness is a small local layer that sits on top of whatever coding agent you use. It gives you reusable skills, automatic hooks, persistent memory, guardrails and a research step before code. Same config in Claude Code, Codex, Opencode, Cursor and anything that reads <code>AGENTS.md</code>.</p>
+    <div class="callout"><strong>Goal:</strong> cut the 3 minute cold start and the repeated research. On a 250k LOC TypeScript monorepo, harness went from 180s to ~13s cold start, ~65% fewer tokens per task.</div>
+    <p>The stack is TypeScript for the core transpilation and a Python shim for parity. Distribution is npm <code>@theelephantcoder/agent-harness</code> and pip <code>agent-harness-cli</code>. No telemetry, no cloud, just markdown and JSON that lives in git.</p>
+    <pre><code>agent-harness/
+  skills/       # SKILL.md + scripts, shared
+  instincts/    # hook.json + .sh, shared
+  memory/       # MEMORY.md tiers, sessions, decisions
+  security/     # policy, allowlists, audit.sh
+  research/     # findings/plans/evidence, cached
+  adapters/     # claude, codex, opencode, cursor, generic
+  Formula/      # brew formula, single-repo tap
+  docs/         # this site
+  src/harness/  # TS + Python CLI, bench</code></pre>
+
+    <h2 id="install">Installation</h2>
+    <h3>npm (recommended)</h3>
+    <pre><code>npm install -g @theelephantcoder/agent-harness
+npx @theelephantcoder/agent-harness init --auto  # without global install
+harness --version
+harness doctor</code></pre>
+    <h3>brew (macOS)</h3>
+    <pre><code>brew tap TheElephantCoder/agent-harness
+brew install agent-harness
+harness doctor
+# upgrade
+brew upgrade agent-harness
+# head
+brew install --HEAD TheElephantCoder/agent-harness/agent-harness
+# local
+brew install --build-from-source Formula/agent-harness.rb</code></pre>
+    <p>Same repo is the tap so you don't need a second <code>homebrew-tap</code> repo. After the one-time <code>brew tap</code>, installs are just <code>brew install agent-harness</code>.</p>
+    <h3>pip / pipx</h3>
+    <pre><code>pip install agent-harness-cli
+pipx install agent-harness-cli
+harness --version</code></pre>
+    <p>Requires Python >=3.9. The python package is a shim that mirrors the TS CLI. Use whichever you prefer, they share the same <code>harness</code> binary name.</p>
+    <h3>From source</h3>
+    <pre><code>git clone https://github.com/TheElephantCoder/agent-harness.git
+cd agent-harness
+npm install
+npm link          # or pip install -e .[dev]
+harness doctor
+npm run build     # tsc --noEmit
+npm run bench</code></pre>
+    <h3>Verify</h3>
+    <pre><code>harness doctor --fix
+harness bench --quick
+bash security/audit.sh --staged</code></pre>
+    <div class="callout">If you need to update the brew sha after a release, run <code>./scripts/bump-brew.sh 0.1.0</code> which fetches the GitHub tarball and patches <code>Formula/agent-harness.rb</code>.</div>
+
+    <h2 id="quickstart">Quick start</h2>
+    <pre><code>cd your-project
+harness init                 # interactive picker
+harness init --auto          # detect what you use
+harness init --migrate       # add to existing project, don't overwrite
+harness doctor               # check wiring
+harness bench --quick        # 30s sanity check</code></pre>
+    <p>What it creates:</p>
+    <pre><code>your-project/
+  .harness/config.json
+  AGENTS.md
+  memory/MEMORY.md
+  .claude/settings.json   # if Claude
+  opencode.json           # if Opencode
+  .cursor/rules/*.mdc     # if Cursor
+  .codex/hooks.json       # if Codex</code></pre>
+    <h3>Day to day</h3>
+    <pre><code>harness memory sync                    # distill session → MEMORY.md
+harness skill search "review"
+harness skill add owner/repo
+harness research "best way to do X"  # caches findings
+harness security audit</code></pre>
+
+    <h2 id="concepts">Core concepts</h2>
+    <p>Five pieces that matter:</p>
+    <table>
+      <tr><th>piece</th><th>lives in</th><th>loaded when</th></tr>
+      <tr><td>Skills</td><td><code>skills/&lt;name&gt;/SKILL.md</code></td><td>on trigger, not at boot</td></tr>
+      <tr><td>Instincts</td><td><code>instincts/&lt;name&gt;/hook.json + .sh</code></td><td>on event</td></tr>
+      <tr><td>Memory</td><td><code>memory/MEMORY.md</code> + tiers</td><td>at session start</td></tr>
+      <tr><td>Security</td><td><code>security/</code> + audit.sh</td><td>pre-tool and pre-commit</td></tr>
+      <tr><td>Research</td><td><code>research/findings + plans</code></td><td>before multi-file edits</td></tr>
+    </table>
+
+    <h2 id="skills">Skills</h2>
+    <p>Skills are reusable markdown with frontmatter. They follow the agent skills spec so you can share across projects and pull in others.</p>
+    <pre><code>skills/
+  research-first/SKILL.md
+  performance/SKILL.md
+  security-guard/SKILL.md
+  memory-sync/SKILL.md</code></pre>
+    <h3>Using</h3>
+    <pre><code>harness skill list
+harness skill search "react"
+harness skill add vercel-labs/agent-skills
+harness skill add harness/research-first --harness claude,opencode
+harness skill remove old-skill
+harness skill verify my-skill</code></pre>
+    <h3>Creating</h3>
+    <pre><code>harness skill create my-skill
+# edit skills/my-skill/SKILL.md</code></pre>
+    <pre><code>---
+name: my-skill
+description: what it does, when to use it
+version: 1.0.0
+triggers: ["keyword"]
+allowed-tools: [read, grep, bash]
+---
+# My skill
+Instructions for the agent...</code></pre>
+    <p>Keep skills under ~4k tokens. Put longer references in <code>references/</code>. List triggers so they load on demand instead of at boot. See <code>skills/research-first/SKILL.md</code> for the most important one.</p>
+    <h3>Included</h3>
+    <ul>
+      <li><strong>research-first</strong> — requires <code>research/findings/</code> + <code>research/plans/</code> before multi-file edits</li>
+      <li><strong>performance</strong> — batch reads, grep-first, progressive disclosure</li>
+      <li><strong>security-guard</strong> — injection checks, secret scan, sandbox</li>
+      <li><strong>memory-sync</strong> — hydrate at start, distill at end</li>
+    </ul>
+
+    <h2 id="instincts">Instincts</h2>
+    <p>Instincts are hooks + script. They fire without prompting. Think muscle memory.</p>
+    <table>
+      <tr><th>instinct</th><th>event</th><th>does</th></tr>
+      <tr><td>session-start</td><td>SessionStart</td><td>loads MEMORY.md + hot tier</td></tr>
+      <tr><td>session-end</td><td>SessionEnd</td><td>distills notes to MEMORY.md</td></tr>
+      <tr><td>pre-tool</td><td>PreToolUse Bash|Edit|Write</td><td>allowlist + injection check</td></tr>
+      <tr><td>post-edit</td><td>PostToolUse Edit|Write</td><td>format + typecheck</td></tr>
+      <tr><td>pre-commit</td><td>git commit</td><td>secret scan + test gate</td></tr>
+      <tr><td>research-first</td><td>PreToolUse Edit|Write (&gt;2 files)</td><td>blocks until plan exists</td></tr>
+    </table>
+    <h3>Directory</h3>
+    <pre><code>instincts/
+  session-start/hook.json + hydrate.sh
+  pre-tool/hook.json + guard.sh
+  post-edit/hook.json + check.sh
+  research-first/hook.json + enforce.sh</code></pre>
+    <h3>Creating</h3>
+    <pre><code>harness instinct create my-instinct --event post-edit
+# edit instincts/my-instinct/hook.json
+# {
+#   "event": "PostToolUse",
+#   "matcher": "Edit|Write",
+#   "command": "./instincts/post-edit/check.sh",
+#   "timeout": 5000,
+#   "blocking": false
+# }</code></pre>
+    <p>Keep hooks fast. Budget is p50 &lt;50ms, p99 &lt;100ms, blocking &lt;500ms. Check with <code>harness bench --task hooks</code>. <code>harness init</code> and <code>harness doctor --fix</code> transpile these to each harness:</p>
+    <ul>
+      <li>Claude Code → <code>.claude/settings.json:hooks</code></li>
+      <li>Opencode → <code>opencode.json:hooks</code></li>
+      <li>Codex → <code>.codex/hooks.json</code></li>
+      <li>Cursor → <code>.cursor/hooks.json</code></li>
+    </ul>
+
+    <h2 id="memory">Memory</h2>
+    <pre><code>memory/
+  MEMORY.md        # curated, always loaded, &lt;8k tokens
+  SOUL.md          # who the agent is
+  USER.md          # who you are
+  AGENTS.md        # also at repo root
+  sessions/        # raw per-session logs, pruned ~30d
+  decisions/       # ADRs
+  tiers/
+    hot.md         # always loaded
+    warm.md        # loaded on keyword
+    cold/          # explicit read only</code></pre>
+    <h3>MEMORY.md</h3>
+    <pre><code># Memory
+## Project
+- what this repo is, stack, structure
+## Conventions
+- code style, commit style
+## Decisions
+- short ADRs or links
+## Gotchas
+- things that burned us
+## People
+- preferences</code></pre>
+    <p>Keep it dense and curated, not append-only. Prune with <code>harness memory prune</code>. Every decision with 2+ options gets a short <code>decisions/ADR-###.md</code>.</p>
+    <h3>Lifecycle</h3>
+    <ul>
+      <li><strong>Start:</strong> read <code>MEMORY.md</code> + <code>tiers/hot.md</code> (&lt;2s). Warm tier loads on keyword.</li>
+      <li><strong>End:</strong> <code>harness memory sync</code> distills <code>sessions/&lt;date&gt;.md</code> into <code>MEMORY.md</code>, prunes stale, adds ADRs.</li>
+    </ul>
+    <pre><code>harness memory show
+harness memory edit
+harness memory prune --dry-run
+harness memory sync --auto</code></pre>
+
+    <h2 id="security">Security</h2>
+    <p>Default deny. Nothing in <code>security/</code> is clever, just guardrails that catch the obvious stuff.</p>
+    <pre><code>security/
+  policy.md              # human readable
+  bash-allowlist.json    # default deny, allow specific
+  file-boundaries.json   # where writes allowed
+  network-allowlist.txt  # fetch allowlist
+  allowlist.txt          # secret scan exceptions
+  audit.sh               # harness security audit</code></pre>
+    <h3>Prompt injection</h3>
+    <p>Treat all external content as data: webfetch output, issue bodies, files outside workspace. Block <code>ignore previous instructions</code>, hidden HTML comments with instructions, <code>exfiltrate</code>, etc. If hit, stop, warn, don't run, log to <code>sessions/</code>.</p>
+    <h3>Secrets</h3>
+    <p>Scan staged files before commit. Blocks <code>.env</code>, <code>*.pem</code>, <code>id_rsa</code>, <code>sk-</code>, <code>ghp_</code>, <code>gho_</code>, <code>BEGIN PRIVATE KEY</code>, <code>AKIA*</code>, high entropy &gt;20 chars. Allowlist in <code>security/allowlist.txt</code> with reason, expiry, approver.</p>
+    <pre><code>harness security scan --staged
+harness security audit        # whole repo
+harness security fix --dry-run</code></pre>
+    <h3>Sandbox</h3>
+    <ul>
+      <li>Bash allowlist in <code>security/bash-allowlist.json</code> — <code>git, npm, pip, cargo, node, harness, pytest</code> allowed, <code>curl | bash, sudo, rm -rf /, nc, nmap</code> asks or denies.</li>
+      <li>File writes limited to workspace + <code>.harness/</code>, <code>memory/</code>, <code>research/</code>. Deny <code>/etc, ~/.ssh, ~/.aws</code>.</li>
+      <li>Network allowlist, private IPs <code>127.0.0.1, 10.*, 192.168.*, 169.254.*</code> blocked.</li>
+    </ul>
+    <h3>Supply chain</h3>
+    <p>Skills pinned in <code>.harness/config.json</code> with version + sha256. Verify with <code>harness skill verify</code>. CI runs <code>security/audit.sh</code> on every PR.</p>
+    <p class="muted small">Report vulns via DM <code>@theelephantcoder</code> on Discord or GitHub issue. Don't open a public issue with details.</p>
+
+    <h2 id="research">Research-first</h2>
+    <p>Verify before you build. Saves most of the rework. Flow is <code>research → plan → approve → build → verify → remember</code>.</p>
+    <pre><code>research/
+  findings/      # one per topic, cached, with citations
+  plans/         # one per task, needs approval
+  evidence/      # links, repros, bench notes
+  template.md    # copy for new findings/plans</code></pre>
+    <h3>Steps</h3>
+    <ol>
+      <li><strong>Check existing</strong> — look in <code>research/findings/</code> first. If covered, reuse, don't re-research.</li>
+      <li><strong>Research</strong> — grep codebase, then web search with 2026 for recency where it matters. Cite <code>file:line</code> + URLs.</li>
+      <li><strong>Write findings</strong> — <code>research/findings/&lt;slug&gt;.md</code> with verdict, alternatives, risks. Template in <code>research/template.md</code>.</li>
+      <li><strong>Plan</strong> — <code>research/plans/&lt;task&gt;.md</code> with approach, files, tests, risks, alternatives considered.</li>
+      <li><strong>Approve</strong> — show plan, wait for ok. Small single-file edits may auto-approve via instinct.</li>
+      <li><strong>Build + verify</strong> — implement, tests, <code>harness bench</code> + <code>harness security audit</code>.</li>
+      <li><strong>Remember</strong> — <code>harness memory sync</code> updates findings with what actually worked.</li>
+    </ol>
+    <p>The multi-file edit block is enforced by <code>instincts/research-first/enforce.sh</code>. Annoying at first, saves time later. Cached findings hydrate in &lt;100ms vs 30-60s re-research. See <code>skills/research-first/SKILL.md</code>.</p>
+
+    <h2 id="adapters">Adapters</h2>
+    <p>One source for <code>skills/</code> and <code>instincts/</code>, transpiled to each harness. Same memory and research everywhere, no duplication.</p>
+    <table>
+      <tr><th>harness</th><th>config</th><th>skills</th><th>hooks</th></tr>
+      <tr><td>Claude Code</td><td><code>.claude/settings.json</code></td><td><code>.claude/skills/</code></td><td><code>.claude/settings.json:hooks</code></td></tr>
+      <tr><td>Opencode</td><td><code>opencode.json</code></td><td><code>.opencode/skills/</code></td><td><code>opencode.json:hooks</code></td></tr>
+      <tr><td>Codex</td><td><code>.codex/config.toml</code></td><td><code>.codex/skills/</code></td><td><code>.codex/hooks.json</code></td></tr>
+      <tr><td>Cursor</td><td><code>.cursor/rules/*.mdc</code></td><td><code>.cursor/rules/</code></td><td><code>.cursor/hooks.json</code></td></tr>
+      <tr><td>Generic</td><td><code>.harness/</code></td><td><code>.harness/skills/</code></td><td><code>.harness/hooks.json</code></td></tr>
+    </table>
+    <pre><code>harness init --harness claude,opencode
+harness doctor --fix      # re-transpile and check sync
+harness doctor --strict   # fail on any drift</code></pre>
+    <h3>Adding a new harness</h3>
+    <pre><code># adapters/my-harness/adapter.json
+{
+  "name": "my-harness",
+  "skillPath": ".my-harness/skills",
+  "hookPath": ".my-harness/hooks.json",
+  "memoryPath": ".my-harness/MEMORY.md",
+  "transpile": "scripts/transpile-my-harness.sh"
+}
+# then
+harness adapter add my-harness</code></pre>
+    <p>Adapters are pure transpilers. Remove harness and your project still works, you just lose caching and guardrails.</p>
+
+    <h2 id="cli">CLI reference</h2>
+    <pre><code>harness init [--harness &lt;name&gt;] [--auto] [--migrate]
+harness doctor [--fix] [--strict]
+harness bench [--harness &lt;n&gt;] [--task &lt;t&gt;] [--compare] [--quick] [--profile]
+harness skill &lt;add|list|remove|search|info|create|verify&gt; [name]
+harness memory &lt;sync|show|edit|prune&gt; [--dry-run] [--auto]
+harness instinct &lt;list|enable|disable|create&gt; [name] [--event &lt;e&gt;]
+harness research &lt;query&gt; [--plan] [--evidence]
+harness security &lt;audit|scan|fix&gt; [--staged] [--dry-run]
+harness adapter &lt;list|add&gt; [name]
+harness upgrade
+harness --help
+harness --version</code></pre>
+    <table>
+      <tr><th>command</th><th>what it does</th></tr>
+      <tr><td><code>harness init</code></td><td>set up harness in current project, interactive picker, <code>--auto</code> detects, <code>--migrate</code> doesn't overwrite</td></tr>
+      <tr><td><code>harness doctor</code></td><td>checks skills frontmatter, hook timeouts, memory size, adapter sync, secret scan</td></tr>
+      <tr><td><code>harness bench</code></td><td>measures cold-start, tokens, tool-calls, hook overhead, fails CI on &gt;10% regression</td></tr>
+      <tr><td><code>harness skill</code></td><td>manage skills, <code>search</code> finds, <code>verify</code> checks sha</td></tr>
+      <tr><td><code>harness memory</code></td><td>show/edit/prune/sync persistent memory</td></tr>
+      <tr><td><code>harness research</code></td><td>create cached findings with citations</td></tr>
+      <tr><td><code>harness security</code></td><td>audit/scan/fix</td></tr>
+    </table>
+
+    <h2 id="performance">Performance</h2>
+    <p>Targets I try to hold: cold start &lt;15s (~13s), tokens &lt;50k (~48k), tool calls &lt;60 (~51), hook p99 &lt;100ms (~87ms), memory hydration &lt;50ms/tier (~12ms).</p>
+    <h3>How</h3>
+    <ul>
+      <li><strong>Cold start</strong> — tiered memory (hot always, warm on keyword, cold explicit), lazy skill loading, optional daemon pre-warm.</li>
+      <li><strong>Tokens</strong> — research cache reused, skill deduplication across harnesses, curated MEMORY.md under 8k.</li>
+      <li><strong>Tool calls</strong> — batch independent reads/greps per turn, grep before read, post-edit coalesced.</li>
+    </ul>
+    <pre><code>harness bench --task cold-start --harness opencode
+harness bench --task tokens --compare main
+npm run bench  # full suite in src/harness/bench.ts
+# profile
+harness bench --profile --harness claude
+cat .harness/bench/profile.json | jq .hooks</code></pre>
+    <p>CI fails if bench regresses &gt;~10%. See <code>docs/performance.md</code>.</p>
+
+    <h2 id="brew">Brew</h2>
+    <p>Same repo is the tap. No second repo needed.</p>
+    <pre><code>brew tap TheElephantCoder/agent-harness
+brew install agent-harness
+brew upgrade agent-harness
+# one-liner
+brew install TheElephantCoder/agent-harness/agent-harness
+# head
+brew install --HEAD TheElephantCoder/agent-harness/agent-harness
+# local
+brew install --build-from-source Formula/agent-harness.rb</code></pre>
+    <p>Formula is <code>Formula/agent-harness.rb</code>. Update sha after a release:</p>
+    <pre><code>./scripts/bump-brew.sh 0.1.0
+git add Formula/agent-harness.rb
+git commit -m "bump brew to v0.1.0"
+git push</code></pre>
+    <p>Or trigger via Actions: <code>Actions → brew → Run workflow</code> with version <code>0.1.0</code>, or automatically on <code>release: published</code>.</p>
+
+    <h2 id="troubleshooting">Troubleshooting</h2>
+    <h3>Doctor fails</h3>
+    <pre><code>harness doctor --fix
+cat .harness/config.json   # check pinned skill versions
+ls -la .claude/skills/ opencode.json .cursor/rules/</code></pre>
+    <h3>Brew sha mismatch</h3>
+    <p>Run <code>./scripts/bump-brew.sh &lt;version&gt;</code> again — tarball sha changed after tag move.</p>
+    <h3>Hook not firing</h3>
+    <p>Check <code>instincts/&lt;name&gt;/hook.json</code> timeout and matcher. Run <code>harness bench --task hooks</code>. Blocking hooks &gt;500ms get demoted.</p>
+    <h3>Memory too big</h3>
+    <pre><code>harness memory prune --dry-run
+harness memory prune
+wc -w memory/MEMORY.md  # keep &lt; ~2000 words</code></pre>
+    <h3>Python cli not found</h3>
+    <p>Use <code>python3 -m pip install -e .</code> and ensure <code>~/Library/Python/3.9/bin</code> is on PATH, or use <code>pipx</code>.</p>
+
+    <h2 id="faq">FAQ</h2>
+    <h3>Do I need all harnesses?</h3>
+    <p>No. Pick one with <code>harness init --harness claude</code> or let <code>--auto</code> detect.</p>
+    <h3>Can I remove harness?</h3>
+    <p>Yes. Adapters are just copies/transpiles. Delete <code>.harness/</code>, <code>AGENTS.md</code> stays, project still works.</p>
+    <h3>Does it work on existing repos?</h3>
+    <p>Yes, <code>harness init --migrate</code> adds without overwriting. Review with <code>git status</code> and <code>harness doctor --fix</code>.</p>
+    <h3>Where do I report vulns?</h3>
+    <p>DM <code>@theelephantcoder</code> on Discord or open a GitHub issue and note it's private. Don't include details in a public issue.</p>
+
+    <h2 id="contributing">Contributing</h2>
+    <p>Small PRs are easiest to review. Keep <code>SKILL.md</code> under ~4k tokens, hooks under 100ms p99.</p>
+    <pre><code>git clone https://github.com/TheElephantCoder/agent-harness.git
+cd agent-harness
+npm install
+pip install -e ".[dev]"
+harness doctor
+harness bench --quick
+harness security audit</code></pre>
+    <ul>
+      <li>Adding a skill: <code>harness skill create my-skill</code>, edit <code>skills/my-skill/SKILL.md</code>, <code>harness doctor --fix</code></li>
+      <li>Adding an instinct: <code>harness instinct create my-instinct --event post-edit</code>, keep overhead low</li>
+      <li>Adding an adapter: <code>adapters/&lt;name&gt;/adapter.json</code> + <code>transpile.sh</code></li>
+    </ul>
+    <p>Performance PRs should include <code>harness bench --compare main</code> before/after.</p>
+
+    <p class="muted small" style="margin-top:48px">Last updated from <code>main</code>. Edit docs in <code>docs/</code> on main and they get copied here for the site. This page mirrors those files but with side nav for browsing.</p>
+  </main>
+</div>
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <span>MIT © TheElephantCoder</span>
+    <span><a href="https://github.com/TheElephantCoder/agent-harness">GitHub</a> · <a href="../">Home</a></span>
+  </div>
+</footer>
+<script>
+(function(){
+  const key='ah-theme';
+  const btn=document.getElementById('theme-toggle');
+  const mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function apply(t){
+    if(t==='dark') document.documentElement.setAttribute('data-theme','dark');
+    else if(t==='light') document.documentElement.setAttribute('data-theme','light');
+    else document.documentElement.removeAttribute('data-theme');
+  }
+  const saved=localStorage.getItem(key);
+  if(saved) apply(saved);
+  mq.addEventListener('change',()=>{
+    if(!localStorage.getItem(key)) apply(mq.matches ? 'dark' : 'light');
+  });
+  btn.addEventListener('click',()=>{
+    const cur=document.documentElement.getAttribute('data-theme') || (mq.matches ? 'dark' : 'light');
+    const next=cur==='dark' ? 'light' : 'dark';
+    localStorage.setItem(key,next);
+    apply(next);
+  });
+})();
+(function(){
+  const links=[...document.querySelectorAll('.docs-sidebar a')];
+  const sections=links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        links.forEach(l=>l.classList.remove('active'));
+        const active=links.find(l=>l.getAttribute('href')==='#'+e.target.id);
+        if(active) active.classList.add('active');
+      }
+    });
+  },{rootMargin:'-40% 0px -55% 0px', threshold:0});
+  sections.forEach(s=>obs.observe(s));
+  // smooth scroll offset for sticky header
+  links.forEach(l=>{
+    l.addEventListener('click',e=>{
+      e.preventDefault();
+      const id=l.getAttribute('href');
+      const el=document.querySelector(id);
+      if(el) window.scrollTo({top: el.offsetTop - 68, behavior:'smooth'});
+      history.replaceState(null,'',id);
+    });
+  });
+})();
+</script>
+</body>
+</html>
