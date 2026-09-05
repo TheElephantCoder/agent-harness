@@ -136,3 +136,8 @@ pre code{font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:13
 .foot{border-top:1px solid var(--line);padding:18px 0;color:var(--muted);font-size:13px}
 .foot-inner{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 @media (max-width:600px){.install code{font-size:12px}}
+
+.asterisk{color:var(--muted);text-decoration:none;margin-left:2px;font-size:.8em}
+.asterisk:hover{color:var(--fg)}
+.perf-note{border-top:1px solid var(--line);padding:18px 0 6px}
+.perf-note p{margin:0}

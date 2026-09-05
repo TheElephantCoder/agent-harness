@@ -47,7 +47,7 @@
 
 <section class="stats">
   <div class="wrap stats-grid">
-    <div><strong>180s → 13s</strong><span>cold start on 250k LOC</span></div>
+    <div><strong>180s → 13s<a class="asterisk" href="#perf-note" aria-label="see performance note">*</a></strong><span>cold start on 250k LOC</span></div>
     <div><strong>~65%</strong><span>fewer tokens per task</span></div>
     <div><strong>~40%</strong><span>fewer tool calls</span></div>
     <div><strong>&lt;100ms</strong><span>hook p99 overhead</span></div>
@@ -188,6 +188,12 @@ harness doctor --fix</code></pre>
   </div>
 </section>
 </main>
+
+<section class="perf-note">
+  <div class="wrap">
+    <p id="perf-note" class="muted small">* Rough numbers on a 250k LOC TypeScript monorepo, M2 Max, 100 runs. Your results will vary by machine, repo size and harness. Run <code>harness bench --quick</code> to measure your own.</p>
+  </div>
+</section>
 
 <footer class="foot">
   <div class="wrap foot-inner">
