@@ -139,5 +139,8 @@ pre code{font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:13
 
 .asterisk{color:var(--muted);text-decoration:none;margin-left:2px;font-size:.8em}
 .asterisk:hover{color:var(--fg)}
-.perf-note{border-top:1px solid var(--line);padding:18px 0 6px}
+.perf-note{border-top:1px solid var(--line);padding:18px 0 6px;scroll-margin-bottom:24px}
 .perf-note p{margin:0}
+@media (prefers-reduced-motion: no-preference){
+  html{scroll-behavior:smooth}
+}
