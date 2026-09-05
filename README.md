@@ -108,7 +108,7 @@ npm install -g @theelephantcoder/agent-harness
 # or without install
 npx @theelephantcoder/agent-harness init
 
-# python if you prefer
+# python if you prefer (on Ubuntu 24.04 bare pip is blocked by PEP 668, use pipx or a venv)
 pip install agent-harness-cli
 pipx install agent-harness-cli
 
@@ -117,8 +117,8 @@ echo "deb [trusted=yes] https://theelephantcoder.github.io/agent-harness/apt sta
 sudo apt update
 sudo apt install agent-harness
 # or direct .deb from Releases
-wget https://github.com/TheElephantCoder/agent-harness/releases/latest/download/agent-harness_0.1.1_all.deb
-sudo apt install ./agent-harness_0.1.1_all.deb
+wget https://github.com/TheElephantCoder/agent-harness/releases/latest/download/agent-harness_0.1.2_all.deb
+sudo apt install ./agent-harness_0.1.2_all.deb
 
 # brew (macOS + Linuxbrew): same repo is the tap, no second repo needed
 brew tap TheElephantCoder/agent-harness
