@@ -15,9 +15,10 @@
 .docs-sidebar a{display:block;padding:7px 10px;border-radius:8px;text-decoration:none;font-size:13px;line-height:1.4;color:var(--muted);border:1px solid transparent}
 .docs-sidebar a:hover{background:var(--code);color:var(--fg)}
 .docs-sidebar a.active{background:var(--fg);color:var(--bg);border-color:var(--fg)}
-.docs-content{padding:32px 28px;max-width:860px}
+.docs-content{padding:32px 28px;max-width:860px;min-width:0}
 @media (max-width:980px){.docs-content{padding:22px 16px}}
-.docs-content h1{font-size:32px;letter-spacing:-.03em;margin:0 0 8px}
+@media (max-width:560px){.docs-content{padding:18px 14px} .docs-content h1{font-size:26px} .docs-content h2{font-size:19px;margin:32px 0 10px;padding-top:16px}}
+.docs-content h1{font-size:clamp(26px,4vw,32px);letter-spacing:-.03em;margin:0 0 8px;overflow-wrap:break-word}
 .docs-content h2{font-size:22px;letter-spacing:-.02em;margin:48px 0 14px;padding-top:22px;border-top:1px solid var(--line)}
 .docs-content h2:first-of-type{border-top:0;padding-top:0}
 .docs-content h3{font-size:15px;margin:24px 0 10px}
@@ -28,8 +29,10 @@
 .docs-content pre{margin:14px 0}
 .docs-content .callout{border:1px solid var(--line);background:color-mix(in srgb, var(--card) 88%, var(--bg));border-radius:12px;padding:14px 16px;margin:18px 0;max-width:72ch}
 .docs-content .callout strong{font-size:13px}
-.docs-content table{width:100%;border-collapse:collapse;margin:14px 0;max-width:72ch;font-size:13px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.docs-content table{display:block;width:100%;max-width:72ch;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;margin:14px 0;font-size:13px;border-collapse:collapse}
+.docs-content thead,.docs-content tbody{display:table;width:100%;min-width:520px}
 .docs-content th,.docs-content td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+@media (max-width:560px){.docs-content table{font-size:12px} .docs-content th,.docs-content td{padding:8px 10px} .docs-content pre{font-size:12px}}
 .docs-content th{background:var(--card);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .docs-content kbd{border:1px solid var(--line);background:var(--card);padding:1px 6px;border-radius:6px;font-family:ui-monospace,monospace;font-size:12px}
 .pager{display:flex;gap:12px;justify-content:space-between;margin:28px 0 8px;padding-top:18px;border-top:1px solid var(--line);max-width:72ch}
@@ -38,7 +41,7 @@
 .pager a span:first-child{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .pager a strong{font-size:14px;letter-spacing:-.01em}
 .pager a.muted{visibility:hidden}
-@media (max-width:600px){.pager{flex-direction:column}}
+@media (max-width:600px){.pager{flex-direction:column} .pager a{padding:12px 14px} .docs-sidebar{padding:14px 10px} .docs-sidebar a{padding:9px 10px;min-height:40px} .docs-content .callout{padding:12px 14px}}
 </style>
 </head>
 <body>
