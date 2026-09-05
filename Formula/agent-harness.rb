@@ -1,8 +1,8 @@
 class AgentHarness < Formula
   desc "Performance layer for coding agents"
   homepage "https://github.com/TheElephantCoder/agent-harness"
-  url "https://github.com/TheElephantCoder/agent-harness/archive/refs/tags/v0.1.1.tar.gz"
-  sha256 "bb0c84d8fa75fe401b9292addb030c599b8a49d7212bfabcd982318fb424f67b"
+  url "https://github.com/TheElephantCoder/agent-harness/archive/refs/tags/v0.1.2.tar.gz"
+  sha256 "dd5339bdf6a1408b40aa0c6ad58984f83d044fd326a364e7f5457ddf4e4f780c"
   license "MIT"
   head "https://github.com/TheElephantCoder/agent-harness.git", branch: "main"
 
