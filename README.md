@@ -1,6 +1,6 @@
 # agent-harness
 
-A performance layer for coding agents. Skills, instincts, memory, security, and a research-first workflow that works the same in Claude Code, Codex, Opencode, Cursor, Kiro CLI, Kiro and anything else.
+A performance layer for coding agents. Skills, instincts, memory, security, and a research-first workflow that works the same in Claude Code, Codex, Opencode, Cursor, Kiro CLI, Kiro, Cline, Aider and anything else.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-black)](package.json)
@@ -77,6 +77,8 @@ You write skills and memory once, harness transpiles to each tool.
 - Cursor -> `.cursor/rules/*.mdc`
 - Kiro CLI -> `.kiro/skills/` + `.kiro/settings.json`
 - Kiro (Desktop) -> `.kiro/steering/` + `.kiro/settings.json`
+- Cline -> `.clinerules/*.md` + `AGENTS.md`
+- Aider -> `.aider.conf.yml` + `CONVENTIONS.md`
 - anything else -> `.harness/` + `AGENTS.md`
 
 ```
@@ -92,6 +94,8 @@ agent-harness/
     cursor/
     kiro-cli/
     kiro-desktop/
+    cline/
+    aider/
 ```
 
 See [`adapters/`](adapters/) for how the transpilation works.
@@ -197,8 +201,8 @@ harness upgrade
 ## How it fits together
 
 ```
-adapter layer:  Claude Code | Codex | Opencode | Cursor | Kiro CLI | Kiro
-                ---------------------------------------------------------
+adapter layer:  Claude Code | Codex | Opencode | Cursor | Kiro CLI | Kiro | Cline | Aider
+                -------------------------------------------------------------------------
 harness core:   skills | instincts | memory | security | research
                 cache + batch + compress (perf bits)
                 ---------------------------------------------------------

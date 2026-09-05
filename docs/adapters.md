@@ -6,6 +6,8 @@ One source, every harness. Harness just transpiles `skills/` and `instincts/` to
 - Opencode -> `opencode.json` and `.opencode/skills/`
 - Codex -> `.codex/config.toml` and `.codex/hooks.json`
 - Cursor -> `.cursor/rules/*.mdc` and `.cursor/hooks.json`
+- Cline -> `.clinerules/*.md` and `AGENTS.md` (no hooks, instincts become an always-on rule)
+- Aider -> `.aider.conf.yml` and `CONVENTIONS.md` (skills merge in as sections, `lint-cmd`/`test-cmd` carry the post-edit instinct)
 - generic -> `.harness/` plus `AGENTS.md`
 
 `harness init` copies `skills/*/SKILL.md` to the right place, merges `instincts/*/hook.json` into the right hooks config, and symlinks or copies `AGENTS.md` and `MEMORY.md`.

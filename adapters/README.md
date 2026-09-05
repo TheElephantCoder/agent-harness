@@ -10,6 +10,8 @@ adapters/
   cursor/       -> .cursor/rules/*.mdc
   kiro-cli/     -> .kiro/skills + .kiro/settings.json
   kiro-desktop/ -> .kiro/steering + .kiro/settings.json (Kiro)
+  cline/        -> .clinerules/*.md + AGENTS.md (no hooks, instincts become a rule)
+  aider/        -> .aider.conf.yml + CONVENTIONS.md (skills merge in, lint/test cmds)
   generic/      -> AGENTS.md + .harness/
 ```
 

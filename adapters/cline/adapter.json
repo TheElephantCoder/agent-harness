@@ -1,0 +1,10 @@
+{
+  "name": "cline",
+  "displayName": "Cline",
+  "skillPath": ".clinerules",
+  "hookPath": ".clinerules/00-harness-instincts.md",
+  "memoryPath": "MEMORY.md",
+  "agentsPath": "AGENTS.md",
+  "transpile": "./transpile.sh",
+  "notes": "Cline has no hooks system; instincts ship as an always-on rule file. Memory uses native AGENTS.md support (v3.37.0+)."
+}

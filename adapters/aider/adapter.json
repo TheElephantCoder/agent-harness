@@ -1,0 +1,12 @@
+{
+  "name": "aider",
+  "displayName": "Aider",
+  "skillPath": "CONVENTIONS.md",
+  "hookPath": ".aider.conf.yml",
+  "memoryPath": "MEMORY.md",
+  "agentsPath": "AGENTS.md",
+  "configPath": ".aider.conf.yml",
+  "conventionsPath": "CONVENTIONS.md",
+  "transpile": "./transpile.sh",
+  "notes": "Skills merge into CONVENTIONS.md as sections and are listed under read: in config. Post-edit instinct maps to lint-cmd/test-cmd; pre-tool and research-first have no equivalent and are documented as conventions."
+}
