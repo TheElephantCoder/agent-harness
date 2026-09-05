@@ -124,7 +124,7 @@
     <p class="muted">Everything for running agent-harness in your repos. This is the long version. <code>AGENTS.md</code> is the short one you keep in the repo. This page covers install (npm, brew, pip, apt, source), the five building blocks, adapters for every harness including Kiro, full CLI, performance and brew. Read it end to end once, then use the sidebar to jump. Use the prev/next at the bottom of each section instead of scrolling through everything.</p>
 
     <h2 id="overview">Overview</h2>
-    <p>agent-harness is a small local layer that makes coding agents fast, consistent and safe across harnesses. It doesn't replace Claude Code, Codex, Opencode, Cursor, Kiro CLI or Kiro. It sits on top and gives them the same skills, hooks, memory, guardrails and research workflow. You write once in <code>skills/</code>, <code>instincts/</code>, <code>memory/</code>, <code>security/</code>, <code>research/</code> and it transpiles to each tool.</p>
+    <p>agent-harness is a small local layer that makes coding agents fast, consistent and safe across harnesses. It doesn't replace Claude Code, Codex, Opencode, Cursor, Kiro CLI, Kiro, Cline or Aider. It sits on top and gives them the same skills, hooks, memory, guardrails and research workflow. You write once in <code>skills/</code>, <code>instincts/</code>, <code>memory/</code>, <code>security/</code>, <code>research/</code> and it transpiles to each tool.</p>
     <p>I built it because every new session re-read the whole codebase for 2-3 minutes, re-researched the same question, then guessed at APIs. That burns tokens and time. Harness caches what matters and enforces a research step before edits so you don't pay for the same work twice.</p>
     <div class="callout"><strong>What it optimizes:</strong> time to useful (cold start), tokens per task, tool calls per task, and hook latency. All numbers below are measured with <code>harness bench</code>, not estimates. See <a href="#performance">Performance</a> for how to repro.</div>
     <h3>When to use it</h3>
@@ -242,6 +242,8 @@ Project files + git</code></pre>
     codex/adapter.json
     opencode/adapter.json
     cursor/adapter.json
+    cline/adapter.json + transpile.sh
+    aider/adapter.json + transpile.sh
     generic/adapter.json
   docs/
     adapters.md              # adapter docs (markdown, on main)
@@ -637,6 +639,8 @@ Keep it focused. Put longer references in references/</code></pre>
       <li>Cursor → <code>.cursor/hooks.json</code></li>
       <li>Kiro CLI → <code>.kiro/settings.json:hooks</code> + <code>.kiro/skills/</code></li>
       <li>Kiro → <code>.kiro/settings.json:hooks</code> + <code>.kiro/steering/</code></li>
+      <li>Cline → <code>.clinerules/00-harness-instincts.md</code> rule (no hooks system)</li>
+      <li>Aider → <code>lint-cmd</code>/<code>test-cmd</code> in <code>.aider.conf.yml</code></li>
     </ul>
     <h3>Creating</h3>
     <pre><code>harness instinct create my-instinct --event post-edit
@@ -895,6 +899,8 @@ Risks: extra DB hits, mitigated by 60s revalidate on non-auth routes.</code></pr
       <tr><td>Cursor</td><td><code>.cursor/rules/*.mdc</code></td><td><code>.cursor/rules/</code></td><td><code>.cursor/hooks.json</code></td><td><code>harness init --harness cursor</code></td></tr>
       <tr><td>Kiro CLI</td><td><code>.kiro/settings.json</code></td><td><code>.kiro/skills/&lt;name&gt;/</code></td><td><code>.kiro/settings.json:hooks</code></td><td><code>harness init --harness kiro-cli</code></td></tr>
       <tr><td>Kiro</td><td><code>.kiro/settings.json</code></td><td><code>.kiro/steering/&lt;name&gt;.md</code></td><td><code>.kiro/settings.json:hooks</code></td><td><code>harness init --harness kiro-desktop</code></td></tr>
+      <tr><td>Cline</td><td><code>AGENTS.md</code></td><td><code>.clinerules/&lt;name&gt;.md</code></td><td>n/a (instincts ship as a rule)</td><td><code>harness init --harness cline</code></td></tr>
+      <tr><td>Aider</td><td><code>.aider.conf.yml</code></td><td><code>CONVENTIONS.md</code> sections</td><td><code>lint-cmd</code>/<code>test-cmd</code></td><td><code>harness init --harness aider</code></td></tr>
       <tr><td>Generic</td><td><code>.harness/</code></td><td><code>.harness/skills/</code></td><td><code>.harness/hooks.json</code></td><td><code>harness init --harness generic</code></td></tr>
     </table>
     <h3>How transpilation works</h3>
@@ -915,6 +921,8 @@ Risks: extra DB hits, mitigated by 60s revalidate on non-auth routes.</code></pr
     opencode/adapter.json
     codex/adapter.json
     cursor/adapter.json
+    cline/adapter.json
+    aider/adapter.json
     generic/adapter.json</code></pre>
     <h3>Verifying</h3>
     <pre><code>harness doctor
@@ -943,6 +951,8 @@ harness doctor --fix</code></pre>
       <li>Claude hooks live in <code>.claude/settings.json</code>, not <code>.claude.json</code>.</li>
       <li>Cursor uses <code>.cursor/rules/*.mdc</code> with <code>alwaysApply: true</code> frontmatter.</li>
       <li>Codex uses <code>.codex/config.toml</code> but we shim hooks via <code>.codex/hooks.json</code>.</li>
+      <li>Cline reads the <code>.clinerules/</code> directory, not a single <code>.clinerules</code> file — and <code>AGENTS.md</code> at root works natively.</li>
+      <li>Aider only picks up conventions listed under <code>read:</code> in <code>.aider.conf.yml</code> — adding the file alone isn't enough.</li>
       <li>Some harnesses cache skills — run <code>harness doctor --fix</code> after editing a skill to bust the cache.</li>
     </ul>
     <div class="pager">
