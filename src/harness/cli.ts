@@ -87,7 +87,7 @@ async function main() {
         `[harness] init --harness=${harness} ${auto ? "--auto" : ""}`,
       );
       console.log(
-        "[harness] copying skills to adapters/claude, opencode, codex, cursor...",
+        "[harness] copying skills to adapters/claude, opencode, codex, cursor, kiro-cli, kiro-desktop...",
       );
       console.log(
         "[harness] writing .harness/config.json, AGENTS.md, MEMORY.md...",
@@ -103,7 +103,7 @@ async function main() {
       console.log("[harness] ok - memory: MEMORY.md 2.1k tokens");
       console.log("[harness] ok - security: no secrets in staged");
       console.log(
-        "[harness] ok - adapters: claude, opencode, codex, cursor in sync",
+        "[harness] ok - adapters: claude, opencode, codex, cursor, kiro-cli, kiro-desktop in sync",
       );
       break;
     }

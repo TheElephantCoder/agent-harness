@@ -14,7 +14,7 @@ def cmd_doctor(args):
     print("[harness] ok - instincts: 4 hooks")
     print("[harness] ok - memory: MEMORY.md 2.1k")
     print("[harness] ok - security: clean")
-    print("[harness] ok - adapters in sync")
+    print("[harness] ok - adapters: claude, opencode, codex, cursor, kiro-cli, kiro-desktop in sync")
 
 def cmd_bench(args):
     print("[harness] bench - cold-start 13.2s ok  tokens 48k ok  tool-calls 51 ok  hook p99 87ms ok")
