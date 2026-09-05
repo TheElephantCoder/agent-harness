@@ -30,9 +30,9 @@
 <section class="hero">
   <div class="blob" aria-hidden="true"></div>
   <div class="wrap">
-    <p class="eyebrow">Claude Code • Codex • Opencode • Cursor</p>
+    <p class="eyebrow">Claude Code • Codex • Opencode • Cursor • Kiro CLI • Kiro</p>
     <h1>Your agents should remember things.</h1>
-    <p class="lead">Skills, instincts, memory, security and research-first — one layer that works the same in every harness. Less re-reading, fewer wasted tokens, no guessing at APIs.</p>
+    <p class="lead">Skills, instincts, memory, security and research-first — one layer that works the same in every harness, including Kiro. Less re-reading, fewer wasted tokens, no guessing at APIs.</p>
     <div class="hero-actions">
       <a class="btn" href="#start">Quick start</a>
       <a class="btn ghost" href="https://github.com/TheElephantCoder/agent-harness">View source</a>
@@ -41,7 +41,7 @@
       <code><span class="dim">$</span> npx @theelephantcoder/agent-harness init --auto</code>
       <button class="copy" data-copy="npx @theelephantcoder/agent-harness init --auto" aria-label="copy">copy</button>
     </div>
-    <p class="sub">npm • pip • brew &nbsp;·&nbsp; MIT &nbsp;·&nbsp; works on existing projects with <code>harness init --migrate</code></p>
+    <p class="sub">npm • pip • apt • brew &nbsp;·&nbsp; MIT &nbsp;·&nbsp; works on existing projects with <code>harness init --migrate</code></p>
   </div>
 </section>
 
@@ -93,6 +93,8 @@
       <div><strong>Opencode</strong><span>opencode.json</span></div>
       <div><strong>Codex</strong><span>.codex/hooks.json</span></div>
       <div><strong>Cursor</strong><span>.cursor/rules/*.mdc</span></div>
+      <div><strong>Kiro CLI</strong><span>.kiro/skills/ + .kiro/settings.json</span></div>
+      <div><strong>Kiro</strong><span>.kiro/steering/ + .kiro/settings.json</span></div>
       <div><strong>Generic</strong><span>.harness/ + AGENTS.md</span></div>
     </div>
   </div>
@@ -106,6 +108,7 @@
         <button class="tab active" data-tab="npm">npm</button>
         <button class="tab" data-tab="brew">brew</button>
         <button class="tab" data-tab="pip">pip</button>
+        <button class="tab" data-tab="apt">apt</button>
         <button class="tab" data-tab="source">source</button>
       </div>
       <div class="panel active" id="panel-npm"><pre><code>npm install -g @theelephantcoder/agent-harness
@@ -117,6 +120,10 @@ brew install agent-harness
 harness doctor</code></pre></div>
       <div class="panel" id="panel-pip"><pre><code>pip install agent-harness-cli
 pipx install agent-harness-cli
+harness doctor</code></pre></div>
+      <div class="panel" id="panel-apt"><pre><code>echo "deb [trusted=yes] https://theelephantcoder.github.io/agent-harness/apt stable main" | sudo tee /etc/apt/sources.list.d/agent-harness.list
+sudo apt update
+sudo apt install agent-harness
 harness doctor</code></pre></div>
       <div class="panel" id="panel-source"><pre><code>git clone https://github.com/TheElephantCoder/agent-harness.git
 cd agent-harness

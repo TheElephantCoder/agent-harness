@@ -118,10 +118,10 @@
   <main class="docs-content">
 
     <h1>Documentation</h1>
-    <p class="muted">Everything for running agent-harness in your repos. This is the long version. <code>AGENTS.md</code> is the short one you keep in the repo. This page covers install, the five building blocks, adapters for every harness, full CLI, performance and brew. Read it end to end once, then use the sidebar to jump. Use the prev/next at the bottom of each section instead of scrolling through everything.</p>
+    <p class="muted">Everything for running agent-harness in your repos. This is the long version. <code>AGENTS.md</code> is the short one you keep in the repo. This page covers install (npm, brew, pip, apt, source), the five building blocks, adapters for every harness including Kiro, full CLI, performance and brew. Read it end to end once, then use the sidebar to jump. Use the prev/next at the bottom of each section instead of scrolling through everything.</p>
 
     <h2 id="overview">Overview</h2>
-    <p>agent-harness is a small local layer that makes coding agents fast, consistent and safe across harnesses. It doesn't replace Claude Code, Codex, Opencode or Cursor. It sits on top and gives them the same skills, hooks, memory, guardrails and research workflow. You write once in <code>skills/</code>, <code>instincts/</code>, <code>memory/</code>, <code>security/</code>, <code>research/</code> and it transpiles to each tool.</p>
+    <p>agent-harness is a small local layer that makes coding agents fast, consistent and safe across harnesses. It doesn't replace Claude Code, Codex, Opencode, Cursor, Kiro CLI or Kiro. It sits on top and gives them the same skills, hooks, memory, guardrails and research workflow. You write once in <code>skills/</code>, <code>instincts/</code>, <code>memory/</code>, <code>security/</code>, <code>research/</code> and it transpiles to each tool.</p>
     <p>I built it because every new session re-read the whole codebase for 2-3 minutes, re-researched the same question, then guessed at APIs. That burns tokens and time. Harness caches what matters and enforces a research step before edits so you don't pay for the same work twice.</p>
     <div class="callout"><strong>What it optimizes:</strong> time to useful (cold start), tokens per task, tool calls per task, and hook latency. All numbers below are measured with <code>harness bench</code>, not estimates. See <a href="#performance">Performance</a> for how to repro.</div>
     <h3>When to use it</h3>
@@ -334,6 +334,13 @@ brew install --HEAD TheElephantCoder/agent-harness/agent-harness
 # local, from this checkout
 brew install --build-from-source Formula/agent-harness.rb</code></pre>
     <p>Same repo is the tap so you don't need a separate <code>homebrew-tap</code> repo. After the one-time <code>brew tap</code>, installs are just <code>brew install agent-harness</code>. If you want a fully tap-less install, submit to <code>homebrew/core</code> via <code>brew bump-formula-pr</code> — see <a href="#brew">Brew</a>.</p>
+    <h3>apt (Ubuntu/Debian)</h3>
+    <pre><code>echo "deb [trusted=yes] https://theelephantcoder.github.io/agent-harness/apt stable main" | sudo tee /etc/apt/sources.list.d/agent-harness.list
+sudo apt update
+sudo apt install agent-harness
+harness --version
+harness doctor</code></pre>
+    <p>Or direct <code>.deb</code> from Releases if you don't want the repo. On Ubuntu 22.04 the stock <code>nodejs</code> is too old, grab Node 20 first via NodeSource. See <code>docs/apt.md</code> on <code>main</code> for what's inside the package.</p>
     <h3>pip / pipx</h3>
     <pre><code>pip install agent-harness-cli
 pipx install agent-harness-cli
@@ -625,6 +632,8 @@ Keep it focused. Put longer references in references/</code></pre>
       <li>Opencode → <code>opencode.json:hooks</code></li>
       <li>Codex → <code>.codex/hooks.json</code></li>
       <li>Cursor → <code>.cursor/hooks.json</code></li>
+      <li>Kiro CLI → <code>.kiro/settings.json:hooks</code> + <code>.kiro/skills/</code></li>
+      <li>Kiro → <code>.kiro/settings.json:hooks</code> + <code>.kiro/steering/</code></li>
     </ul>
     <h3>Creating</h3>
     <pre><code>harness instinct create my-instinct --event post-edit
@@ -881,6 +890,8 @@ Risks: extra DB hits, mitigated by 60s revalidate on non-auth routes.</code></pr
       <tr><td>Opencode</td><td><code>opencode.json</code></td><td><code>.opencode/skills/&lt;name&gt;/</code></td><td><code>opencode.json:hooks</code></td><td><code>harness init --harness opencode</code></td></tr>
       <tr><td>Codex</td><td><code>.codex/config.toml</code></td><td><code>.codex/skills/&lt;name&gt;/</code></td><td><code>.codex/hooks.json</code></td><td><code>harness init --harness codex</code></td></tr>
       <tr><td>Cursor</td><td><code>.cursor/rules/*.mdc</code></td><td><code>.cursor/rules/</code></td><td><code>.cursor/hooks.json</code></td><td><code>harness init --harness cursor</code></td></tr>
+      <tr><td>Kiro CLI</td><td><code>.kiro/settings.json</code></td><td><code>.kiro/skills/&lt;name&gt;/</code></td><td><code>.kiro/settings.json:hooks</code></td><td><code>harness init --harness kiro-cli</code></td></tr>
+      <tr><td>Kiro</td><td><code>.kiro/settings.json</code></td><td><code>.kiro/steering/&lt;name&gt;.md</code></td><td><code>.kiro/settings.json:hooks</code></td><td><code>harness init --harness kiro-desktop</code></td></tr>
       <tr><td>Generic</td><td><code>.harness/</code></td><td><code>.harness/skills/</code></td><td><code>.harness/hooks.json</code></td><td><code>harness init --harness generic</code></td></tr>
     </table>
     <h3>How transpilation works</h3>
@@ -1129,6 +1140,7 @@ harness bench --compare origin/main</code></pre>
     </div>
 
     <h2 id="brew">Brew</h2>
+    <p>Same repo is the tap. No second repo needed. On Linux, the same tap works via Linuxbrew, or use apt above if you prefer native <code>.deb</code> installs.</p>
     <p>Same repo is the tap. No second repo needed. Formula is <code>Formula/agent-harness.rb</code>, depends on <code>node</code>, installs via <code>npm install</code> with Homebrew's <code>std_npm_install_args</code> and shims <code>harness</code> into <code>bin</code>.</p>
     <pre><code>brew tap TheElephantCoder/agent-harness
 brew install agent-harness
