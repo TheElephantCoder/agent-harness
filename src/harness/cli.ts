@@ -2,7 +2,7 @@
 // harness cli - small shim, real logic lives in the scripts and hooks
 // node >=20
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.2";
 
 type Command =
   | "init"

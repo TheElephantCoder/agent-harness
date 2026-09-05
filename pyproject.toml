@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-harness-cli"
-version = "0.1.0"
+version = "0.1.2"
 description = "Performance layer for coding agents. Skills, instincts, memory, security and research-first for Claude Code, Codex, Opencode, Cursor, Kiro CLI, Kiro."
 readme = "README.md"
 requires-python = ">=3.9"

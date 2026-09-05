@@ -99,7 +99,7 @@ See [`adapters/`](adapters/) for how the transpilation works.
 ## Quick start
 
 ```bash
-# npm
+# npm (macOS + Linux)
 npm install -g @theelephantcoder/agent-harness
 # or without install
 npx @theelephantcoder/agent-harness init
@@ -108,7 +108,15 @@ npx @theelephantcoder/agent-harness init
 pip install agent-harness-cli
 pipx install agent-harness-cli
 
-# brew (macOS) — same repo is the tap, no second repo needed
+# apt (Ubuntu/Debian) — repo hosted on Pages, no PPA needed
+echo "deb [trusted=yes] https://theelephantcoder.github.io/agent-harness/apt stable main" | sudo tee /etc/apt/sources.list.d/agent-harness.list
+sudo apt update
+sudo apt install agent-harness
+# or direct .deb from Releases
+wget https://github.com/TheElephantCoder/agent-harness/releases/latest/download/agent-harness_0.1.1_all.deb
+sudo apt install ./agent-harness_0.1.1_all.deb
+
+# brew (macOS + Linuxbrew) — same repo is the tap, no second repo needed
 brew tap TheElephantCoder/agent-harness
 brew install agent-harness
 # now it's just
@@ -121,11 +129,19 @@ brew install --HEAD TheElephantCoder/agent-harness/agent-harness
 # local, from this checkout
 brew install --build-from-source Formula/agent-harness.rb
 
-# from source
+# from source (macOS + Linux, needs Node >=20)
 git clone https://github.com/TheElephantCoder/agent-harness.git
 cd agent-harness
 npm install
+npm run build
 npm link
+```
+
+On Ubuntu, if `node --version` is under 20, grab a newer Node first:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs git bash python3
 ```
 
 In your project:

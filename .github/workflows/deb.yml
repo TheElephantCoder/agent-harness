@@ -1,0 +1,94 @@
+name: deb
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "version e.g. 0.1.1 (defaults to package.json)"
+        required: false
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: version
+        id: v
+        run: |
+          if [ "${{ inputs.version }}" != "" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          fi
+          cat $GITHUB_OUTPUT
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: node dist/harness/cli.js --version
+      - run: node dist/harness/cli.js doctor
+      - run: bash scripts/build-deb.sh ${{ steps.v.outputs.version }}
+      - run: ls -lh dist-deb/
+      - name: upload to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-deb/*.deb
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: dist-deb/*.deb
+
+  apt-repo:
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          name: deb
+          path: /tmp/debs
+      - name: update apt repo on gh-pages
+        run: |
+          set -euo pipefail
+          ls -lh /tmp/debs/
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          rm -rf /tmp/pages
+          git clone --depth 1 --branch gh-pages https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git /tmp/pages
+          mkdir -p /tmp/pages/apt/pool /tmp/pages/apt/dists/stable/main/binary-all /tmp/pages/apt/dists/stable/main/binary-amd64
+          cp /tmp/debs/*.deb /tmp/pages/apt/pool/
+          cd /tmp/pages/apt
+          # Packages for arch all + amd64 (all packages show up in both)
+          dpkg-scanpackages --arch all pool /dev/null > dists/stable/main/binary-all/Packages
+          gzip -9c dists/stable/main/binary-all/Packages > dists/stable/main/binary-all/Packages.gz
+          dpkg-scanpackages --arch amd64 pool /dev/null > dists/stable/main/binary-amd64/Packages
+          gzip -9c dists/stable/main/binary-amd64/Packages > dists/stable/main/binary-amd64/Packages.gz
+          # simple Release file (unsigned, users use trusted=yes)
+          cat > dists/stable/Release <<RELEASE
+          Origin: agent-harness
+          Label: agent-harness
+          Suite: stable
+          Codename: stable
+          Architectures: all amd64 arm64
+          Components: main
+          Description: agent-harness apt repo
+          RELEASE
+          echo "Date: $(date -Ru)" >> dists/stable/Release
+          cd /tmp/pages
+          git add apt/
+          git commit -m "apt repo for ${{ github.ref_name }}" || echo "nothing to commit"
+          git push origin gh-pages

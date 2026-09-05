@@ -1,7 +1,7 @@
 # harness python shim, mirrors cli.ts
 import argparse
 
-VERSION = "0.1.0"
+VERSION = "0.1.2"
 
 def cmd_init(args):
     print(f"[harness] init --harness={args.harness} {'--auto' if args.auto else ''}")
