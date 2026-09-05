@@ -3,6 +3,6 @@ agent-harness (0.1.2-1) UNRELEASED; urgency=medium
   * Initial release. Performance layer for coding agents with
     skills, instincts, memory, security and research-first
     for Claude Code, Codex, Opencode, Cursor, Kiro CLI and Kiro.
-    Closes: #XXXXXX (ITP, to be filled when filing).
+    Closes: #1146736.
 
  -- TheElephantCoder <157982101+TheElephantCoder@users.noreply.github.com>  Fri, 05 Sep 2026 00:00:00 +0000
