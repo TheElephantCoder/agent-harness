@@ -21,7 +21,7 @@ class AgentHarness < Formula
   end
 
   test do
-    assert_match "0.1.1", shell_output("#{bin}/harness --version")
+    assert_match "0.1.2", shell_output("#{bin}/harness --version")
     system bin/"harness", "doctor"
   end
 end
