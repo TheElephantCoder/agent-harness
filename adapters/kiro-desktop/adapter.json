@@ -1,0 +1,11 @@
+{
+  "name": "kiro-desktop",
+  "displayName": "Kiro",
+  "skillPath": ".kiro/steering",
+  "hookPath": ".kiro/settings.json",
+  "memoryPath": ".kiro/MEMORY.md",
+  "agentsPath": ".kiro/AGENTS.md",
+  "steeringPath": ".kiro/steering",
+  "specsPath": ".kiro/specs",
+  "transpile": "./transpile.sh"
+}

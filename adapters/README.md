@@ -4,11 +4,13 @@ One source for `skills/` and `instincts/`, transpiled to each harness.
 
 ```
 adapters/
-  claude/     -> .claude/settings.json + .claude/skills/
-  codex/      -> .codex/hooks.json
-  opencode/   -> opencode.json
-  cursor/     -> .cursor/rules/*.mdc
-  generic/    -> AGENTS.md + .harness/
+  claude/       -> .claude/settings.json + .claude/skills/
+  codex/        -> .codex/hooks.json
+  opencode/     -> opencode.json
+  cursor/       -> .cursor/rules/*.mdc
+  kiro-cli/     -> .kiro/skills + .kiro/settings.json
+  kiro-desktop/ -> .kiro/steering + .kiro/settings.json (Kiro)
+  generic/      -> AGENTS.md + .harness/
 ```
 
 `harness init --harness <name>` does the copying and conversion. `harness doctor` checks they are still in sync.

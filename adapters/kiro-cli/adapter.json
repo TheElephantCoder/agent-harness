@@ -1,0 +1,10 @@
+{
+  "name": "kiro-cli",
+  "displayName": "Kiro CLI",
+  "skillPath": ".kiro/skills",
+  "hookPath": ".kiro/settings.json",
+  "memoryPath": ".kiro/MEMORY.md",
+  "agentsPath": ".kiro/AGENTS.md",
+  "steeringPath": ".kiro/steering",
+  "transpile": "./transpile.sh"
+}

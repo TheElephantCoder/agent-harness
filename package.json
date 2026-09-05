@@ -1,7 +1,7 @@
 {
   "name": "@theelephantcoder/agent-harness",
   "version": "0.1.0",
-  "description": "Performance layer for coding agents. Skills, instincts, memory, security and research-first that works across Claude Code, Codex, Opencode, Cursor.",
+  "description": "Performance layer for coding agents. Skills, instincts, memory, security and research-first that works across Claude Code, Codex, Opencode, Cursor, Kiro CLI, Kiro.",
   "type": "module",
   "bin": {
     "harness": "./src/harness/cli.ts"
@@ -22,6 +22,8 @@
     "opencode",
     "codex",
     "cursor",
+    "kiro",
+    "kiro-cli",
     "skills"
   ],
   "author": "TheElephantCoder",
