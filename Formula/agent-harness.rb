@@ -14,7 +14,7 @@ class AgentHarness < Formula
   depends_on "node"
 
   def install
-    system "npm", "install"
+    system "npm", "install", *std_npm_args(prefix: false)
     system "npm", "run", "build"
     system "npm", "install", *std_npm_args
     bin.install_symlink libexec.glob("bin/*")
