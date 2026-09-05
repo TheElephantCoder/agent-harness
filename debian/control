@@ -3,7 +3,7 @@ Section: utils
 Priority: optional
 Maintainer: TheElephantCoder <157982101+TheElephantCoder@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 13), nodejs (>= 20), node-typescript
-Standards-Version: 4.7.0
+Standards-Version: 4.6.2
 Homepage: https://github.com/TheElephantCoder/agent-harness
 Vcs-Browser: https://github.com/TheElephantCoder/agent-harness
 Vcs-Git: https://github.com/TheElephantCoder/agent-harness.git
