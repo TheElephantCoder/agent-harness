@@ -4,12 +4,12 @@
   "description": "Performance layer for coding agents. Skills, instincts, memory, security and research-first that works across Claude Code, Codex, Opencode, Cursor, Kiro CLI, Kiro.",
   "type": "module",
   "bin": {
-    "harness": "./src/harness/cli.ts"
+    "harness": "./dist/harness/cli.js"
   },
-  "main": "./src/harness/index.ts",
+  "main": "./dist/harness/index.js",
   "scripts": {
     "bench": "tsx src/harness/bench.ts",
-    "build": "tsc --noEmit",
+    "build": "tsc",
     "doctor": "tsx src/harness/cli.ts doctor",
     "test": "vitest run",
     "lint": "eslint src --ext .ts",
@@ -52,6 +52,7 @@
     "docs/",
     "AGENTS.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "dist/"
   ]
 }
