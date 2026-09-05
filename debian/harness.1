@@ -1,0 +1,37 @@
+.TH HARNESS 1 "September 2026" "agent-harness 0.1.2" "User Commands"
+.SH NAME
+harness \- performance layer for coding agents
+.SH SYNOPSIS
+.B harness
+[\fICOMMAND\fR] [\fIOPTIONS\fR]
+.SH DESCRIPTION
+Skills, instincts, memory, security and research-first that works the same
+in Claude Code, Codex, Opencode, Cursor, Kiro CLI and Kiro.
+.PP
+Run \fBharness init\fR in your project, then \fBharness doctor\fR to verify.
+.SH COMMANDS
+.TP
+.B init [--harness <name>] [--auto] [--migrate]
+Set up harness in current project.
+.TP
+.B doctor [--fix]
+Check adapters, skills, security.
+.TP
+.B bench [--quick]
+Run performance checks.
+.TP
+.B skill <add|list|remove|search|info> [name]
+Manage skills.
+.TP
+.B memory <sync|show|edit|prune>
+Manage persistent memory.
+.TP
+.B research <query> [--plan]
+Research-first capture with citations.
+.TP
+.B security <audit|scan|fix>
+Security checks.
+.SH SEE ALSO
+.BR https://github.com/TheElephantCoder/agent-harness
+.SH AUTHOR
+TheElephantCoder <157982101+TheElephantCoder@users.noreply.github.com>

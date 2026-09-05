@@ -1,0 +1,40 @@
+#!/usr/bin/make -f
+# debhelper rules for agent-harness, no network during build
+# uses system tsc (from Build-Depends: typescript) instead of npm install
+
+export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	tsc --project tsconfig.json
+	ls -lh dist/harness/cli.js
+	node dist/harness/cli.js --version
+
+override_dh_auto_install:
+	# lib
+	install -d debian/agent-harness/usr/lib/agent-harness/dist
+	cp -r dist/harness debian/agent-harness/usr/lib/agent-harness/dist/
+	cp -r skills instincts memory security research adapters debian/agent-harness/usr/lib/agent-harness/
+	cp AGENTS.md README.md LICENSE package.json debian/agent-harness/usr/lib/agent-harness/
+	mkdir -p debian/agent-harness/usr/lib/agent-harness/src/harness
+	cp src/harness/cli.py debian/agent-harness/usr/lib/agent-harness/src/harness/ || true
+	# bin wrapper (plain shell, calls system node on compiled JS)
+	install -d debian/agent-harness/usr/bin
+	install -m 0755 debian/harness-wrapper debian/agent-harness/usr/bin/harness
+	# docs
+	install -d debian/agent-harness/usr/share/doc/agent-harness
+	cp README.md debian/agent-harness/usr/share/doc/agent-harness/
+	cp LICENSE debian/agent-harness/usr/share/doc/agent-harness/copyright
+	# manpage
+	install -d debian/agent-harness/usr/share/man/man1
+	cp debian/harness.1 debian/agent-harness/usr/share/man/man1/harness.1
+	# perms for hooks
+	find debian/agent-harness/usr/lib/agent-harness/instincts -name "*.sh" -exec chmod 0755 {} \; || true
+	find debian/agent-harness/usr/lib/agent-harness/security -name "*.sh" -exec chmod 0755 {} \; || true
+
+override_dh_auto_test:
+	node dist/harness/cli.js --version
+	node dist/harness/cli.js doctor || true
+	bash security/audit.sh || true

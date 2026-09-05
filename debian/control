@@ -1,0 +1,22 @@
+Source: agent-harness
+Section: utils
+Priority: optional
+Maintainer: TheElephantCoder <157982101+TheElephantCoder@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13), nodejs (>= 20), typescript, node-types-node
+Standards-Version: 4.7.0
+Homepage: https://github.com/TheElephantCoder/agent-harness
+Vcs-Browser: https://github.com/TheElephantCoder/agent-harness
+Vcs-Git: https://github.com/TheElephantCoder/agent-harness.git
+Rules-Requires-Root: no
+
+Package: agent-harness
+Architecture: all
+Depends: nodejs (>= 20) | node (>= 20), git, bash, python3, ${misc:Depends}
+Recommends: pipx
+Description: Performance layer for coding agents
+ Skills, instincts, memory, security and research-first
+ that works across Claude Code, Codex, Opencode, Cursor,
+ Kiro CLI and Kiro. No telemetry, just markdown and JSON.
+ .
+ Install and run harness doctor to verify. Same config
+ works in every harness via adapters.
