@@ -21,5 +21,5 @@ if [ "$(uname -s)" = "Linux" ]; then
   fi
 fi
 
-echo "[harness] Adapters: run 'harness init --harness claude,opencode,codex,cursor,kiro-cli,kiro-desktop' for full setup"
+echo "[harness] Adapters: run 'harness init --harness claude,opencode,codex,cursor,kiro-cli,kiro-desktop,cline,aider' for full setup"
 echo "[harness] Done. Run 'harness doctor' to verify."

@@ -4,7 +4,7 @@ Single repo is the tap. `Formula/agent-harness.rb` lives here, so you don't need
 
 ## Install
 
-Direct install after tapping — then it's just `brew install agent-harness`:
+Direct install after tapping: then it's just `brew install agent-harness`:
 
 ```bash
 brew tap TheElephantCoder/agent-harness
@@ -46,7 +46,7 @@ Truly tap-less `brew install agent-harness` (no `tap` at all) only works from `h
 brew bump-formula-pr --tag=v0.1.0 --version=0.1.0 Formula/agent-harness.rb
 ```
 
-Otherwise the single-repo tap above is the smallest setup — after the one-time `brew tap`, installs are just `brew install agent-harness`.
+Otherwise the single-repo tap above is the smallest setup: after the one-time `brew tap`, installs are just `brew install agent-harness`.
 
 If you do prefer the short name (`brew tap TheElephantCoder/tap`), create a separate repo `github.com/TheElephantCoder/homebrew-tap` and copy the formula there. But it's not required.
 

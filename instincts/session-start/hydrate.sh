@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hydrate memory at session start — budget <15s
+# Hydrate memory at session start: budget <15s
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 echo "[harness:session-start] Hydrating memory..."

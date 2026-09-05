@@ -27,9 +27,9 @@ sudo apt install ./agent-harness_0.1.1_all.deb
 
 ## What's in the .deb
 
-- `/usr/lib/agent-harness/dist/` — compiled JS (`harness --version` works with plain `node`, no tsx needed)
-- `/usr/lib/agent-harness/skills|instincts|memory|security|research|adapters` — shared files
-- `/usr/bin/harness` — wrapper that calls `node /usr/lib/agent-harness/dist/harness/cli.js`
+- `/usr/lib/agent-harness/dist/`: compiled JS (`harness --version` works with plain `node`, no tsx needed)
+- `/usr/lib/agent-harness/skills|instincts|memory|security|research|adapters`: shared files
+- `/usr/bin/harness`: wrapper that calls `node /usr/lib/agent-harness/dist/harness/cli.js`
 
 Depends on `nodejs (>= 20) | node`, `git`, `bash`, `python3`. On Ubuntu 22.04 the stock `nodejs` is too old, so grab Node 20 first:
 

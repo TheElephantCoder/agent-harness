@@ -10,5 +10,5 @@ mkdir -p "$dest"
 # skills become .clinerules/<name>.md, one concern per file
 # instincts merge into .clinerules/00-harness-instincts.md
 # AGENTS.md stays at root (Cline picks it up natively), MEMORY.md is referenced from it
-# this is a placeholder — harness doctor --fix does the actual copy
+# this is a placeholder: harness doctor --fix does the actual copy
 echo "[cline] transpile $src -> $dest (harness doctor handles the real copy)"

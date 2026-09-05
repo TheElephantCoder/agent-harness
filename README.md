@@ -112,7 +112,7 @@ npx @theelephantcoder/agent-harness init
 pip install agent-harness-cli
 pipx install agent-harness-cli
 
-# apt (Ubuntu/Debian) — repo hosted on Pages, no PPA needed
+# apt (Ubuntu/Debian): repo hosted on Pages, no PPA needed
 echo "deb [trusted=yes] https://theelephantcoder.github.io/agent-harness/apt stable main" | sudo tee /etc/apt/sources.list.d/agent-harness.list
 sudo apt update
 sudo apt install agent-harness
@@ -120,7 +120,7 @@ sudo apt install agent-harness
 wget https://github.com/TheElephantCoder/agent-harness/releases/latest/download/agent-harness_0.1.1_all.deb
 sudo apt install ./agent-harness_0.1.1_all.deb
 
-# brew (macOS + Linuxbrew) — same repo is the tap, no second repo needed
+# brew (macOS + Linuxbrew): same repo is the tap, no second repo needed
 brew tap TheElephantCoder/agent-harness
 brew install agent-harness
 # now it's just
