@@ -217,6 +217,14 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.getElementById('panel-'+t.dataset.tab).classList.add('active');
   });
 });
+document.querySelectorAll('a.asterisk[href^="#"]').forEach(a=>{
+  a.addEventListener('click',e=>{
+    e.preventDefault();
+    const el=document.querySelector(a.getAttribute('href'));
+    if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+    history.replaceState(null,'',a.getAttribute('href'));
+  });
+});
 (function(){
   const key='ah-theme';
   const btn=document.getElementById('theme-toggle');
