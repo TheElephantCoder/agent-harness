@@ -2,6 +2,8 @@
 // harness cli - small shim, real logic lives in the scripts and hooks
 // node >=20
 
+import * as readline from "node:readline";
+
 export const VERSION = "0.1.2";
 
 type Command =
@@ -14,8 +16,26 @@ type Command =
   | "research"
   | "security"
   | "upgrade"
+  | "shell"
   | "help"
   | "version";
+
+const SHELL_COMMANDS = [
+  "init",
+  "doctor",
+  "bench",
+  "skill",
+  "memory",
+  "instinct",
+  "research",
+  "security",
+  "upgrade",
+  "shell",
+  "help",
+  "version",
+  "exit",
+  "quit",
+];
 
 function help() {
   console.log(`
@@ -32,10 +52,13 @@ usage: harness <command> [options]
   research <query> [--plan]                      research-first capture
   security <audit|scan|fix>                      security checks
   upgrade                                        pull latest
+  shell                                          open interactive prompt
 
 options:
   -h, --help
   -v, --version
+
+run with no args on a terminal to open the interactive prompt.
 
 examples:
   harness init --auto
@@ -53,32 +76,66 @@ function parseArgs(argv: string[]) {
   return { cmd, flags };
 }
 
-async function main() {
-  const { cmd, flags } = parseArgs(process.argv);
-  const all = [cmd, ...flags] as string[];
+async function interactive() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: "harness> ",
+    completer: (line: string) => {
+      const hits = SHELL_COMMANDS.filter((c) => c.startsWith(line));
+      return [hits.length ? hits : SHELL_COMMANDS, line];
+    },
+  });
+  rl.on("SIGINT", () => {
+    rl.close();
+  });
+  console.log(`harness v${VERSION} - type help for commands, exit to leave`);
+  rl.prompt();
+  for await (const line of rl) {
+    const parts = line.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) {
+      rl.prompt();
+      continue;
+    }
+    const [c, ...rest] = parts;
+    if (c === "exit" || c === "quit") {
+      break;
+    }
+    if (c === "shell") {
+      rl.prompt();
+      continue;
+    }
+    await runCommand(c, rest);
+    rl.prompt();
+  }
+  rl.close();
+}
+
+async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
+  const all = [cmd, ...flags];
 
   if (
     all.includes("-h") ||
     all.includes("--help") ||
-    (cmd as string) === "help" ||
-    (cmd as string) === "-h" ||
-    (cmd as string) === "--help"
+    cmd === "help" ||
+    cmd === "-h" ||
+    cmd === "--help"
   ) {
     help();
-    return;
+    return true;
   }
   if (
     all.includes("-v") ||
     all.includes("--version") ||
-    (cmd as string) === "version" ||
-    (cmd as string) === "-v" ||
-    (cmd as string) === "--version"
+    cmd === "version" ||
+    cmd === "-v" ||
+    cmd === "--version"
   ) {
     console.log(`harness ${VERSION}`);
-    return;
+    return true;
   }
 
-  switch (cmd) {
+  switch (cmd as Command) {
     case "init": {
       const idx = flags.indexOf("--harness");
       const harness = idx !== -1 ? (flags[idx + 1] ?? "auto") : "auto";
@@ -124,11 +181,31 @@ async function main() {
       break;
     case "upgrade":
       console.log("[harness] upgrade - pulling latest skills and adapters...");
-      break;
+      return true;
+    case "shell":
+      await interactive();
+      return true;
     default:
       console.error(`[harness] unknown command: ${cmd}`);
-      help();
-      process.exit(1);
+      return false;
+  }
+  return true;
+}
+
+async function main() {
+  if (process.argv.length <= 2) {
+    if (process.stdin.isTTY) {
+      await interactive();
+      return;
+    }
+    help();
+    return;
+  }
+  const { cmd, flags } = parseArgs(process.argv);
+  const ok = await runCommand(cmd, flags);
+  if (!ok) {
+    help();
+    process.exit(1);
   }
 }
 

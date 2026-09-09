@@ -194,7 +194,10 @@ harness instinct <list|enable|disable> [name]
 harness research <query> [--plan]
 harness security <audit|scan|fix>
 harness upgrade
+harness shell
 ```
+
+Run `harness` with no args on a terminal to open the interactive prompt (`harness>`).
 
 `harness --help` has the rest. Also [`docs/cli.md`](docs/cli.md).
 

@@ -11,7 +11,10 @@ harness research <query> [--plan] [--evidence]
 harness security <audit|scan|fix> [--staged] [--dry-run]
 harness adapter <list|add> [name]
 harness upgrade
+harness shell
 ```
+
+Run `harness` with no args on a terminal to open the interactive prompt. Inside, every command works the same, plus `exit` and `quit` to leave. Tab completes command names.
 
 ## init
 
