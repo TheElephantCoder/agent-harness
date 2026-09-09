@@ -17,8 +17,8 @@ fi
 SKIP="security/audit.sh|security/policy.md|security/README.md|skills/|docs/"
 
 FOUND=false
-for f in $FILES; do
-  [ -f "$f" ] || continue
+while IFS= read -r f; do
+  [ -n "$f" ] && [ -f "$f" ] || continue
   if echo "$f" | grep -Eq "$SKIP" 2>/dev/null; then
     continue
   fi
@@ -33,7 +33,7 @@ for f in $FILES; do
       FOUND=true
     fi
   fi
-done
+done <<< "$FILES"
 
 if $FOUND; then
   echo "[audit] blocked: remove secrets or add to security/allowlist.txt with justification" >&2

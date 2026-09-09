@@ -39,7 +39,8 @@ def main():
     c.add_argument("--quick", action="store_true")
 
     for name in ["skill", "memory", "instinct", "research", "security", "upgrade"]:
-        sub.add_parser(name)
+        s = sub.add_parser(name)
+        s.add_argument("args", nargs=argparse.REMAINDER)
 
     args = p.parse_args()
     if args.version:
