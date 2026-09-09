@@ -173,7 +173,7 @@ def show_menu():
         "Set up this project",
         "Check setup",
         "Run benchmark",
-        "Just take me to the prompt",
+        "Skip straight to the prompt",
     ]
     picked = pick("What do you want to do?", options)
     if picked == 0:
