@@ -76,11 +76,53 @@ function parseArgs(argv: string[]) {
   return { cmd, flags };
 }
 
+const ANSI = {
+  reset: "\x1b[0m",
+  bold: "\x1b[1m",
+  dim: "\x1b[2m",
+  cyan: "\x1b[36m",
+  green: "\x1b[32m",
+  magenta: "\x1b[35m",
+};
+
+function useColor(): boolean {
+  return (
+    !!process.stdout.isTTY &&
+    !process.env.NO_COLOR &&
+    process.env.TERM !== "dumb"
+  );
+}
+
+function paint(code: string, text: string): string {
+  return useColor() ? `${code}${text}${ANSI.reset}` : text;
+}
+
+function banner(): string {
+  const inner = 40;
+  const title = "◆ agent-harness";
+  const ver = `v${VERSION}`;
+  const sub = "skills · instincts · memory · research";
+  const gap1 = " ".repeat(inner - 2 - title.length - ver.length);
+  const gap2 = " ".repeat(inner - 2 - sub.length);
+  const top = `╭${"─".repeat(inner)}╮`;
+  const bottom = `╰${"─".repeat(inner)}╯`;
+  const row1 = `│  ${paint(ANSI.magenta + ANSI.bold, "◆")} ${paint(ANSI.bold, "agent-harness")}${gap1}${paint(ANSI.dim, ver)}│`;
+  const row2 = `│  ${paint(ANSI.dim, sub)}${gap2}│`;
+  return [
+    top,
+    row1,
+    row2,
+    bottom,
+    paint(ANSI.dim, "type help for commands · exit to leave"),
+    paint(ANSI.dim, "tip: doctor checks your setup"),
+  ].join("\n");
+}
+
 async function interactive() {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: "harness> ",
+    prompt: `${paint(ANSI.bold + ANSI.cyan, "harness>")} `,
     completer: (line: string) => {
       const hits = SHELL_COMMANDS.filter((c) => c.startsWith(line));
       return [hits.length ? hits : SHELL_COMMANDS, line];
@@ -89,7 +131,7 @@ async function interactive() {
   rl.on("SIGINT", () => {
     rl.close();
   });
-  console.log(`harness v${VERSION} - type help for commands, exit to leave`);
+  console.log(banner());
   rl.prompt();
   for await (const line of rl) {
     const parts = line.trim().split(/\s+/).filter(Boolean);
@@ -109,6 +151,7 @@ async function interactive() {
     rl.prompt();
   }
   rl.close();
+  console.log(paint(ANSI.dim, "bye."));
 }
 
 async function runCommand(cmd: string, flags: string[]): Promise<boolean> {

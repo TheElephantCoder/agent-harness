@@ -1,11 +1,44 @@
 # harness python shim, mirrors cli.ts
 import argparse
 import cmd as cmdmod
+import os
 import shlex
 import sys
 from types import SimpleNamespace
 
 VERSION = "0.1.2"
+
+RESET = "\x1b[0m"
+BOLD = "\x1b[1m"
+DIM = "\x1b[2m"
+CYAN = "\x1b[36m"
+MAGENTA = "\x1b[35m"
+
+def use_color():
+    return bool(sys.stdout.isatty()) and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
+
+def paint(code, text):
+    return f"{code}{text}{RESET}" if use_color() else text
+
+def banner():
+    inner = 40
+    title = "◆ agent-harness"
+    ver = f"v{VERSION}"
+    sub = "skills · instincts · memory · research"
+    top = "╭" + "─" * inner + "╮"
+    bottom = "╰" + "─" * inner + "╯"
+    gap1 = " " * (inner - 2 - len(title) - len(ver))
+    gap2 = " " * (inner - 2 - len(sub))
+    row1 = f"│  {paint(MAGENTA + BOLD, '◆')} {paint(BOLD, 'agent-harness')}{gap1}{paint(DIM, ver)}│"
+    row2 = f"│  {paint(DIM, sub)}{gap2}│"
+    return "\n".join([
+        top,
+        row1,
+        row2,
+        bottom,
+        paint(DIM, "type help for commands · exit to leave"),
+        paint(DIM, "tip: doctor checks your setup"),
+    ])
 
 def cmd_init(args):
     print(f"[harness] init --harness={args.harness} {'--auto' if args.auto else ''}")
@@ -24,18 +57,23 @@ def cmd_bench(args):
     print("[harness] bench - cold-start 13.2s ok  tokens 48k ok  tool-calls 51 ok  hook p99 87ms ok")
 
 class HarnessShell(cmdmod.Cmd):
-    intro = f"harness {VERSION} - type help for commands, exit to leave"
+    intro = banner()
     prompt = "harness> "
+
+    def preloop(self):
+        self.prompt = f"{paint(BOLD + CYAN, 'harness>')} "
 
     def emptyline(self):
         pass
 
     def do_exit(self, arg):
         "leave the interactive prompt"
+        print(paint(DIM, "bye."))
         return True
 
     def do_quit(self, arg):
         "leave the interactive prompt"
+        print(paint(DIM, "bye."))
         return True
 
     def do_EOF(self, arg):
