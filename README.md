@@ -104,9 +104,10 @@ See [`adapters/`](adapters/) for how the transpilation works.
 
 ```bash
 # npm (macOS + Linux)
-npm install -g @theelephantcoder/agent-harness
+npm install -g github:TheElephantCoder/agent-harness
 # or without install
-npx @theelephantcoder/agent-harness init
+npx github:TheElephantCoder/agent-harness init
+# registry publish (@theelephantcoder/agent-harness) is pending, same package
 
 # python if you prefer (on Ubuntu 24.04 bare pip is blocked by PEP 668, use pipx or a venv)
 pip install agent-harness-cli
