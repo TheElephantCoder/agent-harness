@@ -10,7 +10,7 @@
   "scripts": {
     "bench": "tsx src/harness/bench.ts",
     "build": "tsc",
-    "prepare": "npm install --no-save --ignore-scripts --no-audit --no-fund && npm run build",
+    "prepack": "npm run build",
     "doctor": "tsx src/harness/cli.ts doctor",
     "test": "vitest run",
     "lint": "eslint src --ext .ts",
