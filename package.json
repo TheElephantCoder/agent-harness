@@ -10,7 +10,6 @@
   "scripts": {
     "bench": "tsx src/harness/bench.ts",
     "build": "tsc",
-    "prepare": "env -u npm_config_global -u npm_config_prefix npm install --no-save --ignore-scripts --no-audit --no-fund --prefix \"$PWD\" && npm run build",
     "doctor": "tsx src/harness/cli.ts doctor",
     "test": "vitest run",
     "lint": "eslint src --ext .ts",
@@ -38,12 +37,10 @@
   "engines": {
     "node": ">=20"
   },
-  "dependencies": {
-    "@types/node": "^26.4.1",
-    "typescript": "^5.5.0"
-  },
   "devDependencies": {
+    "@types/node": "^26.4.1",
     "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
     "vitest": "^1.0.0"
   },
   "files": [
