@@ -31,11 +31,61 @@ const SHELL_COMMANDS = [
   "security",
   "upgrade",
   "shell",
+  "menu",
   "help",
   "version",
   "exit",
   "quit",
 ];
+
+const ART = [
+  "                                              *",
+  "          ·",
+  "                        ·          ◆",
+  "     *",
+  "                          ·",
+  "               ·                    ·         *",
+  "     ·                        ·",
+  "                          *           ·     ·",
+  "               *                     ·",
+  "  ·                     ·",
+  "                                           ·",
+];
+
+function termWidth(): number {
+  const w = process.stdout.columns;
+  return typeof w === "number" && w > 20 ? w : 80;
+}
+
+function centerLine(line: string, width: number): string {
+  const plain = line.replace(/\x1b\[[0-9;]*m/g, "");
+  const pad = Math.max(0, Math.floor((width - plain.length) / 2));
+  return " ".repeat(pad) + line;
+}
+
+function paintArt(line: string): string {
+  return line
+    .split("")
+    .map((ch) => {
+      if (ch === "◆") return paint(ANSI.magenta + ANSI.bold, ch);
+      if (ch === "*") return paint(ANSI.cyan, ch);
+      return paint(ANSI.dim, ch);
+    })
+    .join("");
+}
+
+function welcome(): string {
+  const width = termWidth();
+  const rule = paint(ANSI.dim, "·".repeat(width));
+  const divider = paint(ANSI.dim, "╌".repeat(width));
+  const art = ART.map((l) => centerLine(paintArt(l), width)).join("\n");
+  const title = centerLine(
+    `Welcome to ${paint(ANSI.bold, "agent-harness")} ${paint(ANSI.dim, `v${VERSION}`)}`,
+    width,
+  );
+  const sub = centerLine(paint(ANSI.dim, "Let's get started."), width);
+  return [rule, "", art, "", title, "", sub, ""].join("\n") + "\n" + divider;
+}
 
 function help() {
   console.log(`
@@ -97,25 +147,128 @@ function paint(code: string, text: string): string {
   return useColor() ? `${code}${text}${ANSI.reset}` : text;
 }
 
-function banner(): string {
-  const inner = 40;
-  const title = "◆ agent-harness";
-  const ver = `v${VERSION}`;
-  const sub = "skills · instincts · memory · research";
-  const gap1 = " ".repeat(inner - 2 - title.length - ver.length);
-  const gap2 = " ".repeat(inner - 2 - sub.length);
-  const top = `╭${"─".repeat(inner)}╮`;
-  const bottom = `╰${"─".repeat(inner)}╯`;
-  const row1 = `│  ${paint(ANSI.magenta + ANSI.bold, "◆")} ${paint(ANSI.bold, "agent-harness")}${gap1}${paint(ANSI.dim, ver)}│`;
-  const row2 = `│  ${paint(ANSI.dim, sub)}${gap2}│`;
-  return [
-    top,
-    row1,
-    row2,
-    bottom,
-    paint(ANSI.dim, "type help for commands · exit to leave"),
-    paint(ANSI.dim, "tip: doctor checks your setup"),
-  ].join("\n");
+async function selectFallback(
+  title: string,
+  options: string[],
+): Promise<number> {
+  console.log(paint(ANSI.bold, title));
+  options.forEach((o, i) => {
+    console.log(`  ${i + 1}. ${o}`);
+  });
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  const answer = await new Promise<string>((resolve) => {
+    rl.question(paint(ANSI.cyan, "❯ "), (a) => {
+      rl.close();
+      resolve(a);
+    });
+  });
+  const n = parseInt(answer.trim(), 10);
+  if (Number.isNaN(n) || n < 1 || n > options.length) {
+    return -1;
+  }
+  return n - 1;
+}
+
+async function selectOption(
+  title: string,
+  options: string[],
+): Promise<number> {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    return selectFallback(title, options);
+  }
+  return new Promise<number>((resolve) => {
+    let index = 0;
+    let rendered = 0;
+    const stdin = process.stdin;
+    const hint = paint(
+      ANSI.dim,
+      "↑↓ to move · enter to select · type a number",
+    );
+    const draw = () => {
+      let out = `${paint(ANSI.bold, title)}\n`;
+      options.forEach((o, i) => {
+        out +=
+          i === index
+            ? `${paint(ANSI.cyan + ANSI.bold, "❯")} ${paint(ANSI.bold, `${i + 1}. ${o}`)}\n`
+            : paint(ANSI.dim, `  ${i + 1}. ${o}`) + "\n";
+      });
+      out += `${hint}\n`;
+      const lines = out.split("\n").length;
+      if (rendered > 0) {
+        process.stdout.write(`\x1b[${rendered}A`);
+      }
+      out.split("\n").forEach((l) => {
+        process.stdout.write("\x1b[G\x1b[K" + l + "\n");
+      });
+      rendered = lines;
+    };
+    const done = (n: number) => {
+      stdin.setRawMode(false);
+      stdin.removeAllListeners("keypress");
+      stdin.pause();
+      resolve(n);
+    };
+    readline.emitKeypressEvents(stdin);
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.on("keypress", (_ch, key) => {
+      if (!key) {
+        return;
+      }
+      if (key.ctrl && key.name === "c") {
+        process.stdout.write("\n");
+        done(-1);
+        return;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        process.stdout.write("\n");
+        done(index);
+        return;
+      }
+      if (key.name === "up" || key.name === "k") {
+        index = (index - 1 + options.length) % options.length;
+        draw();
+        return;
+      }
+      if (key.name === "down" || key.name === "j") {
+        index = (index + 1) % options.length;
+        draw();
+        return;
+      }
+      if (key.name === "escape" || key.name === "q") {
+        process.stdout.write("\n");
+        done(-1);
+        return;
+      }
+      const n = parseInt(key.sequence, 10);
+      if (!Number.isNaN(n) && n >= 1 && n <= options.length) {
+        process.stdout.write("\n");
+        done(n - 1);
+      }
+    });
+    draw();
+  });
+}
+
+async function showMenu(): Promise<void> {
+  const options = [
+    "Set up this project",
+    "Check setup",
+    "Run benchmark",
+    "Just take me to the prompt",
+  ];
+  const picked = await selectOption("What do you want to do?", options);
+  if (picked === 0) {
+    await runCommand("init", ["--auto"]);
+  } else if (picked === 1) {
+    await runCommand("doctor", []);
+  } else if (picked === 2) {
+    await runCommand("bench", []);
+  }
+  console.log(paint(ANSI.dim, "╌".repeat(termWidth())));
 }
 
 async function interactive() {
@@ -131,7 +284,8 @@ async function interactive() {
   rl.on("SIGINT", () => {
     rl.close();
   });
-  console.log(banner());
+  console.log(welcome());
+  await showMenu();
   rl.prompt();
   for await (const line of rl) {
     const parts = line.trim().split(/\s+/).filter(Boolean);
@@ -144,6 +298,11 @@ async function interactive() {
       break;
     }
     if (c === "shell") {
+      rl.prompt();
+      continue;
+    }
+    if (c === "menu") {
+      await showMenu();
       rl.prompt();
       continue;
     }
