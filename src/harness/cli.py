@@ -1,12 +1,14 @@
 # harness python shim, mirrors cli.ts
 import argparse
 import cmd as cmdmod
+import json
 import os
 import shlex
 import shutil
 import subprocess
 import sys
 from types import SimpleNamespace
+from urllib.request import Request, urlopen
 
 VERSION = "0.1.2"
 
@@ -219,6 +221,18 @@ def self_root():
         pass
     return None
 
+def resolve_main_sha():
+    try:
+        req = Request("https://api.github.com/repos/TheElephantCoder/agent-harness/commits/main",
+                      headers={"User-Agent": "agent-harness", "Accept": "application/vnd.github+json"})
+        with urlopen(req, timeout=10) as res:
+            if res.status != 200:
+                return None
+            sha = json.loads(res.read().decode("utf-8")).get("sha", "")
+            return sha if len(sha) == 40 else None
+    except Exception:
+        return None
+
 def cmd_upgrade(args=None):
     root = self_root()
     if root and os.path.isdir(os.path.join(root, ".git")):
@@ -239,9 +253,11 @@ def cmd_upgrade(args=None):
         print("[harness] upgrade failed - try: pipx reinstall agent-harness-cli")
         return False
     if sys.executable:
-        print("[harness] upgrade - reinstalling latest via pip...")
+        sha = resolve_main_sha()
+        url = f"https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/{sha}" if sha else UPGRADE_TARBALL
+        print(f"[harness] upgrade - reinstalling {sha[:7] if sha else 'latest'} via pip...")
         try:
-            r = subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", UPGRADE_TARBALL])
+            r = subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", url])
         except OSError:
             r = None
         if r is not None and r.returncode == 0:

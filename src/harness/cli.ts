@@ -5,6 +5,7 @@
 import * as readline from "node:readline";
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as https from "node:https";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -345,7 +346,42 @@ function haveBin(bin: string): boolean {
   }
 }
 
-function selfUpgrade(): boolean {
+// branch tarballs are cached aggressively (npm served a stale one twice),
+// so upgrade resolves main to a sha and installs the immutable sha tarball.
+function resolveMainSha(): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      const req = https.get(
+        "https://api.github.com/repos/TheElephantCoder/agent-harness/commits/main",
+        {
+          headers: {
+            "User-Agent": "agent-harness",
+            Accept: "application/vnd.github+json",
+          },
+        },
+        (res) => {
+          let body = "";
+          res.on("data", (c) => {
+            body += c;
+          });
+          res.on("end", () => {
+            const m = /"sha"\s*:\s*"([0-9a-f]{40})"/.exec(body);
+            resolve(res.statusCode === 200 && m ? m[1] : null);
+          });
+        },
+      );
+      req.setTimeout(10000, () => {
+        req.destroy();
+        resolve(null);
+      });
+      req.on("error", () => resolve(null));
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function selfUpgrade(): Promise<boolean> {
   const root = selfRoot();
   if (root && fs.existsSync(path.join(root, ".git"))) {
     console.log("[harness] source checkout - run: git pull");
@@ -361,8 +397,14 @@ function selfUpgrade(): boolean {
       console.log(`[harness] npm not found - run: ${NPM_MANUAL}`);
       return false;
     }
-    console.log("[harness] upgrade - reinstalling latest via npm...");
-    const r = spawnSync("npm", ["install", "-g", UPGRADE_TARBALL], {
+    const sha = await resolveMainSha();
+    const url = sha
+      ? `https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/${sha}`
+      : UPGRADE_TARBALL;
+    console.log(
+      `[harness] upgrade - reinstalling ${sha ? sha.slice(0, 7) : "latest"} via npm...`,
+    );
+    const r = spawnSync("npm", ["install", "-g", url], {
       stdio: "inherit",
     });
     if (r.status !== 0) {
