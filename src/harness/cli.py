@@ -86,7 +86,8 @@ def welcome():
     art = "\n".join(center_line(paint_art(l), width) for l in ART)
     title = center_line(f"Welcome to {paint(BOLD, 'agent-harness')} {paint(DIM, f'v{VERSION}')}", width)
     sub = center_line(paint(DIM, "Let's get started."), width)
-    return "\n".join([rule, "", art, "", title, "", sub, ""]) + "\n" + divider
+    credit = center_line(paint(DIM, "by TheElephantCoder"), width)
+    return "\n".join([rule, "", art, "", title, "", sub, credit, ""]) + "\n" + divider
 
 def pick_numbered(title, options):
     print(paint(BOLD, title))
@@ -290,7 +291,7 @@ class HarnessShell(cmdmod.Cmd):
         print(f"[harness] unknown command: {line.split()[0]}")
 
 def main():
-    p = argparse.ArgumentParser(prog="harness", description="harness - agent harness perf layer")
+    p = argparse.ArgumentParser(prog="harness", description="harness - agent harness perf layer by TheElephantCoder")
     p.add_argument("--version", action="store_true")
     sub = p.add_subparsers(dest="cmd")
 

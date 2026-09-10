@@ -61,11 +61,12 @@ function welcome() {
     const art = ART.map((l) => centerLine(paintArt(l), width)).join("\n");
     const title = centerLine(`Welcome to ${paint(ANSI.bold, "agent-harness")} ${paint(ANSI.dim, `v${VERSION}`)}`, width);
     const sub = centerLine(paint(ANSI.dim, "Let's get started."), width);
-    return [rule, "", art, "", title, "", sub, ""].join("\n") + "\n" + divider;
+    const credit = centerLine(paint(ANSI.dim, "by TheElephantCoder"), width);
+    return [rule, "", art, "", title, "", sub, credit, ""].join("\n") + "\n" + divider;
 }
 function help() {
     console.log(`
-harness v${VERSION} - agent harness perf layer
+harness v${VERSION} - agent harness perf layer by TheElephantCoder
 
 usage: harness <command> [options]
 
