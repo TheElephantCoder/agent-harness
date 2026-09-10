@@ -3,7 +3,7 @@
 // node >=20
 
 import * as readline from "node:readline";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as https from "node:https";
 import * as path from "node:path";
@@ -381,6 +381,88 @@ function resolveMainSha(): Promise<string | null> {
   });
 }
 
+function plainLen(s: string): number {
+  return s.replace(/\x1b\[[0-9;]*m/g, "").length;
+}
+
+const UPGRADE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+function useUpgradeBar(): boolean {
+  return !!process.stdout.isTTY && process.env.TERM !== "dumb";
+}
+
+function upgradeBar(pct: number, stage: string, frame: string): string {
+  const width = termWidth();
+  const head = `upgrade ${frame} `;
+  const tail = ` ${Math.round(pct)}% ${stage}`;
+  const barWidth = Math.max(10, width - plainLen(head) - plainLen(tail) - 2);
+  const filled = Math.min(barWidth, Math.round((pct / 100) * barWidth));
+  const bar =
+    paint(ANSI.cyan, "█".repeat(filled)) +
+    paint(ANSI.dim, "░".repeat(barWidth - filled));
+  return `\r${head}[${bar}]${tail}`;
+}
+
+// npm quiets down when piped, so its output is captured and only the
+// tail is shown on failure. the bar creeps toward 90% while npm works.
+function runNpmUpgrade(
+  url: string,
+): Promise<{ status: number | null; out: string }> {
+  return new Promise((resolve) => {
+    const child = spawn("npm", ["install", "-g", url], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let out = "";
+    child.stdout?.on("data", (d) => {
+      out += d.toString();
+    });
+    child.stderr?.on("data", (d) => {
+      out += d.toString();
+    });
+    child.on("error", () => resolve({ status: 1, out }));
+    child.on("close", (status) => resolve({ status, out }));
+  });
+}
+
+async function animatedNpmUpgrade(
+  url: string,
+  tag: string,
+): Promise<{ status: number | null; out: string }> {
+  let frame = 0;
+  let pct = 4;
+  let stage = "resolving main";
+  const draw = () => {
+    process.stdout.write(
+      upgradeBar(pct, stage, UPGRADE_FRAMES[frame % UPGRADE_FRAMES.length]),
+    );
+  };
+  process.stdout.write("\x1b[?25l");
+  const tick = setInterval(() => {
+    frame += 1;
+    pct = Math.min(90, pct + (90 - pct) * 0.06 + 0.25);
+    draw();
+  }, 90);
+  try {
+    draw();
+    const sha = await resolveMainSha();
+    const pinned = sha
+      ? `https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/${sha}`
+      : url;
+    stage = `reinstalling ${sha ? sha.slice(0, 7) : tag}`;
+    pct = Math.max(pct, 18);
+    draw();
+    const result = await runNpmUpgrade(pinned);
+    stage = result.status === 0 ? "verifying" : "failed";
+    pct = 100;
+    frame += 1;
+    draw();
+    return result;
+  } finally {
+    clearInterval(tick);
+    process.stdout.write("\x1b[?25h\n");
+  }
+}
+
 async function selfUpgrade(): Promise<boolean> {
   const root = selfRoot();
   if (root && fs.existsSync(path.join(root, ".git"))) {
@@ -397,19 +479,29 @@ async function selfUpgrade(): Promise<boolean> {
       console.log(`[harness] npm not found - run: ${NPM_MANUAL}`);
       return false;
     }
-    const sha = await resolveMainSha();
+    const sha = useUpgradeBar() ? null : await resolveMainSha();
     const url = sha
       ? `https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/${sha}`
       : UPGRADE_TARBALL;
-    console.log(
-      `[harness] upgrade - reinstalling ${sha ? sha.slice(0, 7) : "latest"} via npm...`,
-    );
-    const r = spawnSync("npm", ["install", "-g", url], {
-      stdio: "inherit",
-    });
-    if (r.status !== 0) {
-      console.log(`[harness] upgrade failed - try: ${NPM_MANUAL}`);
-      return false;
+    if (useUpgradeBar()) {
+      const result = await animatedNpmUpgrade(UPGRADE_TARBALL, "latest");
+      if (result.status !== 0) {
+        const tail = result.out.trim().split("\n").slice(-12).join("\n");
+        if (tail) console.log(tail);
+        console.log(`[harness] upgrade failed - try: ${NPM_MANUAL}`);
+        return false;
+      }
+    } else {
+      console.log(
+        `[harness] upgrade - reinstalling ${sha ? sha.slice(0, 7) : "latest"} via npm...`,
+      );
+      const r = spawnSync("npm", ["install", "-g", url], {
+        stdio: "inherit",
+      });
+      if (r.status !== 0) {
+        console.log(`[harness] upgrade failed - try: ${NPM_MANUAL}`);
+        return false;
+      }
     }
     let v = VERSION;
     try {

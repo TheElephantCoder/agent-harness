@@ -3,10 +3,12 @@ import argparse
 import cmd as cmdmod
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
 import sys
+import time
 from types import SimpleNamespace
 from urllib.request import Request, urlopen
 
@@ -233,6 +235,49 @@ def resolve_main_sha():
     except Exception:
         return None
 
+UPGRADE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+def plain_len(s):
+    return len(re.sub(r"\x1b\[[0-9;]*m", "", s))
+
+def use_upgrade_bar():
+    return bool(sys.stdout.isatty()) and os.environ.get("TERM") != "dumb"
+
+def upgrade_bar(pct, stage, frame):
+    try:
+        width = shutil.get_terminal_size().columns
+    except OSError:
+        width = 80
+    width = max(40, width)
+    head = f"upgrade {frame} "
+    tail = f" {round(pct)}% {stage}"
+    bar_w = max(10, width - len(head) - len(tail) - 2)
+    filled = min(bar_w, round(pct / 100 * bar_w))
+    bar = paint(CYAN, "█" * filled) + paint(DIM, "░" * (bar_w - filled))
+    return "\r" + head + "[" + bar + "]" + tail
+
+def animated_run(cmd, stage):
+    """run cmd with a creeping progress bar, return (returncode, output)."""
+    state = {"frame": 0, "pct": 18.0, "stage": stage}
+    def draw():
+        sys.stdout.write(upgrade_bar(state["pct"], state["stage"], UPGRADE_FRAMES[state["frame"] % len(UPGRADE_FRAMES)]))
+        sys.stdout.flush()
+    sys.stdout.write("\x1b[?25l")
+    try:
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        while p.poll() is None:
+            draw()
+            time.sleep(0.09)
+            state["frame"] += 1
+            state["pct"] = min(90.0, state["pct"] + (90 - state["pct"]) * 0.06 + 0.25)
+        out = p.stdout.read() if p.stdout else ""
+        return p.returncode, out
+    except OSError:
+        return 1, ""
+    finally:
+        sys.stdout.write("\x1b[?25h\n")
+        sys.stdout.flush()
+
 def cmd_upgrade(args=None):
     root = self_root()
     if root and os.path.isdir(os.path.join(root, ".git")):
@@ -253,6 +298,26 @@ def cmd_upgrade(args=None):
         print("[harness] upgrade failed - try: pipx reinstall agent-harness-cli")
         return False
     if sys.executable:
+        if use_upgrade_bar():
+            sys.stdout.write(upgrade_bar(4, "resolving main", UPGRADE_FRAMES[0]))
+            sys.stdout.flush()
+            sha = resolve_main_sha()
+            url = f"https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/{sha}" if sha else UPGRADE_TARBALL
+            code, out = animated_run(
+                [sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", "--progress-bar", "off", url],
+                f"reinstalling {sha[:7] if sha else 'latest'}",
+            )
+            if code == 0:
+                print(upgrade_bar(100, "verifying", "●").lstrip("\r"))
+                print("[harness] upgraded - takes effect on next run")
+                return True
+            tail = "\n".join(out.strip().split("\n")[-12:])
+            if tail.strip():
+                print(tail)
+            print("[harness] upgrade failed. run one of:")
+            print(f"  pipx install --force {UPGRADE_TARBALL}")
+            print(f"  python3 -m pip install --upgrade --force-reinstall {UPGRADE_TARBALL}  (use a venv or pipx on PEP 668 systems)")
+            return False
         sha = resolve_main_sha()
         url = f"https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/{sha}" if sha else UPGRADE_TARBALL
         print(f"[harness] upgrade - reinstalling {sha[:7] if sha else 'latest'} via pip...")
