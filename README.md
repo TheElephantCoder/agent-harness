@@ -13,11 +13,9 @@ Early days. It works for me daily, API might still shift a bit. Issues and small
 
 Four things that actually moved the needle for me:
 
-**Skills**: reusable markdown skills (`SKILL.md` + scripts). Write once, use in every harness. Follows the agent skills spec so you can also pull in other people's skills.
+**Skills**: reusable markdown skills (`SKILL.md` + scripts). Write once, use in every harness. Follows the agent skills spec.
 
 ```bash
-harness skill add vercel-labs/agent-skills
-harness skill add harness/research-first
 harness skill list
 ```
 
@@ -61,15 +59,15 @@ I measure three things: time to useful, tokens per task, and extra hook latency.
 Run it yourself:
 
 ```bash
-harness bench --harness opencode --task cold-start
-harness bench --compare
+harness bench --quick
+harness bench --compare   # diffs against .harness/bench.json (first run saves it)
 ```
 
 Notes and how it works in [`docs/performance.md`](docs/performance.md).
 
 ## Works with
 
-You write skills and memory once, harness transpiles to each tool.
+You write skills and memory once, harness installs to each tool.
 
 - Claude Code -> `.claude/settings.json` + `.claude/skills/`
 - Opencode -> `opencode.json`
@@ -98,7 +96,7 @@ agent-harness/
     aider/
 ```
 
-See [`adapters/`](adapters/) for how the transpilation works.
+See [`adapters/`](adapters/) for the per-tool mappings.
 
 ## Quick start
 
@@ -154,12 +152,12 @@ In your project:
 ```bash
 cd your-project
 harness init
-# picks harnesses interactively, or:
+# detects harnesses from project files, or:
 harness init --auto        # tries to detect what you use
 harness init --migrate     # add to existing project without overwriting
 
 harness doctor             # check everything wired up
-harness bench --quick      # 30s sanity check
+harness bench --quick      # seconds, measures hooks/skills/cold-start
 ```
 
 What `init` creates:
@@ -167,20 +165,22 @@ What `init` creates:
 ```
 your-project/
   .harness/config.json
+  .harness/hooks/
   AGENTS.md
-  memory/...
-  .claude/          # if you picked claude
-  opencode.json     # if you picked opencode
-  .cursor/rules/    # if you picked cursor
+  MEMORY.md
+  .claude/skills/*/SKILL.md   # if you picked claude
+  opencode.json               # if you picked opencode
+  .cursor/rules/              # if you picked cursor
 ```
 
 Day to day:
 
 ```bash
-harness memory sync              # distill session into MEMORY.md (also runs on exit)
-harness skill search "review"    # find a skill
-harness research "best way to do X"  # caches findings with citations
-harness security audit           # scan for secrets and injection stuff
+harness optimize             # prune MEMORY.md to budget, archive overflow
+harness doctor               # verify install, scan staged for secrets
+harness bench --compare      # measure against baseline
+harness skill list           # skills with ~token cost
+harness memory show          # print MEMORY.md
 ```
 
 ## CLI
@@ -212,7 +212,7 @@ harness core:   skills | instincts | memory | security | research
 your project:   .harness / MEMORY.md / AGENTS.md
 ```
 
-No lock in. Adapters are just transpilers. Remove harness and your project still works, you just lose the caching and guardrails.
+No lock in. Adapters are just file mappings. Remove harness and your project still works, you just lose the caching and guardrails.
 
 ## Research first flow
 
@@ -222,8 +222,8 @@ For anything that touches more than a couple files:
 2. plan -> write `research/plans/<task>.md` (approach, files, risks)
 3. approve -> you give a quick ok (small low risk edits auto approve)
 4. build -> implement
-5. verify -> tests + `harness bench` + `harness security audit`
-6. remember -> `harness memory sync` distills it
+5. verify -> tests + `harness bench` + `harness doctor`
+6. remember -> `harness optimize` prunes MEMORY.md to budget (overflow archived)
 
 `instincts/research-first` blocks multi-file edits until the plan exists. Annoying at first, saves time later.
 
@@ -232,11 +232,8 @@ For anything that touches more than a couple files:
 ```bash
 # new next app with harness from the start
 npx create-next-app@latest my-app && cd my-app
-npx @theelephantcoder/agent-harness init --auto
-
-# add a skill everywhere at once
-harness skill add vercel/nextjs-skill
-# now its available in claude, opencode, cursor without copying files around
+harness init --auto     # needs harness installed, see quick start
+harness doctor --fix
 ```
 
 Custom instinct after a TS edit:

@@ -8,7 +8,7 @@
   },
   "main": "./dist/harness/index.js",
   "scripts": {
-    "bench": "tsx src/harness/bench.ts",
+    "bench": "node ./dist/harness/cli.js bench --quick",
     "build": "tsc",
     "doctor": "tsx src/harness/cli.ts doctor",
     "test": "vitest run",

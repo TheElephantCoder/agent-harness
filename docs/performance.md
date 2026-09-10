@@ -19,16 +19,10 @@ Targets I try to keep:
 ## Benchmarking
 
 ```bash
-harness bench --task cold-start --harness opencode
-harness bench --task tokens --compare main
-npm run bench  # full suite
+harness bench --quick     # 1 run per hook, seconds
+harness bench             # 3 runs per hook
+harness bench --compare   # diff against .harness/bench.json (first run saves it)
+npm run bench             # same as harness bench --quick, via the built CLI
 ```
 
-Bench code is in `src/harness/bench.ts`. CI fails if bench regresses more than ~10 percent.
-
-## Profiling
-
-```bash
-harness bench --profile --harness claude
-cat .harness/bench/profile.json | jq .hooks
-```
+Bench measures cold start (CLI spawn), each hook script executed and timed, per-skill `~tokens`, and adapter validation. CI runs `bench --quick` and fails on budget misses. Token counts are estimates (~4 chars each).
