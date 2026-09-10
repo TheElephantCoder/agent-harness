@@ -19,6 +19,8 @@ const SHELL_COMMANDS = [
     "security",
     "upgrade",
     "shell",
+    "optimize",
+    "adapter",
     "menu",
     "help",
     "version",
@@ -75,14 +77,14 @@ harness v${VERSION} - agent harness perf layer by TheElephantCoder
 
 usage: harness <command> [options]
 
-  init [--harness <name>] [--auto] [--migrate]   set up harness in current project
-  doctor [--fix]                                 check adapters, skills, security
-  bench [--harness <n>] [--task <t>] [--compare] run perf checks
-  skill <add|list|remove|search|info> [name]     manage skills
-  memory <sync|show|edit|prune>                  manage memory
-  instinct <list|enable|disable> [name]          manage hooks
-  research <query> [--plan]                      research-first capture
-  security <audit|scan|fix>                      security checks
+  init [--harness <name>] [--auto] [--migrate]   install into current project
+  doctor [--fix] [--strict]                      verify install and project
+  bench [--compare] [--quick]                    measure costs, save baseline
+  optimize                                       prune memory, repair, report savings
+  skill list                                     list skills with cost
+  memory <show|prune>                            show or prune MEMORY.md
+  instinct list                                  list hooks
+  adapter list                                   list supported harnesses
   upgrade                                        self-update to latest
   shell                                          open interactive prompt
 
@@ -95,8 +97,8 @@ run with no args on a terminal to open the interactive prompt.
 examples:
   harness init --auto
   harness doctor --fix
-  harness bench --quick
-  harness skill add vercel-labs/agent-skills
+  harness bench --quick --compare
+  harness optimize
 
 https://github.com/TheElephantCoder/agent-harness
 `);
@@ -463,6 +465,664 @@ async function selfUpgrade() {
     console.log(`[harness] cannot self-update this install - run: ${NPM_MANUAL}`);
     return false;
 }
+// ---------- real inspection: everything below measures the disk ----------
+function readText(p) {
+    try {
+        return fs.readFileSync(p, "utf8");
+    }
+    catch {
+        return null;
+    }
+}
+// ~4 chars per token for markdown. always printed with a ~ prefix.
+function estTokens(text) {
+    return Math.ceil(text.length / 4);
+}
+function fmtTok(t) {
+    return t >= 1000 ? `${(t / 1000).toFixed(1)}k` : `${t}`;
+}
+function parseFrontmatter(text) {
+    const m = /^---\n([\s\S]*?)\n---/.exec(text);
+    if (!m)
+        return null;
+    const out = {};
+    for (const line of m[1].split("\n")) {
+        const i = line.indexOf(":");
+        if (i === -1)
+            continue;
+        out[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+    }
+    if (!out.name || !out.description)
+        return null;
+    return { name: out.name, desc: out.description };
+}
+function listSkills(root) {
+    let entries = [];
+    try {
+        entries = fs.readdirSync(path.join(root, "skills")).sort();
+    }
+    catch {
+        return [];
+    }
+    const out = [];
+    for (const e of entries) {
+        const f = path.join(root, "skills", e, "SKILL.md");
+        const text = readText(f);
+        if (text === null)
+            continue;
+        const fm = parseFrontmatter(text);
+        out.push({
+            name: e,
+            file: f,
+            tokens: estTokens(text),
+            desc: fm?.desc ?? "",
+            fmOk: !!fm,
+        });
+    }
+    return out;
+}
+function listHooks(root) {
+    let groups = [];
+    try {
+        groups = fs.readdirSync(path.join(root, "instincts")).sort();
+    }
+    catch {
+        return [];
+    }
+    const out = [];
+    for (const g of groups) {
+        let files = [];
+        try {
+            files = fs.readdirSync(path.join(root, "instincts", g)).sort();
+        }
+        catch {
+            continue;
+        }
+        for (const f of files) {
+            if (f.endsWith(".sh"))
+                out.push(path.join("instincts", g, f));
+        }
+    }
+    return out;
+}
+function listAdapters(root) {
+    let entries = [];
+    try {
+        entries = fs.readdirSync(path.join(root, "adapters")).sort();
+    }
+    catch {
+        return [];
+    }
+    const out = [];
+    for (const e of entries) {
+        const d = path.join(root, "adapters", e);
+        try {
+            if (!fs.statSync(d).isDirectory())
+                continue;
+        }
+        catch {
+            continue;
+        }
+        const text = readText(path.join(d, "adapter.json"));
+        if (text === null) {
+            out.push({ name: e, json: null, error: "missing adapter.json" });
+            continue;
+        }
+        try {
+            const json = JSON.parse(text);
+            if (!json.name || !json.skillPath) {
+                out.push({ name: e, json: null, error: "missing name/skillPath" });
+            }
+            else {
+                out.push({ name: json.name, json, error: null });
+            }
+        }
+        catch {
+            out.push({ name: e, json: null, error: "invalid JSON" });
+        }
+    }
+    return out;
+}
+function isExec(p) {
+    try {
+        fs.accessSync(p, fs.constants.X_OK);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+function timeMs(fn) {
+    const t0 = process.hrtime.bigint();
+    fn();
+    return Number(process.hrtime.bigint() - t0) / 1e6;
+}
+function runHook(abs, timeoutMs) {
+    const t0 = process.hrtime.bigint();
+    const r = spawnSync("bash", [abs], {
+        input: "",
+        timeout: timeoutMs,
+        stdio: ["pipe", "ignore", "ignore"],
+    });
+    return { ms: Number(process.hrtime.bigint() - t0) / 1e6, status: r.status };
+}
+const AUTO_MARKERS = {
+    claude: ".claude",
+    cursor: ".cursor",
+    opencode: "opencode.json",
+    codex: ".codex",
+    "kiro-cli": ".kiro",
+    "kiro-desktop": ".kiro",
+    aider: ".aider.conf.yml",
+    cline: ".clinerules",
+    generic: "",
+};
+function cmdInit(flags) {
+    const root = selfRoot();
+    if (!root) {
+        console.log("[harness] init - cannot locate install");
+        return false;
+    }
+    const migrate = flags.includes("--migrate");
+    const hi = flags.indexOf("--harness");
+    const explicit = hi !== -1
+        ? (flags[hi + 1] ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
+    const adapters = listAdapters(root).filter((a) => a.json);
+    const byName = new Map(adapters.map((a) => [a.name, a]));
+    let names;
+    if (explicit.length > 0) {
+        const unknown = explicit.filter((n) => !byName.has(n));
+        if (unknown.length > 0) {
+            console.log(`[harness] init - unknown harness: ${unknown.join(", ")} (try: harness adapter list)`);
+            return false;
+        }
+        names = explicit;
+    }
+    else {
+        names = adapters
+            .map((a) => a.name)
+            .filter((n) => {
+            const m = AUTO_MARKERS[n] ?? "";
+            return m !== "" && fs.existsSync(path.join(process.cwd(), m));
+        });
+    }
+    const cwd = process.cwd();
+    const manFile = path.join(cwd, ".harness", "config.json");
+    const prior = readText(manFile);
+    if (prior !== null && !migrate) {
+        console.log("[harness] init - already initialized here (use --migrate to fill gaps)");
+        return false;
+    }
+    const tracked = new Set();
+    if (prior !== null) {
+        try {
+            for (const f of JSON.parse(prior).files ?? [])
+                tracked.add(f);
+        }
+        catch {
+            // corrupt manifest: rewrite below
+        }
+    }
+    const written = [];
+    const skipped = [];
+    const put = (rel, content, exec = false) => {
+        const abs = path.join(cwd, rel);
+        if (fs.existsSync(abs)) {
+            skipped.push(rel);
+            return;
+        }
+        try {
+            fs.mkdirSync(path.dirname(abs), { recursive: true });
+            fs.writeFileSync(abs, content);
+            if (exec)
+                fs.chmodSync(abs, 0o755);
+            written.push(rel);
+        }
+        catch {
+            console.log(`[harness] init - could not write ${rel}`);
+        }
+    };
+    const agentsSrc = readText(path.join(root, "AGENTS.md"));
+    const memSrc = readText(path.join(root, "memory", "MEMORY.md"));
+    const dests = new Map();
+    if (agentsSrc !== null)
+        dests.set("AGENTS.md", agentsSrc);
+    if (memSrc !== null)
+        dests.set("MEMORY.md", memSrc);
+    for (const n of names) {
+        const j = byName.get(n).json;
+        if (j.memoryPath && memSrc !== null)
+            dests.set(j.memoryPath, memSrc);
+        if (j.agentsPath && agentsSrc !== null)
+            dests.set(j.agentsPath, agentsSrc);
+    }
+    for (const [rel, content] of dests)
+        put(rel, content);
+    const bodies = new Map();
+    for (const s of listSkills(root)) {
+        const t = readText(s.file);
+        if (t !== null)
+            bodies.set(s.name, t);
+    }
+    for (const n of names) {
+        const sp = byName.get(n).json.skillPath;
+        if (sp.endsWith(".md")) {
+            const content = [...bodies.entries()]
+                .map(([name, body]) => `# ${name}\n\n${body}`)
+                .join("\n\n---\n\n") + "\n";
+            put(sp, content);
+        }
+        else {
+            for (const [name, body] of bodies)
+                put(`${sp}/${name}/SKILL.md`, body);
+        }
+    }
+    const copied = [];
+    const copyHook = (rel) => {
+        const text = readText(path.join(root, rel));
+        if (text === null)
+            return;
+        const base = `${path.basename(path.dirname(rel))}--${path.basename(rel)}`;
+        put(`.harness/hooks/${base}`, text, true);
+        copied.push(base);
+    };
+    for (const h of listHooks(root))
+        copyHook(h);
+    copyHook("security/audit.sh");
+    if (names.includes("claude")) {
+        const rel = ".claude/settings.json";
+        if (!tracked.has(rel) && !fs.existsSync(path.join(cwd, rel))) {
+            const entry = (base, matcher, timeout) => ({
+                matcher,
+                hooks: [{ type: "command", command: `./.harness/hooks/${base}`, timeout }],
+            });
+            const find = (sfx) => copied.find((c) => c.endsWith(sfx));
+            const hj = {};
+            const hyd = find("session-start--hydrate.sh");
+            const grd = find("pre-tool--guard.sh");
+            const chk = find("post-edit--check.sh");
+            const aud = find("audit.sh");
+            if (hyd)
+                hj.SessionStart = [entry(hyd, "*", 15000)];
+            if (grd)
+                hj.PreToolUse = [entry(grd, "Bash|Edit|Write", 5000)];
+            if (chk)
+                hj.PostToolUse = [entry(chk, "Edit|Write", 5000)];
+            if (aud)
+                hj.PreCommit = [entry(aud, "*", 10000)];
+            put(rel, JSON.stringify({ hooks: hj }, null, 2) + "\n");
+        }
+        else if (!tracked.has(rel)) {
+            console.log("[harness] init - .claude/settings.json exists, merge hooks manually (see docs/cli.md)");
+        }
+    }
+    const files = [...tracked, ...written];
+    try {
+        fs.mkdirSync(path.dirname(manFile), { recursive: true });
+        fs.writeFileSync(manFile, JSON.stringify({ version: VERSION, harness: names, files, ts: new Date().toISOString() }, null, 2));
+    }
+    catch {
+        console.log("[harness] init - could not write .harness/config.json");
+        return false;
+    }
+    const scope = names.length > 0 ? names.join(",") : "core only";
+    console.log(`[harness] init ${scope} - ${written.length} written, ${skipped.length} skipped (run harness doctor to verify)`);
+    return true;
+}
+function cmdBench(flags) {
+    const root = selfRoot();
+    if (!root) {
+        console.log("[harness] bench - cannot locate install");
+        return false;
+    }
+    const quick = flags.includes("--quick");
+    const compare = flags.includes("--compare");
+    const runs = quick ? 1 : 3;
+    console.log(`[harness] bench - ${runs} run${runs > 1 ? "s" : ""} per hook (tokens are estimates, ~4 chars each)`);
+    let ok = true;
+    const self = fs.realpathSync(fileURLToPath(import.meta.url));
+    let cold = 0;
+    cold = timeMs(() => {
+        spawnSync(process.execPath, [self, "--version"], { stdio: "ignore" });
+    });
+    const coldOk = cold < 1500;
+    if (!coldOk)
+        ok = false;
+    console.log(`  cold-start ${Math.round(cold)}ms (want <1500ms) ${coldOk ? "ok" : "FAIL"}`);
+    const hooks = listHooks(root);
+    if (hooks.length === 0) {
+        console.log("  hooks: none found FAIL");
+        ok = false;
+    }
+    const hookMs = {};
+    for (const h of hooks) {
+        let total = 0;
+        let status = 0;
+        for (let i = 0; i < runs; i++) {
+            const r = runHook(path.join(root, h), 10000);
+            total += r.ms;
+            if (r.status !== 0)
+                status = r.status;
+        }
+        const mean = total / runs;
+        hookMs[h] = Math.round(mean * 10) / 10;
+        const good = status === 0;
+        if (!good)
+            ok = false;
+        const mark = !good ? "FAIL" : mean > 2000 ? "slow" : "ok";
+        console.log(`  hook ${path.basename(h)} mean ${mean.toFixed(0)}ms exit ${status} ${mark}`);
+    }
+    const skills = listSkills(root);
+    const totalTok = skills.reduce((a, s) => a + s.tokens, 0);
+    const skillsOk = skills.length > 0 && totalTok < 50000;
+    if (!skillsOk)
+        ok = false;
+    for (const s of skills)
+        console.log(`  skill ${s.name} ~${fmtTok(s.tokens)}`);
+    console.log(`  skills ${skills.length} files ~${fmtTok(totalTok)} (want <50k) ${skillsOk ? "ok" : "FAIL"}`);
+    let adapters = [];
+    let valid = 0;
+    const adapterMs = timeMs(() => {
+        adapters = listAdapters(root);
+        valid = adapters.filter((a) => a.json).length;
+    });
+    const adOk = adapters.length > 0 && valid === adapters.length;
+    if (!adOk)
+        ok = false;
+    for (const a of adapters) {
+        if (!a.json)
+            console.log(`  adapter ${a.name}: ${a.error} FAIL`);
+    }
+    console.log(`  adapters ${valid}/${adapters.length} valid in ${adapterMs.toFixed(0)}ms ${adOk ? "ok" : "FAIL"}`);
+    const r1 = (n) => Math.round(n * 10) / 10;
+    const baseline = {
+        version: VERSION,
+        ts: new Date().toISOString(),
+        coldStartMs: r1(cold),
+        hooks: hookMs,
+        skillTokens: totalTok,
+        adapterMs: r1(adapterMs),
+    };
+    const bFile = path.join(process.cwd(), ".harness", "bench.json");
+    if (compare) {
+        const prev = readText(bFile);
+        if (prev === null) {
+            console.log("  compare: no baseline yet, saving current");
+        }
+        else {
+            try {
+                const p = JSON.parse(prev);
+                const d = (c, o) => {
+                    const diff = r1(c - o);
+                    return `${c} (was ${o}, ${diff > 0 ? "+" : ""}${diff})`;
+                };
+                console.log(`  compare cold-start ${d(baseline.coldStartMs, p.coldStartMs)}ms`);
+                for (const h of Object.keys(hookMs)) {
+                    if (p.hooks?.[h] !== undefined) {
+                        console.log(`  compare hook ${path.basename(h)} ${d(hookMs[h], p.hooks[h])}ms`);
+                    }
+                }
+                if (p.skillTokens !== undefined) {
+                    console.log(`  compare skills ~${fmtTok(totalTok)} (was ~${fmtTok(p.skillTokens)})`);
+                }
+            }
+            catch {
+                console.log("  compare: baseline corrupt, overwriting");
+            }
+        }
+    }
+    try {
+        fs.mkdirSync(path.dirname(bFile), { recursive: true });
+        fs.writeFileSync(bFile, JSON.stringify(baseline, null, 2));
+        console.log("[harness] baseline saved to .harness/bench.json");
+    }
+    catch {
+        console.log("[harness] warn - could not write .harness/bench.json");
+    }
+    return ok;
+}
+const SECRET_PATTERNS = [
+    /BEGIN PRIVATE KEY/,
+    /AKIA[0-9A-Z]{16}/,
+    /ghp_[A-Za-z0-9]{20,}/,
+    /github_pat_[A-Za-z0-9_]+/,
+    /xox[bap]-[A-Za-z0-9-]+/,
+];
+function scanStaged() {
+    const hits = [];
+    let out = "";
+    try {
+        const r = spawnSync("git", ["diff", "--cached", "--no-color"], {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"],
+        });
+        out = typeof r.stdout === "string" ? r.stdout : "";
+    }
+    catch {
+        return hits;
+    }
+    let file = "";
+    let line = 0;
+    for (const l of out.split("\n")) {
+        const m = /^\+\+\+ b\/(.+)/.exec(l);
+        if (m) {
+            file = m[1];
+            line = 0;
+            continue;
+        }
+        if (l.startsWith("+") && !l.startsWith("+++")) {
+            line += 1;
+            if (SECRET_PATTERNS.some((p) => p.test(l)))
+                hits.push({ file, line });
+        }
+    }
+    return hits;
+}
+function cmdDoctor(flags) {
+    const root = selfRoot();
+    if (!root) {
+        console.log("[harness] doctor - cannot locate install");
+        return false;
+    }
+    const fix = flags.includes("--fix");
+    const strict = flags.includes("--strict");
+    let ok = true;
+    const fail = (s) => {
+        console.log(s);
+        ok = false;
+    };
+    const warn = (s) => {
+        console.log(s);
+        if (strict)
+            ok = false;
+    };
+    const skills = listSkills(root);
+    const badFm = skills.filter((s) => !s.fmOk).map((s) => s.name);
+    if (skills.length === 0)
+        fail("[harness] FAIL - skills: none found");
+    else if (badFm.length > 0) {
+        fail(`[harness] FAIL - skills frontmatter missing name/description: ${badFm.join(", ")}`);
+    }
+    else {
+        console.log(`[harness] ok - skills: ${skills.length} checked, frontmatter ok`);
+    }
+    const hooks = listHooks(root);
+    const noexec = hooks.filter((h) => !isExec(path.join(root, h)));
+    if (noexec.length > 0) {
+        if (fix) {
+            let repaired = 0;
+            for (const h of noexec) {
+                try {
+                    fs.chmodSync(path.join(root, h), 0o755);
+                    if (isExec(path.join(root, h)))
+                        repaired += 1;
+                }
+                catch {
+                    // keep going
+                }
+            }
+            const still = hooks.filter((h) => !isExec(path.join(root, h)));
+            if (still.length === 0) {
+                console.log(`[harness] ok - hooks: repaired exec on ${repaired}, ${hooks.length} executable`);
+            }
+            else {
+                fail(`[harness] FAIL - hooks not executable: ${still.join(", ")}`);
+            }
+        }
+        else {
+            fail(`[harness] FAIL - hooks not executable (run --fix): ${noexec.join(", ")}`);
+        }
+    }
+    else if (hooks.length === 0) {
+        fail("[harness] FAIL - hooks: none found");
+    }
+    else {
+        console.log(`[harness] ok - hooks: ${hooks.length} executable`);
+    }
+    const adapters = listAdapters(root);
+    const bad = adapters.filter((a) => !a.json);
+    if (adapters.length === 0)
+        fail("[harness] FAIL - adapters: none found");
+    else if (bad.length > 0) {
+        fail(`[harness] FAIL - adapters invalid: ${bad.map((a) => `${a.name} (${a.error})`).join(", ")}`);
+    }
+    else {
+        console.log(`[harness] ok - adapters: ${adapters.length}/${adapters.length} valid`);
+    }
+    const manText = readText(path.join(process.cwd(), ".harness", "config.json"));
+    if (manText !== null) {
+        try {
+            const files = JSON.parse(manText).files ?? [];
+            const missing = files.filter((f) => !fs.existsSync(path.join(process.cwd(), f)));
+            if (missing.length > 0) {
+                fail(`[harness] FAIL - project init files missing: ${missing.join(", ")}`);
+            }
+            else {
+                console.log(`[harness] ok - project: ${files.length}/${files.length} init files present`);
+            }
+        }
+        catch {
+            fail("[harness] FAIL - project: .harness/config.json corrupt");
+        }
+    }
+    else {
+        console.log("[harness] info - project not initialized here (run harness init)");
+    }
+    const mem = readText(path.join(process.cwd(), "MEMORY.md"));
+    if (mem !== null) {
+        const t = estTokens(mem);
+        if (t > 4000)
+            warn(`[harness] warn - MEMORY.md ~${fmtTok(t)} tokens (run harness optimize)`);
+        else
+            console.log(`[harness] ok - memory: MEMORY.md ~${fmtTok(t)} tokens`);
+    }
+    const inRepo = (() => {
+        try {
+            return (spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
+                stdio: ["ignore", "pipe", "ignore"],
+            }).status === 0);
+        }
+        catch {
+            return false;
+        }
+    })();
+    if (!inRepo) {
+        console.log("[harness] info - security: not a git repo, staged scan skipped");
+    }
+    else {
+        const hits = scanStaged();
+        if (hits.length > 0) {
+            fail(`[harness] FAIL - security: possible secrets in staged (${hits.length}): ${hits
+                .slice(0, 5)
+                .map((h) => `${h.file}:${h.line}`)
+                .join(", ")} - unstage and remove them`);
+        }
+        else {
+            console.log("[harness] ok - security: no secrets in staged");
+        }
+    }
+    return ok;
+}
+// prune a markdown file to a token budget, archiving overflow. no data loss.
+function pruneFile(abs, budget) {
+    const text = readText(abs);
+    if (text === null)
+        return null;
+    const before = estTokens(text);
+    if (before <= budget)
+        return { before, after: before, moved: 0 };
+    const lines = text.split("\n");
+    const kept = [];
+    let count = 0;
+    for (const l of lines) {
+        const t = estTokens(l + "\n");
+        if (kept.length >= 10 && count + t > budget)
+            break;
+        kept.push(l);
+        count += t;
+    }
+    const rest = lines.slice(kept.length);
+    const archive = path.join(path.dirname(abs), `${path.basename(abs, path.extname(abs))}.archive.md`);
+    const stamp = new Date().toISOString().slice(0, 10);
+    try {
+        fs.appendFileSync(archive, `\n## pruned ${stamp}\n\n${rest.join("\n")}\n`);
+        fs.writeFileSync(abs, kept.join("\n"));
+    }
+    catch {
+        return null;
+    }
+    return { before, after: estTokens(kept.join("\n")), moved: rest.length };
+}
+function cmdOptimize() {
+    const root = selfRoot();
+    if (!root) {
+        console.log("[harness] optimize - cannot locate install");
+        return false;
+    }
+    const cwd = process.cwd();
+    const mem = ["MEMORY.md", path.join(".kiro", "MEMORY.md")]
+        .map((f) => path.join(cwd, f))
+        .find((f) => fs.existsSync(f));
+    if (!mem) {
+        console.log("[harness] optimize - no MEMORY.md here (run harness init)");
+    }
+    else {
+        const r = pruneFile(mem, 2000);
+        if (!r) {
+            console.log("[harness] FAIL - optimize: could not prune MEMORY.md");
+            return false;
+        }
+        if (r.moved === 0) {
+            console.log(`[harness] ok - memory ~${fmtTok(r.before)} - under 2k budget, nothing to do`);
+        }
+        else {
+            console.log(`[harness] ok - memory ~${fmtTok(r.before)} -> ~${fmtTok(r.after)}, ${r.moved} lines archived`);
+        }
+    }
+    const hooks = listHooks(root);
+    let repaired = 0;
+    for (const h of hooks) {
+        const abs = path.join(root, h);
+        if (!isExec(abs)) {
+            try {
+                fs.chmodSync(abs, 0o755);
+                if (isExec(abs))
+                    repaired += 1;
+            }
+            catch {
+                // keep going
+            }
+        }
+    }
+    if (repaired > 0)
+        console.log(`[harness] ok - repaired exec on ${repaired} hooks`);
+    const skills = listSkills(root);
+    const total = skills.reduce((a, s) => a + s.tokens, 0);
+    const top = [...skills].sort((a, b) => b.tokens - a.tokens)[0];
+    console.log(`[harness] ok - skills ${skills.length} files ~${fmtTok(total)} total${top ? `, largest ${top.name} ~${fmtTok(top.tokens)}` : ""}`);
+    return true;
+}
 async function runCommand(cmd, flags) {
     const all = [cmd, ...flags];
     if (all.includes("-h") ||
@@ -483,40 +1143,83 @@ async function runCommand(cmd, flags) {
     }
     switch (cmd) {
         case "init": {
-            const idx = flags.indexOf("--harness");
-            const harness = idx !== -1 ? (flags[idx + 1] ?? "auto") : "auto";
-            const auto = flags.includes("--auto");
-            console.log(`[harness] init --harness=${harness} ${auto ? "--auto" : ""}`);
-            console.log("[harness] copying skills to adapters/claude, opencode, codex, cursor, kiro-cli, kiro-desktop, cline, aider...");
-            console.log("[harness] writing .harness/config.json, AGENTS.md, MEMORY.md...");
-            console.log("[harness] done. run `harness doctor` to verify.");
-            break;
+            return cmdInit(flags);
         }
         case "doctor": {
-            const fix = flags.includes("--fix");
-            console.log(`[harness] doctor ${fix ? "--fix" : ""}`);
-            console.log("[harness] ok - skills: 4 found");
-            console.log("[harness] ok - instincts: 4 hooks");
-            console.log("[harness] ok - memory: MEMORY.md 2.1k tokens");
-            console.log("[harness] ok - security: no secrets in staged");
-            console.log("[harness] ok - adapters: claude, opencode, codex, cursor, kiro-cli, kiro-desktop, cline, aider in sync");
-            break;
+            return cmdDoctor(flags);
         }
         case "bench": {
-            console.log("[harness] bench - cold-start, tokens, tool-calls, hooks...");
-            console.log("  cold-start 13.2s (want <15s) ok");
-            console.log("  tokens 48k (want <50k) ok");
-            console.log("  tool-calls 51 (want <60) ok");
-            console.log("  hook p99 87ms (want <100ms) ok");
-            break;
+            return cmdBench(flags);
         }
-        case "skill":
-        case "memory":
-        case "instinct":
+        case "optimize": {
+            return cmdOptimize();
+        }
+        case "adapter": {
+            if (flags[0] === "list" || flags.length === 0) {
+                const root = selfRoot();
+                if (!root) {
+                    console.log("[harness] adapter - cannot locate install");
+                    return false;
+                }
+                for (const a of listAdapters(root)) {
+                    console.log(`  ${a.name}${a.json?.displayName ? ` - ${a.json.displayName}` : ""}${a.error ? ` (${a.error})` : ""}`);
+                }
+                return true;
+            }
+            console.log(`[harness] adapter ${flags.join(" ")} - not implemented yet`);
+            return true;
+        }
+        case "skill": {
+            if (flags[0] === "list") {
+                const root = selfRoot();
+                if (!root) {
+                    console.log("[harness] skill - cannot locate install");
+                    return false;
+                }
+                for (const s of listSkills(root)) {
+                    console.log(`  ${s.name} - ${s.desc || "(no description)"} (~${fmtTok(s.tokens)})`);
+                }
+                return true;
+            }
+            console.log(`[harness] skill ${flags.join(" ")} - not implemented yet`);
+            return true;
+        }
+        case "memory": {
+            if (flags[0] === "show") {
+                const text = readText(path.join(process.cwd(), "MEMORY.md"));
+                if (text === null) {
+                    console.log("[harness] memory - no MEMORY.md here (run harness init)");
+                }
+                else {
+                    console.log(text);
+                }
+                return true;
+            }
+            if (flags[0] === "prune") {
+                return cmdOptimize();
+            }
+            console.log(`[harness] memory ${flags.join(" ")} - not implemented yet`);
+            return true;
+        }
+        case "instinct": {
+            if (flags[0] === "list") {
+                const root = selfRoot();
+                if (!root) {
+                    console.log("[harness] instinct - cannot locate install");
+                    return false;
+                }
+                for (const h of listHooks(root)) {
+                    console.log(`  ${h} ${isExec(path.join(root, h)) ? "exec" : "noexec"}`);
+                }
+                return true;
+            }
+            console.log(`[harness] instinct ${flags.join(" ")} - not implemented yet`);
+            return true;
+        }
         case "research":
         case "security":
-            console.log(`[harness] ${cmd} ${flags.join(" ")} - see docs/${cmd}.md`);
-            break;
+            console.log(`[harness] ${cmd} ${flags.join(" ")} - not implemented yet`);
+            return true;
         case "upgrade":
             return selfUpgrade();
         case "shell":

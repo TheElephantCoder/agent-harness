@@ -187,13 +187,12 @@ harness security audit           # scan for secrets and injection stuff
 
 ```
 harness init [--harness <name>] [--auto] [--migrate]
-harness doctor [--fix]
-harness bench [--harness <name>] [--task <task>] [--compare]
-harness skill <add|list|remove|search|info> [name]
-harness memory <sync|show|edit|prune>
-harness instinct <list|enable|disable> [name]
-harness research <query> [--plan]
-harness security <audit|scan|fix>
+harness doctor [--fix] [--strict]
+harness bench [--compare] [--quick]
+harness optimize
+harness skill list
+harness memory <show|prune>
+harness instinct list
 harness upgrade
 harness shell
 ```

@@ -8,7 +8,7 @@ if [ -d "research/plans" ] && [ "$(ls -1 research/plans 2>/dev/null | wc -l)" -g
 fi
 # Allow single-file trivial edits without plan
 # Block heuristic: if Input contains multiple file paths, require plan
-FILE_COUNT=$(echo "$INPUT" | grep -oE '"file_path"[^,]*' | wc -l | tr -d ' ')
+FILE_COUNT=$(echo "$INPUT" | grep -oE '"file_path"[^,]*' | wc -l | tr -d ' ' || true)
 if [ "$FILE_COUNT" -gt 2 ]; then
   echo "[harness:research-first] Blocked: multi-file edit without research/plans/*.md" >&2
   echo "Create research/findings/<topic>.md + research/plans/<task>.md first. See skills/research-first/SKILL.md" >&2

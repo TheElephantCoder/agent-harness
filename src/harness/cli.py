@@ -191,21 +191,493 @@ def show_menu():
         cmd_bench(SimpleNamespace())
     print(paint(DIM, "╌" * term_width()))
 
-def cmd_init(args):
-    print(f"[harness] init --harness={args.harness} {'--auto' if args.auto else ''}")
-    print("[harness] copying skills to adapters/* ...")
-    print("[harness] done. run `harness doctor` to verify.")
+def read_text(p):
+    try:
+        with open(p, encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return None
 
-def cmd_doctor(args):
-    print(f"[harness] doctor {'--fix' if args.fix else ''}")
-    print("[harness] ok - skills: 4 found")
-    print("[harness] ok - instincts: 4 hooks")
-    print("[harness] ok - memory: MEMORY.md 2.1k")
-    print("[harness] ok - security: clean")
-    print("[harness] ok - adapters: claude, opencode, codex, cursor, kiro-cli, kiro-desktop, cline, aider in sync")
+def est_tokens(text):
+    return (len(text) + 3) // 4
 
-def cmd_bench(args):
-    print("[harness] bench - cold-start 13.2s ok  tokens 48k ok  tool-calls 51 ok  hook p99 87ms ok")
+def fmt_tok(t):
+    return f"{t / 1000:.1f}k" if t >= 1000 else str(t)
+
+def parse_frontmatter(text):
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None
+    out = {}
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if ":" not in line:
+            continue
+        k, v = line.split(":", 1)
+        out[k.strip()] = v.strip()
+    if not out.get("name") or not out.get("description"):
+        return None
+    return {"name": out["name"], "desc": out["description"]}
+
+def list_skills(root):
+    try:
+        entries = sorted(os.listdir(os.path.join(root, "skills")))
+    except OSError:
+        return []
+    out = []
+    for e in entries:
+        f = os.path.join(root, "skills", e, "SKILL.md")
+        text = read_text(f)
+        if text is None:
+            continue
+        fm = parse_frontmatter(text)
+        out.append({"name": e, "file": f, "tokens": est_tokens(text),
+                    "desc": fm["desc"] if fm else "", "fm_ok": bool(fm)})
+    return out
+
+def list_hooks(root):
+    try:
+        groups = sorted(os.listdir(os.path.join(root, "instincts")))
+    except OSError:
+        return []
+    out = []
+    for g in groups:
+        gd = os.path.join(root, "instincts", g)
+        try:
+            files = sorted(os.listdir(gd))
+        except OSError:
+            continue
+        for f in files:
+            if f.endswith(".sh"):
+                out.append(os.path.join("instincts", g, f))
+    return out
+
+def list_adapters(root):
+    try:
+        entries = sorted(os.listdir(os.path.join(root, "adapters")))
+    except OSError:
+        return []
+    out = []
+    for e in entries:
+        d = os.path.join(root, "adapters", e)
+        if not os.path.isdir(d):
+            continue
+        text = read_text(os.path.join(d, "adapter.json"))
+        if text is None:
+            out.append({"name": e, "json": None, "error": "missing adapter.json"})
+            continue
+        try:
+            j = json.loads(text)
+        except ValueError:
+            out.append({"name": e, "json": None, "error": "invalid JSON"})
+            continue
+        if not j.get("name") or not j.get("skillPath"):
+            out.append({"name": e, "json": None, "error": "missing name/skillPath"})
+        else:
+            out.append({"name": j["name"], "json": j, "error": None})
+    return out
+
+def is_exec(p):
+    return os.path.isfile(p) and os.access(p, os.X_OK)
+
+def run_hook(abs_path, timeout_s=10):
+    t0 = time.perf_counter()
+    try:
+        r = subprocess.run(["bash", abs_path], input="", timeout=timeout_s,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+        return (time.perf_counter() - t0) * 1000, r.returncode
+    except (OSError, subprocess.TimeoutExpired):
+        return (time.perf_counter() - t0) * 1000, None
+
+def cmd_bench(args=None):
+    root = self_root()
+    if not root:
+        print("[harness] bench - cannot locate install")
+        return False
+    quick = bool(getattr(args, "quick", False))
+    compare = bool(getattr(args, "compare", False))
+    runs = 1 if quick else 3
+    print(f"[harness] bench - {runs} run{'s' if runs > 1 else ''} per hook (tokens are estimates, ~4 chars each)")
+    ok = True
+    t0 = time.perf_counter()
+    subprocess.run([sys.executable, os.path.realpath(__file__), "--version"],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    cold = (time.perf_counter() - t0) * 1000
+    cold_ok = cold < 1500
+    if not cold_ok:
+        ok = False
+    print(f"  cold-start {cold:.0f}ms (want <1500ms) {'ok' if cold_ok else 'FAIL'}")
+    hooks = list_hooks(root)
+    if not hooks:
+        print("  hooks: none found FAIL")
+        ok = False
+    hook_ms = {}
+    for h in hooks:
+        total, status = 0.0, 0
+        for _ in range(runs):
+            ms, st = run_hook(os.path.join(root, h))
+            total += ms
+            if st != 0:
+                status = st
+        mean = total / runs
+        hook_ms[h] = round(mean, 1)
+        good = status == 0
+        if not good:
+            ok = False
+        mark = "FAIL" if not good else ("slow" if mean > 2000 else "ok")
+        print(f"  hook {os.path.basename(h)} mean {mean:.0f}ms exit {status} {mark}")
+    skills = list_skills(root)
+    total_tok = sum(s["tokens"] for s in skills)
+    skills_ok = bool(skills) and total_tok < 50000
+    if not skills_ok:
+        ok = False
+    for s in skills:
+        print(f"  skill {s['name']} ~{fmt_tok(s['tokens'])}")
+    print(f"  skills {len(skills)} files ~{fmt_tok(total_tok)} (want <50k) {'ok' if skills_ok else 'FAIL'}")
+    t0 = time.perf_counter()
+    adapters = list_adapters(root)
+    valid = sum(1 for a in adapters if a["json"])
+    adapter_ms = (time.perf_counter() - t0) * 1000
+    ad_ok = bool(adapters) and valid == len(adapters)
+    if not ad_ok:
+        ok = False
+    for a in adapters:
+        if not a["json"]:
+            print(f"  adapter {a['name']}: {a['error']} FAIL")
+    print(f"  adapters {valid}/{len(adapters)} valid in {adapter_ms:.0f}ms {'ok' if ad_ok else 'FAIL'}")
+    baseline = {"version": VERSION, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "coldStartMs": round(cold, 1), "hooks": hook_ms,
+                "skillTokens": total_tok, "adapterMs": round(adapter_ms, 1)}
+    bfile = os.path.join(os.getcwd(), ".harness", "bench.json")
+    if compare:
+        prev = read_text(bfile)
+        if prev is None:
+            print("  compare: no baseline yet, saving current")
+        else:
+            try:
+                p = json.loads(prev)
+                def d(c, o):
+                    diff = round(c - o, 1)
+                    return f"{c} (was {o}, {'+' if diff > 0 else ''}{diff})"
+                print(f"  compare cold-start {d(baseline['coldStartMs'], p['coldStartMs'])}ms")
+                for h, ms in hook_ms.items():
+                    if p.get("hooks", {}).get(h) is not None:
+                        print(f"  compare hook {os.path.basename(h)} {d(ms, p['hooks'][h])}ms")
+                if p.get("skillTokens") is not None:
+                    print(f"  compare skills ~{fmt_tok(total_tok)} (was ~{fmt_tok(p['skillTokens'])})")
+            except ValueError:
+                print("  compare: baseline corrupt, overwriting")
+    try:
+        os.makedirs(os.path.dirname(bfile), exist_ok=True)
+        with open(bfile, "w", encoding="utf-8") as f:
+            json.dump(baseline, f, indent=2)
+        print("[harness] baseline saved to .harness/bench.json")
+    except OSError:
+        print("[harness] warn - could not write .harness/bench.json")
+    return ok
+
+SECRET_PATTERNS = ["BEGIN PRIVATE KEY", "AKIA", "ghp_", "github_pat_", "xoxb-", "xoxa-", "xoxp-"]
+
+def scan_staged():
+    hits = []
+    try:
+        r = subprocess.run(["git", "diff", "--cached", "--no-color"], capture_output=True, text=True, timeout=30)
+        out = r.stdout or ""
+    except (OSError, subprocess.TimeoutExpired):
+        return hits
+    fname, line = "", 0
+    for l in out.split("\n"):
+        if l.startswith("+++ b/"):
+            fname, line = l[6:], 0
+            continue
+        if l.startswith("+") and not l.startswith("+++"):
+            line += 1
+            if any(p in l for p in SECRET_PATTERNS):
+                if "AKIA" in l and not re.search(r"AKIA[0-9A-Z]{16}", l):
+                    continue
+                hits.append((fname, line))
+    return hits
+
+def cmd_doctor(args=None):
+    root = self_root()
+    if not root:
+        print("[harness] doctor - cannot locate install")
+        return False
+    fix = bool(getattr(args, "fix", False))
+    strict = bool(getattr(args, "strict", False))
+    state = {"ok": True}
+    def fail(s):
+        print(s)
+        state["ok"] = False
+    def warn(s):
+        print(s)
+        if strict:
+            state["ok"] = False
+    skills = list_skills(root)
+    bad_fm = [s["name"] for s in skills if not s["fm_ok"]]
+    if not skills:
+        fail("[harness] FAIL - skills: none found")
+    elif bad_fm:
+        fail(f"[harness] FAIL - skills frontmatter missing name/description: {', '.join(bad_fm)}")
+    else:
+        print(f"[harness] ok - skills: {len(skills)} checked, frontmatter ok")
+    hooks = list_hooks(root)
+    noexec = [h for h in hooks if not is_exec(os.path.join(root, h))]
+    if noexec:
+        if fix:
+            repaired = 0
+            for h in noexec:
+                try:
+                    os.chmod(os.path.join(root, h), 0o755)
+                    if is_exec(os.path.join(root, h)):
+                        repaired += 1
+                except OSError:
+                    pass
+            still = [h for h in hooks if not is_exec(os.path.join(root, h))]
+            if not still:
+                print(f"[harness] ok - hooks: repaired exec on {repaired}, {len(hooks)} executable")
+            else:
+                fail(f"[harness] FAIL - hooks not executable: {', '.join(still)}")
+        else:
+            fail(f"[harness] FAIL - hooks not executable (run --fix): {', '.join(noexec)}")
+    elif not hooks:
+        fail("[harness] FAIL - hooks: none found")
+    else:
+        print(f"[harness] ok - hooks: {len(hooks)} executable")
+    adapters = list_adapters(root)
+    bad = [a for a in adapters if not a["json"]]
+    if not adapters:
+        fail("[harness] FAIL - adapters: none found")
+    elif bad:
+        fail("[harness] FAIL - adapters invalid: " + ", ".join(f"{a['name']} ({a['error']})" for a in bad))
+    else:
+        print(f"[harness] ok - adapters: {len(adapters)}/{len(adapters)} valid")
+    man = read_text(os.path.join(os.getcwd(), ".harness", "config.json"))
+    if man is not None:
+        try:
+            files = json.loads(man).get("files", [])
+            missing = [f for f in files if not os.path.exists(os.path.join(os.getcwd(), f))]
+            if missing:
+                fail(f"[harness] FAIL - project init files missing: {', '.join(missing)}")
+            else:
+                print(f"[harness] ok - project: {len(files)}/{len(files)} init files present")
+        except ValueError:
+            fail("[harness] FAIL - project: .harness/config.json corrupt")
+    else:
+        print("[harness] info - project not initialized here (run harness init)")
+    mem = read_text(os.path.join(os.getcwd(), "MEMORY.md"))
+    if mem is not None:
+        t = est_tokens(mem)
+        if t > 4000:
+            warn(f"[harness] warn - MEMORY.md ~{fmt_tok(t)} tokens (run harness optimize)")
+        else:
+            print(f"[harness] ok - memory: MEMORY.md ~{fmt_tok(t)} tokens")
+    try:
+        in_repo = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    except OSError:
+        in_repo = False
+    if not in_repo:
+        print("[harness] info - security: not a git repo, staged scan skipped")
+    else:
+        hits = scan_staged()
+        if hits:
+            shown = ", ".join(f"{f}:{n}" for f, n in hits[:5])
+            fail(f"[harness] FAIL - security: possible secrets in staged ({len(hits)}): {shown} - unstage and remove them")
+        else:
+            print("[harness] ok - security: no secrets in staged")
+    return state["ok"]
+
+def prune_file(abs_path, budget):
+    text = read_text(abs_path)
+    if text is None:
+        return None
+    before = est_tokens(text)
+    if before <= budget:
+        return {"before": before, "after": before, "moved": 0}
+    lines = text.split("\n")
+    kept, count = [], 0
+    for l in lines:
+        t = est_tokens(l + "\n")
+        if len(kept) >= 10 and count + t > budget:
+            break
+        kept.append(l)
+        count += t
+    rest = lines[len(kept):]
+    base, ext = os.path.splitext(abs_path)
+    archive = base + ".archive.md"
+    stamp = time.strftime("%Y-%m-%d", time.gmtime())
+    try:
+        with open(archive, "a", encoding="utf-8") as f:
+            f.write(f"\n## pruned {stamp}\n\n" + "\n".join(rest) + "\n")
+        with open(abs_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(kept))
+    except OSError:
+        return None
+    return {"before": before, "after": est_tokens("\n".join(kept)), "moved": len(rest)}
+
+def cmd_optimize(args=None):
+    root = self_root()
+    if not root:
+        print("[harness] optimize - cannot locate install")
+        return False
+    cwd = os.getcwd()
+    mem = next((os.path.join(cwd, f) for f in ["MEMORY.md", os.path.join(".kiro", "MEMORY.md")]
+                if os.path.exists(os.path.join(cwd, f))), None)
+    if not mem:
+        print("[harness] optimize - no MEMORY.md here (run harness init)")
+    else:
+        r = prune_file(mem, 2000)
+        if not r:
+            print("[harness] FAIL - optimize: could not prune MEMORY.md")
+            return False
+        if r["moved"] == 0:
+            print(f"[harness] ok - memory ~{fmt_tok(r['before'])} - under 2k budget, nothing to do")
+        else:
+            print(f"[harness] ok - memory ~{fmt_tok(r['before'])} -> ~{fmt_tok(r['after'])}, {r['moved']} lines archived")
+    repaired = 0
+    for h in list_hooks(root):
+        abs_path = os.path.join(root, h)
+        if not is_exec(abs_path):
+            try:
+                os.chmod(abs_path, 0o755)
+                if is_exec(abs_path):
+                    repaired += 1
+            except OSError:
+                pass
+    if repaired:
+        print(f"[harness] ok - repaired exec on {repaired} hooks")
+    skills = list_skills(root)
+    total = sum(s["tokens"] for s in skills)
+    top = max(skills, key=lambda s: s["tokens"]) if skills else None
+    extra = f", largest {top['name']} ~{fmt_tok(top['tokens'])}" if top else ""
+    print(f"[harness] ok - skills {len(skills)} files ~{fmt_tok(total)} total{extra}")
+    return True
+
+AUTO_MARKERS = {"claude": ".claude", "cursor": ".cursor", "opencode": "opencode.json",
+                "codex": ".codex", "kiro-cli": ".kiro", "kiro-desktop": ".kiro",
+                "aider": ".aider.conf.yml", "cline": ".clinerules", "generic": ""}
+
+def cmd_init(args=None):
+    root = self_root()
+    if not root:
+        print("[harness] init - cannot locate install")
+        return False
+    migrate = bool(getattr(args, "migrate", False))
+    raw = getattr(args, "harness", "auto") or "auto"
+    explicit = [s.strip() for s in raw.split(",") if s.strip()] if raw != "auto" else []
+    adapters = [a for a in list_adapters(root) if a["json"]]
+    by_name = {a["name"]: a for a in adapters}
+    if explicit:
+        unknown = [n for n in explicit if n not in by_name]
+        if unknown:
+            print(f"[harness] init - unknown harness: {', '.join(unknown)} (try: harness adapter list)")
+            return False
+        names = explicit
+    else:
+        names = [a["name"] for a in adapters
+                 if (AUTO_MARKERS.get(a["name"], "") or "") and os.path.exists(os.path.join(os.getcwd(), AUTO_MARKERS[a["name"]]))]
+    cwd = os.getcwd()
+    man_file = os.path.join(cwd, ".harness", "config.json")
+    prior = read_text(man_file)
+    if prior is not None and not migrate:
+        print("[harness] init - already initialized here (use --migrate to fill gaps)")
+        return False
+    tracked = set()
+    if prior is not None:
+        try:
+            tracked = set(json.loads(prior).get("files", []))
+        except ValueError:
+            pass
+    written, skipped = [], []
+    def put(rel, content, exec=False):
+        abs_path = os.path.join(cwd, rel)
+        if os.path.exists(abs_path):
+            skipped.append(rel)
+            return
+        try:
+            os.makedirs(os.path.dirname(abs_path) or ".", exist_ok=True)
+            with open(abs_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            if exec:
+                os.chmod(abs_path, 0o755)
+            written.append(rel)
+        except OSError:
+            print(f"[harness] init - could not write {rel}")
+    agents_src = read_text(os.path.join(root, "AGENTS.md"))
+    mem_src = read_text(os.path.join(root, "memory", "MEMORY.md"))
+    dests = {}
+    if agents_src is not None:
+        dests["AGENTS.md"] = agents_src
+    if mem_src is not None:
+        dests["MEMORY.md"] = mem_src
+    for n in names:
+        j = by_name[n]["json"]
+        if j.get("memoryPath") and mem_src is not None:
+            dests[j["memoryPath"]] = mem_src
+        if j.get("agentsPath") and agents_src is not None:
+            dests[j["agentsPath"]] = agents_src
+    for rel, content in dests.items():
+        put(rel, content)
+    bodies = {}
+    for s in list_skills(root):
+        t = read_text(s["file"])
+        if t is not None:
+            bodies[s["name"]] = t
+    for n in names:
+        sp = by_name[n]["json"]["skillPath"]
+        if sp.endswith(".md"):
+            content = "\n\n---\n\n".join(f"# {name}\n\n{body}" for name, body in bodies.items()) + "\n"
+            put(sp, content)
+        else:
+            for name, body in bodies.items():
+                put(f"{sp}/{name}/SKILL.md", body)
+    copied = []
+    def copy_hook(rel):
+        text = read_text(os.path.join(root, rel))
+        if text is None:
+            return
+        base = os.path.basename(os.path.dirname(rel)) + "--" + os.path.basename(rel)
+        put(os.path.join(".harness", "hooks", base), text, True)
+        copied.append(base)
+    for h in list_hooks(root):
+        copy_hook(h)
+    copy_hook(os.path.join("security", "audit.sh"))
+    if "claude" in names:
+        rel = os.path.join(".claude", "settings.json")
+        if rel.replace(os.sep, "/") not in tracked and not os.path.exists(os.path.join(cwd, rel)):
+            def entry(base, matcher, timeout):
+                return {"matcher": matcher,
+                        "hooks": [{"type": "command", "command": f"./.harness/hooks/{base}", "timeout": timeout}]}
+            find = next((c for c in copied if c.endswith("session-start--hydrate.sh")), None)
+            hj = {}
+            if find:
+                hj["SessionStart"] = [entry(find, "*", 15000)]
+            find = next((c for c in copied if c.endswith("pre-tool--guard.sh")), None)
+            if find:
+                hj["PreToolUse"] = [entry(find, "Bash|Edit|Write", 5000)]
+            find = next((c for c in copied if c.endswith("post-edit--check.sh")), None)
+            if find:
+                hj["PostToolUse"] = [entry(find, "Edit|Write", 5000)]
+            find = next((c for c in copied if c.endswith("audit.sh")), None)
+            if find:
+                hj["PreCommit"] = [entry(find, "*", 10000)]
+            put(rel, json.dumps({"hooks": hj}, indent=2) + "\n")
+        elif rel.replace(os.sep, "/") not in tracked:
+            print("[harness] init - .claude/settings.json exists, merge hooks manually (see docs/cli.md)")
+    files = list(tracked) + written
+    try:
+        os.makedirs(os.path.dirname(man_file), exist_ok=True)
+        with open(man_file, "w", encoding="utf-8") as f:
+            json.dump({"version": VERSION, "harness": names, "files": files,
+                       "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, f, indent=2)
+    except OSError:
+        print("[harness] init - could not write .harness/config.json")
+        return False
+    scope = ",".join(names) if names else "core only"
+    print(f"[harness] init {scope} - {len(written)} written, {len(skipped)} skipped (run harness doctor to verify)")
+    return True
 
 UPGRADE_TARBALL = "https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/refs/heads/main"
 
@@ -388,32 +860,77 @@ class HarnessShell(cmdmod.Cmd):
 
     def do_doctor(self, arg):
         "check adapters, skills, security"
-        ns = SimpleNamespace(fix="--fix" in shlex.split(arg))
-        cmd_doctor(ns)
+        parts = shlex.split(arg) if arg else []
+        cmd_doctor(SimpleNamespace(fix="--fix" in parts, strict="--strict" in parts))
 
     def do_bench(self, arg):
         "run perf checks"
-        cmd_bench(SimpleNamespace())
+        parts = shlex.split(arg) if arg else []
+        cmd_bench(SimpleNamespace(quick="--quick" in parts, compare="--compare" in parts))
+
+    def do_optimize(self, arg):
+        "prune memory, repair, report savings"
+        cmd_optimize()
+
+    def do_adapter(self, arg):
+        "list supported harnesses"
+        root = self_root()
+        if not root:
+            print("[harness] adapter - cannot locate install")
+            return
+        for a in list_adapters(root):
+            extra = f" - {a['json']['displayName']}" if a["json"] and a["json"].get("displayName") else ""
+            err = f" ({a['error']})" if a["error"] else ""
+            print(f"  {a['name']}{extra}{err}")
 
     def do_skill(self, arg):
         "manage skills"
-        print(f"[harness] skill {arg} - see docs/skill.md")
+        parts = shlex.split(arg) if arg else []
+        if parts and parts[0] == "list":
+            root = self_root()
+            if not root:
+                print("[harness] skill - cannot locate install")
+                return
+            for s in list_skills(root):
+                print(f"  {s['name']} - {s['desc'] or '(no description)'} (~{fmt_tok(s['tokens'])})")
+            return
+        print(f"[harness] skill {arg} - not implemented yet")
 
     def do_memory(self, arg):
         "manage memory"
-        print(f"[harness] memory {arg} - see docs/memory.md")
+        parts = shlex.split(arg) if arg else []
+        if parts and parts[0] == "show":
+            text = read_text(os.path.join(os.getcwd(), "MEMORY.md"))
+            if text is None:
+                print("[harness] memory - no MEMORY.md here (run harness init)")
+            else:
+                print(text)
+            return
+        if parts and parts[0] == "prune":
+            cmd_optimize()
+            return
+        print(f"[harness] memory {arg} - not implemented yet")
 
     def do_instinct(self, arg):
         "manage hooks"
-        print(f"[harness] instinct {arg} - see docs/instinct.md")
+        parts = shlex.split(arg) if arg else []
+        if parts and parts[0] == "list":
+            root = self_root()
+            if not root:
+                print("[harness] instinct - cannot locate install")
+                return
+            for h in list_hooks(root):
+                print(f"  {h} {'exec' if is_exec(os.path.join(root, h)) else 'noexec'}")
+            return
+        print(f"[harness] instinct {arg} - not implemented yet")
 
     def do_research(self, arg):
         "research-first capture"
-        print(f"[harness] research {arg} - see docs/research.md")
+        print(f"[harness] research {arg} - not implemented yet")
 
     def do_security(self, arg):
         "security checks"
-        print(f"[harness] security {arg} - see docs/security.md")
+        print(f"[harness] security {arg} - not implemented yet")
 
     def do_upgrade(self, arg):
         "self-update to latest"
@@ -434,6 +951,7 @@ def main():
 
     b = sub.add_parser("doctor")
     b.add_argument("--fix", action="store_true")
+    b.add_argument("--strict", action="store_true")
 
     c = sub.add_parser("bench")
     c.add_argument("--harness")
@@ -441,7 +959,7 @@ def main():
     c.add_argument("--compare", action="store_true")
     c.add_argument("--quick", action="store_true")
 
-    for name in ["skill", "memory", "instinct", "research", "security", "upgrade", "shell"]:
+    for name in ["skill", "memory", "instinct", "research", "security", "upgrade", "shell", "optimize", "adapter"]:
         s = sub.add_parser(name)
         s.add_argument("args", nargs=argparse.REMAINDER)
 
@@ -458,12 +976,54 @@ def main():
     if args.cmd == "shell":
         launch_shell()
         return
-    dispatch = {"init": cmd_init, "doctor": cmd_doctor, "bench": cmd_bench, "upgrade": cmd_upgrade}
+    dispatch = {"init": cmd_init, "doctor": cmd_doctor, "bench": cmd_bench, "upgrade": cmd_upgrade,
+                "optimize": cmd_optimize}
     if args.cmd in dispatch:
-        dispatch[args.cmd](args)
-    else:
-        rest = " ".join(getattr(args, "args", []) or [])
-        print(f"[harness] {args.cmd} {rest} - see docs/{args.cmd}.md")
+        if not dispatch[args.cmd](args):
+            sys.exit(1)
+        return
+    if args.cmd == "adapter" and (not args.args or args.args == ["list"]):
+        root = self_root()
+        if not root:
+            print("[harness] adapter - cannot locate install")
+            sys.exit(1)
+            return
+        for a in list_adapters(root):
+            extra = f" - {a['json']['displayName']}" if a["json"] and a["json"].get("displayName") else ""
+            err = f" ({a['error']})" if a["error"] else ""
+            print(f"  {a['name']}{extra}{err}")
+        return
+    if args.cmd == "skill" and args.args[:1] == ["list"]:
+        root = self_root()
+        if not root:
+            print("[harness] skill - cannot locate install")
+            sys.exit(1)
+            return
+        for s in list_skills(root):
+            print(f"  {s['name']} - {s['desc'] or '(no description)'} (~{fmt_tok(s['tokens'])})")
+        return
+    if args.cmd == "memory" and args.args[:1] == ["show"]:
+        text = read_text(os.path.join(os.getcwd(), "MEMORY.md"))
+        if text is None:
+            print("[harness] memory - no MEMORY.md here (run harness init)")
+        else:
+            print(text)
+        return
+    if args.cmd == "memory" and args.args[:1] == ["prune"]:
+        if not cmd_optimize():
+            sys.exit(1)
+        return
+    if args.cmd == "instinct" and args.args[:1] == ["list"]:
+        root = self_root()
+        if not root:
+            print("[harness] instinct - cannot locate install")
+            sys.exit(1)
+            return
+        for h in list_hooks(root):
+            print(f"  {h} {'exec' if is_exec(os.path.join(root, h)) else 'noexec'}")
+        return
+    rest = " ".join(getattr(args, "args", []) or [])
+    print(f"[harness] {args.cmd} {rest} - not implemented yet".rstrip())
 
 if __name__ == "__main__":
     main()
