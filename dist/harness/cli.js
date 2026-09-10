@@ -2,6 +2,10 @@
 // harness cli - small shim, real logic lives in the scripts and hooks
 // node >=20
 import * as readline from "node:readline";
+import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 export const VERSION = "0.1.2";
 const SHELL_COMMANDS = [
     "init",
@@ -78,7 +82,7 @@ usage: harness <command> [options]
   instinct <list|enable|disable> [name]          manage hooks
   research <query> [--plan]                      research-first capture
   security <audit|scan|fix>                      security checks
-  upgrade                                        pull latest
+  upgrade                                        self-update to latest
   shell                                          open interactive prompt
 
 options:
@@ -272,6 +276,76 @@ async function interactive() {
     rl.close();
     console.log(paint(ANSI.dim, "bye."));
 }
+// same tarball the README install uses; registry publish is still pending,
+// so self-update reinstalls from here instead of `npm update -g`.
+const UPGRADE_TARBALL = "https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/refs/heads/main";
+const NPM_MANUAL = `npm install -g ${UPGRADE_TARBALL}`;
+// install root of the running copy, or null when it cannot be located.
+function selfRoot() {
+    try {
+        const self = fs.realpathSync(fileURLToPath(import.meta.url));
+        const root = path.dirname(path.dirname(path.dirname(self)));
+        const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+        if (pkg?.name === "@theelephantcoder/agent-harness")
+            return root;
+    }
+    catch {
+        // fall through to manual instructions
+    }
+    return null;
+}
+function haveBin(bin) {
+    try {
+        return spawnSync(bin, ["--version"], { stdio: "ignore" }).status === 0;
+    }
+    catch {
+        return false;
+    }
+}
+function selfUpgrade() {
+    const root = selfRoot();
+    if (root && fs.existsSync(path.join(root, ".git"))) {
+        console.log("[harness] source checkout - run: git pull");
+        return true;
+    }
+    const npmManaged = !!root &&
+        root.includes(["node_modules", "@theelephantcoder", "agent-harness"].join(path.sep));
+    if (npmManaged && root) {
+        if (!haveBin("npm")) {
+            console.log(`[harness] npm not found - run: ${NPM_MANUAL}`);
+            return false;
+        }
+        console.log("[harness] upgrade - reinstalling latest via npm...");
+        const r = spawnSync("npm", ["install", "-g", UPGRADE_TARBALL], {
+            stdio: "inherit",
+        });
+        if (r.status !== 0) {
+            console.log(`[harness] upgrade failed - try: ${NPM_MANUAL}`);
+            return false;
+        }
+        let v = VERSION;
+        try {
+            v =
+                JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"))
+                    .version ?? VERSION;
+        }
+        catch {
+            // keep compiled-in VERSION
+        }
+        console.log(`[harness] upgraded to v${v} - takes effect on next run`);
+        return true;
+    }
+    if (root && root.includes([path.sep + "Cellar", "agent-harness"].join(path.sep))) {
+        console.log("[harness] brew install detected - run: brew upgrade agent-harness");
+        return true;
+    }
+    if (root && root.includes([path.sep + "usr", "lib", "agent-harness"].join(path.sep))) {
+        console.log("[harness] apt install detected - run: sudo apt update && sudo apt upgrade agent-harness");
+        return true;
+    }
+    console.log(`[harness] cannot self-update this install - run: ${NPM_MANUAL}`);
+    return false;
+}
 async function runCommand(cmd, flags) {
     const all = [cmd, ...flags];
     if (all.includes("-h") ||
@@ -327,8 +401,7 @@ async function runCommand(cmd, flags) {
             console.log(`[harness] ${cmd} ${flags.join(" ")} - see docs/${cmd}.md`);
             break;
         case "upgrade":
-            console.log("[harness] upgrade - pulling latest skills and adapters...");
-            return true;
+            return selfUpgrade();
         case "shell":
             await interactive();
             return true;

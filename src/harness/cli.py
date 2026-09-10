@@ -3,6 +3,8 @@ import argparse
 import cmd as cmdmod
 import os
 import shlex
+import shutil
+import subprocess
 import sys
 from types import SimpleNamespace
 
@@ -56,7 +58,7 @@ ART = [
 
 def term_width():
     try:
-        w = __import__("shutil").get_terminal_size().columns
+        w = shutil.get_terminal_size().columns
         return w if w > 20 else 80
     except OSError:
         return 80
@@ -201,6 +203,55 @@ def cmd_doctor(args):
 def cmd_bench(args):
     print("[harness] bench - cold-start 13.2s ok  tokens 48k ok  tool-calls 51 ok  hook p99 87ms ok")
 
+UPGRADE_TARBALL = "https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/refs/heads/main"
+
+def self_root():
+    try:
+        node = os.path.realpath(__file__)
+        for _ in range(6):
+            node = os.path.dirname(node)
+            pkg = os.path.join(node, "pyproject.toml")
+            if os.path.isfile(pkg):
+                with open(pkg) as f:
+                    if 'name = "agent-harness-cli"' in f.read():
+                        return node
+    except OSError:
+        pass
+    return None
+
+def cmd_upgrade(args=None):
+    root = self_root()
+    if root and os.path.isdir(os.path.join(root, ".git")):
+        print("[harness] source checkout - run: git pull")
+        return True
+    here = os.path.realpath(__file__)
+    pipx_home = os.environ.get("PIPX_HOME", "")
+    under_pipx = (os.sep + "pipx" + os.sep + "venvs" + os.sep in here) or (bool(pipx_home) and here.startswith(pipx_home))
+    if under_pipx and shutil.which("pipx"):
+        print("[harness] upgrade - reinstalling via pipx...")
+        try:
+            r = subprocess.run(["pipx", "reinstall", "agent-harness-cli"])
+        except OSError:
+            r = None
+        if r is not None and r.returncode == 0:
+            print("[harness] upgraded - takes effect on next run")
+            return True
+        print("[harness] upgrade failed - try: pipx reinstall agent-harness-cli")
+        return False
+    if sys.executable:
+        print("[harness] upgrade - reinstalling latest via pip...")
+        try:
+            r = subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", UPGRADE_TARBALL])
+        except OSError:
+            r = None
+        if r is not None and r.returncode == 0:
+            print("[harness] upgraded - takes effect on next run")
+            return True
+    print("[harness] automatic upgrade failed. run one of:")
+    print(f"  pipx install --force {UPGRADE_TARBALL}")
+    print(f"  python3 -m pip install --upgrade --force-reinstall {UPGRADE_TARBALL}  (use a venv or pipx on PEP 668 systems)")
+    return False
+
 def launch_shell():
     print(welcome())
     show_menu()
@@ -284,8 +335,8 @@ class HarnessShell(cmdmod.Cmd):
         print(f"[harness] security {arg} - see docs/security.md")
 
     def do_upgrade(self, arg):
-        "pull latest"
-        print("[harness] upgrade - see docs/upgrade.md")
+        "self-update to latest"
+        cmd_upgrade()
 
     def default(self, line):
         print(f"[harness] unknown command: {line.split()[0]}")
@@ -326,7 +377,7 @@ def main():
     if args.cmd == "shell":
         launch_shell()
         return
-    dispatch = {"init": cmd_init, "doctor": cmd_doctor, "bench": cmd_bench}
+    dispatch = {"init": cmd_init, "doctor": cmd_doctor, "bench": cmd_bench, "upgrade": cmd_upgrade}
     if args.cmd in dispatch:
         dispatch[args.cmd](args)
     else:
