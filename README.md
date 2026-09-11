@@ -49,7 +49,7 @@ More detail in [`skills/`](skills/), [`instincts/`](instincts/), [`memory/`](mem
 
 ## Performance
 
-I measure three things: time to useful, tokens per task, and extra hook latency. Rough numbers on a 250k LOC TS monorepo on an M2 Max:
+Numbers below are from my own setup (250k LOC TS monorepo, M2 Max), not universal claims. Independent A/B runs on other models and hardware live on the [Benchmark tab](https://theelephantcoder.github.io/agent-harness/benchmark.html), raw rows in [`docs/benchmarks.md`](docs/benchmarks.md).
 
 - cold start 180s -> 13s
 - tokens per task down ~65 percent
@@ -63,7 +63,7 @@ harness bench --quick
 harness bench --compare   # diffs against .harness/bench.json (first run saves it)
 ```
 
-Notes and how it works in [`docs/performance.md`](docs/performance.md).
+Notes and how it works in [`docs/performance.md`](docs/performance.md). One measured caveat from an M4 Mac mini: guards run ~5ms, the post-edit check ~300ms in JS repos, details on the Benchmark tab.
 
 ## Works with
 
@@ -240,11 +240,14 @@ Custom instinct after a TS edit:
 
 ```markdown
 # instincts/my-check/SKILL.md
+
 ---
+
 name: my-check
 trigger: post-edit
 when: "file =~ \\.ts$"
 ---
+
 Run `npm run typecheck` after TS edits. Block commit on failure.
 ```
 

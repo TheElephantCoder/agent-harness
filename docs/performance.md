@@ -1,6 +1,8 @@
 # Performance
 
-Targets I try to keep:
+Targets I try to keep, from my own setup (250k LOC TS monorepo, M2 Max).
+Independent A/B numbers on other models and hardware live on the site
+Benchmark tab, raw rows in `benchmarks.md`.
 
 - cold start <15s (currently ~13s, was ~180s)
 - tokens per task <50k (around 48k)
