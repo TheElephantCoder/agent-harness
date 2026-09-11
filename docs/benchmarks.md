@@ -22,6 +22,7 @@ Hung, skipped: gemma-4-31b. Not logged in, unusable: Claude Code.
 ## Results (wall mean [range] s, tokens mean [range], tools mean, pass)
 
 kimi-k3 (free tier, $0 total):
+
 - T1 bare: 261 [213-307], 37530 [32127-40565], 5.7, 3/3
 - T1 harness: 256 [181-331], 50708 [43752-54216], 7.0, 3/3
 - T2 bare: 280 [249-339], 41835 [33746-49636], 7.3, 3/3
@@ -30,6 +31,7 @@ kimi-k3 (free tier, $0 total):
 - T3 harness: 255 [181-302], 57584 [45081-75761], 7.7, 3/3
 
 nemotron-3-super-120b ($0.43 total):
+
 - T1 bare: 139 [21-362], 69817 [62770-74062], 8.0, 2/3
 - T1 harness: 34 [23-42], 63713 [54440-78695], 7.7, 0/3
 - T2 bare: 66 [58-74], 113059 [87466-131925], 14.3, 3/3

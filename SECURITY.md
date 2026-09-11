@@ -3,8 +3,8 @@
 ## Supported versions
 
 | Version | Supported |
-|---|---|
-| 0.1.x | yes |
+| ------- | --------- |
+| 0.1.x   | yes       |
 
 ## Reporting
 

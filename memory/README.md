@@ -26,18 +26,23 @@ This is the curated one. Not append only.
 # Memory
 
 ## Project
+
 - what this repo is, stack, structure
 
 ## Conventions
+
 - code style, commit style
 
 ## Decisions
+
 - short ADRs or links to decisions/
 
 ## Gotchas
+
 - things that have bitten us before
 
 ## People
+
 - preferences
 ```
 

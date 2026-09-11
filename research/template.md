@@ -3,8 +3,9 @@
 Date: 2026-09-04
 Status: draft | verified | stale
 Sources:
-  - https://...
-  - `file:line`: what we saw in code
+
+- https://...
+- `file:line`: what we saw in code
 
 ## Summary
 
@@ -19,9 +20,9 @@ One paragraph, what should we do.
 ## Options
 
 | Option | Pros | Cons |
-|---|---|---|
-| A | | |
-| B | | |
+| ------ | ---- | ---- |
+| A      |      |      |
+| B      |      |      |
 
 ## Recommendation
 

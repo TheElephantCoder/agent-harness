@@ -85,24 +85,52 @@ When `.claude/settings.json` already exists, `init` leaves it alone. Merge the h
 {
   "hooks": {
     "SessionStart": [
-      { "matcher": "*", "hooks": [
-        { "type": "command", "command": "./.harness/hooks/session-start--hydrate.sh", "timeout": 15000 }
-      ] }
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.harness/hooks/session-start--hydrate.sh",
+            "timeout": 15000
+          }
+        ]
+      }
     ],
     "PreToolUse": [
-      { "matcher": "Bash|Edit|Write", "hooks": [
-        { "type": "command", "command": "./.harness/hooks/pre-tool--guard.sh", "timeout": 5000 }
-      ] }
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.harness/hooks/pre-tool--guard.sh",
+            "timeout": 5000
+          }
+        ]
+      }
     ],
     "PostToolUse": [
-      { "matcher": "Edit|Write", "hooks": [
-        { "type": "command", "command": "./.harness/hooks/post-edit--check.sh", "timeout": 5000 }
-      ] }
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.harness/hooks/post-edit--check.sh",
+            "timeout": 5000
+          }
+        ]
+      }
     ],
     "PreCommit": [
-      { "matcher": "*", "hooks": [
-        { "type": "command", "command": "./.harness/hooks/security--audit.sh", "timeout": 10000 }
-      ] }
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.harness/hooks/security--audit.sh",
+            "timeout": 10000
+          }
+        ]
+      }
     ]
   }
 }

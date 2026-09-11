@@ -31,11 +31,13 @@ Template:
 
 ```markdown
 # Findings: <topic>
+
 Date: 2026-09-04
 Sources: [url, url]
 Existing code: `path:line`: what we found
 
 ## Verdict
+
 Recommended approach: ...
 Alternatives: ...
 Risks: ...
@@ -45,6 +47,7 @@ Risks: ...
 
 ```markdown
 # Plan: <task>
+
 Research: research/findings/<topic>.md
 Approach: ...
 Files to change: [list]

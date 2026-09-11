@@ -4,14 +4,14 @@ Hooks that run on their own. No prompting needed.
 
 Think of them as muscle memory for the agent.
 
-| Instinct | When | What it does |
-|---|---|---|
-| `session-start` | session starts | loads `MEMORY.md` + hot tier |
-| `session-end` | session ends | distills notes into `MEMORY.md` |
-| `pre-tool` | before bash/edit/write | checks allowlists and injection |
-| `post-edit` | after edit/write | format + typecheck |
-| `pre-commit` | git commit | secret scan + quick test gate |
-| `research-first` | before multi-file edit | blocks until plan exists |
+| Instinct         | When                   | What it does                    |
+| ---------------- | ---------------------- | ------------------------------- |
+| `session-start`  | session starts         | loads `MEMORY.md` + hot tier    |
+| `session-end`    | session ends           | distills notes into `MEMORY.md` |
+| `pre-tool`       | before bash/edit/write | checks allowlists and injection |
+| `post-edit`      | after edit/write       | format + typecheck              |
+| `pre-commit`     | git commit             | secret scan + quick test gate   |
+| `research-first` | before multi-file edit | blocks until plan exists        |
 
 Each one is a `hook.json` and a shell script:
 

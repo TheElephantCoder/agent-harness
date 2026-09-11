@@ -94,7 +94,9 @@ function welcome(): string {
   );
   const sub = centerLine(paint(ANSI.dim, "Let's get started."), width);
   const credit = centerLine(paint(ANSI.dim, "by TheElephantCoder"), width);
-  return [rule, "", art, "", title, "", sub, credit, ""].join("\n") + "\n" + divider;
+  return (
+    [rule, "", art, "", title, "", sub, credit, ""].join("\n") + "\n" + divider
+  );
 }
 
 function help() {
@@ -182,10 +184,7 @@ async function selectFallback(
   return n - 1;
 }
 
-async function selectOption(
-  title: string,
-  options: string[],
-): Promise<number> {
+async function selectOption(title: string, options: string[]): Promise<number> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     return selectFallback(title, options);
   }
@@ -334,7 +333,9 @@ function selfRoot(): string | null {
   try {
     const self = fs.realpathSync(fileURLToPath(import.meta.url));
     const root = path.dirname(path.dirname(path.dirname(self)));
-    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(root, "package.json"), "utf8"),
+    );
     if (pkg?.name === "@theelephantcoder/agent-harness") return root;
   } catch {
     // fall through to manual instructions
@@ -518,11 +519,19 @@ async function selfUpgrade(): Promise<boolean> {
     console.log(`[harness] upgraded to v${v} - takes effect on next run`);
     return true;
   }
-  if (root && root.includes([path.sep + "Cellar", "agent-harness"].join(path.sep))) {
-    console.log("[harness] brew install detected - run: brew upgrade agent-harness");
+  if (
+    root &&
+    root.includes([path.sep + "Cellar", "agent-harness"].join(path.sep))
+  ) {
+    console.log(
+      "[harness] brew install detected - run: brew upgrade agent-harness",
+    );
     return true;
   }
-  if (root && root.includes([path.sep + "usr", "lib", "agent-harness"].join(path.sep))) {
+  if (
+    root &&
+    root.includes([path.sep + "usr", "lib", "agent-harness"].join(path.sep))
+  ) {
     console.log(
       "[harness] apt install detected - run: sudo apt update && sudo apt upgrade agent-harness",
     );
@@ -673,7 +682,10 @@ function timeMs(fn: () => void): number {
   return Number(process.hrtime.bigint() - t0) / 1e6;
 }
 
-function runHook(abs: string, timeoutMs: number): { ms: number; status: number | null } {
+function runHook(
+  abs: string,
+  timeoutMs: number,
+): { ms: number; status: number | null } {
   const t0 = process.hrtime.bigint();
   const r = spawnSync("bash", [abs], {
     input: "",
@@ -705,7 +717,10 @@ function cmdInit(flags: string[]): boolean {
   const hi = flags.indexOf("--harness");
   const explicit =
     hi !== -1
-      ? (flags[hi + 1] ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+      ? (flags[hi + 1] ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
       : [];
   const adapters = listAdapters(root).filter((a) => a.json);
   const byName = new Map(adapters.map((a) => [a.name, a]));
@@ -731,7 +746,9 @@ function cmdInit(flags: string[]): boolean {
   const manFile = path.join(cwd, ".harness", "config.json");
   const prior = readText(manFile);
   if (prior !== null && !migrate) {
-    console.log("[harness] init - already initialized here (use --migrate to fill gaps)");
+    console.log(
+      "[harness] init - already initialized here (use --migrate to fill gaps)",
+    );
     return false;
   }
   const tracked = new Set<string>();
@@ -802,7 +819,9 @@ function cmdInit(flags: string[]): boolean {
     if (!tracked.has(rel) && !fs.existsSync(path.join(cwd, rel))) {
       const entry = (base: string, matcher: string, timeout: number) => ({
         matcher,
-        hooks: [{ type: "command", command: `./.harness/hooks/${base}`, timeout }],
+        hooks: [
+          { type: "command", command: `./.harness/hooks/${base}`, timeout },
+        ],
       });
       const find = (sfx: string) => copied.find((c) => c.endsWith(sfx));
       const hj: Record<string, unknown> = {};
@@ -816,7 +835,9 @@ function cmdInit(flags: string[]): boolean {
       if (aud) hj.PreCommit = [entry(aud, "*", 10000)];
       put(rel, JSON.stringify({ hooks: hj }, null, 2) + "\n");
     } else if (!tracked.has(rel)) {
-      console.log("[harness] init - .claude/settings.json exists, merge hooks manually (see docs/cli.md)");
+      console.log(
+        "[harness] init - .claude/settings.json exists, merge hooks manually (see docs/cli.md)",
+      );
     }
   }
   const files = [...tracked, ...written];
@@ -824,7 +845,16 @@ function cmdInit(flags: string[]): boolean {
     fs.mkdirSync(path.dirname(manFile), { recursive: true });
     fs.writeFileSync(
       manFile,
-      JSON.stringify({ version: VERSION, harness: names, files, ts: new Date().toISOString() }, null, 2),
+      JSON.stringify(
+        {
+          version: VERSION,
+          harness: names,
+          files,
+          ts: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
     );
   } catch {
     console.log("[harness] init - could not write .harness/config.json");
@@ -926,14 +956,20 @@ function cmdBench(flags: string[]): boolean {
           const diff = r1(c - o);
           return `${c} (was ${o}, ${diff > 0 ? "+" : ""}${diff})`;
         };
-        console.log(`  compare cold-start ${d(baseline.coldStartMs, p.coldStartMs)}ms`);
+        console.log(
+          `  compare cold-start ${d(baseline.coldStartMs, p.coldStartMs)}ms`,
+        );
         for (const h of Object.keys(hookMs)) {
           if (p.hooks?.[h] !== undefined) {
-            console.log(`  compare hook ${path.basename(h)} ${d(hookMs[h], p.hooks[h])}ms`);
+            console.log(
+              `  compare hook ${path.basename(h)} ${d(hookMs[h], p.hooks[h])}ms`,
+            );
           }
         }
         if (p.skillTokens !== undefined) {
-          console.log(`  compare skills ~${fmtTok(totalTok)} (was ~${fmtTok(p.skillTokens)})`);
+          console.log(
+            `  compare skills ~${fmtTok(totalTok)} (was ~${fmtTok(p.skillTokens)})`,
+          );
         }
       } catch {
         console.log("  compare: baseline corrupt, overwriting");
@@ -1008,9 +1044,13 @@ function cmdDoctor(flags: string[]): boolean {
   const badFm = skills.filter((s) => !s.fmOk).map((s) => s.name);
   if (skills.length === 0) fail("[harness] FAIL - skills: none found");
   else if (badFm.length > 0) {
-    fail(`[harness] FAIL - skills frontmatter missing name/description: ${badFm.join(", ")}`);
+    fail(
+      `[harness] FAIL - skills frontmatter missing name/description: ${badFm.join(", ")}`,
+    );
   } else {
-    console.log(`[harness] ok - skills: ${skills.length} checked, frontmatter ok`);
+    console.log(
+      `[harness] ok - skills: ${skills.length} checked, frontmatter ok`,
+    );
   }
   const hooks = listHooks(root);
   const noexec = hooks.filter((h) => !isExec(path.join(root, h)));
@@ -1027,12 +1067,16 @@ function cmdDoctor(flags: string[]): boolean {
       }
       const still = hooks.filter((h) => !isExec(path.join(root, h)));
       if (still.length === 0) {
-        console.log(`[harness] ok - hooks: repaired exec on ${repaired}, ${hooks.length} executable`);
+        console.log(
+          `[harness] ok - hooks: repaired exec on ${repaired}, ${hooks.length} executable`,
+        );
       } else {
         fail(`[harness] FAIL - hooks not executable: ${still.join(", ")}`);
       }
     } else {
-      fail(`[harness] FAIL - hooks not executable (run --fix): ${noexec.join(", ")}`);
+      fail(
+        `[harness] FAIL - hooks not executable (run --fix): ${noexec.join(", ")}`,
+      );
     }
   } else if (hooks.length === 0) {
     fail("[harness] FAIL - hooks: none found");
@@ -1043,9 +1087,13 @@ function cmdDoctor(flags: string[]): boolean {
   const bad = adapters.filter((a) => !a.json);
   if (adapters.length === 0) fail("[harness] FAIL - adapters: none found");
   else if (bad.length > 0) {
-    fail(`[harness] FAIL - adapters invalid: ${bad.map((a) => `${a.name} (${a.error})`).join(", ")}`);
+    fail(
+      `[harness] FAIL - adapters invalid: ${bad.map((a) => `${a.name} (${a.error})`).join(", ")}`,
+    );
   } else {
-    console.log(`[harness] ok - adapters: ${adapters.length}/${adapters.length} valid`);
+    console.log(
+      `[harness] ok - adapters: ${adapters.length}/${adapters.length} valid`,
+    );
   }
   const manText = readText(path.join(process.cwd(), ".harness", "config.json"));
   if (manText !== null) {
@@ -1055,20 +1103,29 @@ function cmdDoctor(flags: string[]): boolean {
         (f: string) => !fs.existsSync(path.join(process.cwd(), f)),
       );
       if (missing.length > 0) {
-        fail(`[harness] FAIL - project init files missing: ${missing.join(", ")}`);
+        fail(
+          `[harness] FAIL - project init files missing: ${missing.join(", ")}`,
+        );
       } else {
-        console.log(`[harness] ok - project: ${files.length}/${files.length} init files present`);
+        console.log(
+          `[harness] ok - project: ${files.length}/${files.length} init files present`,
+        );
       }
     } catch {
       fail("[harness] FAIL - project: .harness/config.json corrupt");
     }
   } else {
-    console.log("[harness] info - project not initialized here (run harness init)");
+    console.log(
+      "[harness] info - project not initialized here (run harness init)",
+    );
   }
   const mem = readText(path.join(process.cwd(), "MEMORY.md"));
   if (mem !== null) {
     const t = estTokens(mem);
-    if (t > 4000) warn(`[harness] warn - MEMORY.md ~${fmtTok(t)} tokens (run harness optimize)`);
+    if (t > 4000)
+      warn(
+        `[harness] warn - MEMORY.md ~${fmtTok(t)} tokens (run harness optimize)`,
+      );
     else console.log(`[harness] ok - memory: MEMORY.md ~${fmtTok(t)} tokens`);
   }
   const inRepo = (() => {
@@ -1083,7 +1140,9 @@ function cmdDoctor(flags: string[]): boolean {
     }
   })();
   if (!inRepo) {
-    console.log("[harness] info - security: not a git repo, staged scan skipped");
+    console.log(
+      "[harness] info - security: not a git repo, staged scan skipped",
+    );
   } else {
     const hits = scanStaged();
     if (hits.length > 0) {
@@ -1101,7 +1160,10 @@ function cmdDoctor(flags: string[]): boolean {
 }
 
 // prune a markdown file to a token budget, archiving overflow. no data loss.
-function pruneFile(abs: string, budget: number): { before: number; after: number; moved: number } | null {
+function pruneFile(
+  abs: string,
+  budget: number,
+): { before: number; after: number; moved: number } | null {
   const text = readText(abs);
   if (text === null) return null;
   const before = estTokens(text);
@@ -1149,7 +1211,9 @@ function cmdOptimize(): boolean {
       return false;
     }
     if (r.moved === 0) {
-      console.log(`[harness] ok - memory ~${fmtTok(r.before)} - under 2k budget, nothing to do`);
+      console.log(
+        `[harness] ok - memory ~${fmtTok(r.before)} - under 2k budget, nothing to do`,
+      );
     } else {
       console.log(
         `[harness] ok - memory ~${fmtTok(r.before)} -> ~${fmtTok(r.after)}, ${r.moved} lines archived`,
@@ -1169,7 +1233,8 @@ function cmdOptimize(): boolean {
       }
     }
   }
-  if (repaired > 0) console.log(`[harness] ok - repaired exec on ${repaired} hooks`);
+  if (repaired > 0)
+    console.log(`[harness] ok - repaired exec on ${repaired} hooks`);
   const skills = listSkills(root);
   const total = skills.reduce((a, s) => a + s.tokens, 0);
   const top = [...skills].sort((a, b) => b.tokens - a.tokens)[0];
@@ -1241,7 +1306,9 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
           return false;
         }
         for (const s of listSkills(root)) {
-          console.log(`  ${s.name} - ${s.desc || "(no description)"} (~${fmtTok(s.tokens)})`);
+          console.log(
+            `  ${s.name} - ${s.desc || "(no description)"} (~${fmtTok(s.tokens)})`,
+          );
         }
         return true;
       }
@@ -1252,7 +1319,9 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
       if (flags[0] === "show") {
         const text = readText(path.join(process.cwd(), "MEMORY.md"));
         if (text === null) {
-          console.log("[harness] memory - no MEMORY.md here (run harness init)");
+          console.log(
+            "[harness] memory - no MEMORY.md here (run harness init)",
+          );
         } else {
           console.log(text);
         }
@@ -1272,11 +1341,15 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
           return false;
         }
         for (const h of listHooks(root)) {
-          console.log(`  ${h} ${isExec(path.join(root, h)) ? "exec" : "noexec"}`);
+          console.log(
+            `  ${h} ${isExec(path.join(root, h)) ? "exec" : "noexec"}`,
+          );
         }
         return true;
       }
-      console.log(`[harness] instinct ${flags.join(" ")} - not implemented yet`);
+      console.log(
+        `[harness] instinct ${flags.join(" ")} - not implemented yet`,
+      );
       return true;
     }
     case "research":
