@@ -1,0 +1,49 @@
+name: Benchmark submission
+description: Submit agent-harness A/B results from your own hardware and models
+title: "[bench] <model> on <hardware>"
+labels: ["benchmark"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for measuring. Please run both arms (bare repo vs harness) on the same
+        model and tasks, 3 reps each, and paste the numbers. Method reference:
+        `research/plans/ab-perf.md`. Raw rows (JSONL) beat screenshots.
+  - type: input
+    id: model
+    attributes:
+      label: Driver model
+      description: Exact model id, e.g. moonshotai/kimi-k3 via opencode
+      placeholder: provider/model-id
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware
+      description: Machine, RAM, overclocked or not
+      placeholder: Apple M4 Mac mini with 16 GB memory (not overclocked)
+    validations:
+      required: true
+  - type: input
+    id: harness-version
+    attributes:
+      label: Harness version / commit
+      placeholder: v0.1.2 / ec6dba3
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: Results table
+      description: Per task x arm: pass rate, wall mean + range, tokens mean + range, tool calls mean
+      placeholder: |
+        T1 bare: 3/3, 261s [213-307], 37530 tok, 5.7 tools
+        T1 harness: 3/3, 256s [181-331], 50708 tok, 7.0 tools
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything unusual (throttling, failures, grader changes)
