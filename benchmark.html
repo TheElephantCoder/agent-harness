@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>agent-harness — benchmarks</title>
+<meta name="description" content="Measured agent-harness A/B results across models, providers and hardware. Submit your own.">
+<meta property="og:title" content="agent-harness benchmarks">
+<meta property="og:description" content="Measured numbers, both arms, every run. Submit yours.">
+<meta property="og:url" content="https://theelephantcoder.github.io/agent-harness/benchmark.html">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◍</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="logo" href="index.html">agent-harness</a>
+    <nav class="nav-links">
+      <a href="docs/">Docs</a>
+      <a href="benchmark.html">Benchmark</a>
+      <a href="https://github.com/TheElephantCoder/agent-harness">GitHub</a>
+      <a class="btn-small" href="https://github.com/TheElephantCoder/agent-harness">Star →</a>
+      <button class="theme-toggle" id="theme-toggle" aria-label="toggle theme" title="toggle theme">
+        <span class="icon-sun"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></span><span class="icon-moon"><svg viewBox="0 0 24 24" width="16" height="16" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="blob" aria-hidden="true"></div>
+  <div class="wrap">
+    <p class="eyebrow">measured, both arms, every run</p>
+    <h1>Benchmarks.</h1>
+    <p class="lead">Same model, same tasks, bare repo vs harness. 3 reps per cell, pre-registered graders. What follows is what came out, including the cells that flatter no one.</p>
+    <p class="sub">All runs below: Apple M4 Mac mini with 16 GB memory (not overclocked) · driver <code>opencode run</code> · harness v0.1.2 (ec6dba3)</p>
+  </div>
+</section>
+
+<section class="perf">
+  <div class="wrap">
+    <h2>kimi-k3 via Nvidia ($0, free tier)</h2>
+    <p class="muted">18 runs, 18/18 pass. Wall about tied, harness spent more tokens (its context costs ~5-10k input tokens a run).</p>
+    <div class="perf-table">
+      <div class="row head"><span>task</span><span>bare</span><span>harness</span></div>
+      <div class="row"><span>T1 orient</span><span>261s [213-307] · 37.5k tok · 5.7 tools · 3/3</span><span>256s [181-331] · 50.7k tok · 7.0 tools · 3/3</span></div>
+      <div class="row"><span>T2 feature</span><span>280s [249-339] · 41.8k tok · 7.3 tools · 3/3</span><span>234s [168-268] · 46.6k tok · 6.3 tools · 3/3</span></div>
+      <div class="row"><span>T3 bugfix</span><span>207s [179-232] · 46.0k tok · 6.3 tools · 3/3</span><span>255s [181-302] · 57.6k tok · 7.7 tools · 3/3</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="perf">
+  <div class="wrap">
+    <h2>nemotron-3-super-120b via Nvidia ($0.43 total)</h2>
+    <p class="muted">18 runs, 14/18 pass. T1 answers came back terse and tripped the keyword grader (same grader both arms). T3 is the standout harness cell.</p>
+    <div class="perf-table">
+      <div class="row head"><span>task</span><span>bare</span><span>harness</span></div>
+      <div class="row"><span>T1 orient</span><span>139s [21-362] · 69.8k tok · 8.0 tools · 2/3</span><span>34s [23-42] · 63.7k tok · 7.7 tools · 0/3</span></div>
+      <div class="row"><span>T2 feature</span><span>66s [58-74] · 113.1k tok · 14.3 tools · 3/3</span><span>68s [45-97] · 134.3k tok · 15.7 tools · 3/3</span></div>
+      <div class="row"><span>T3 bugfix</span><span>119s [43-258] · 183.2k tok · 21.7 tools · 3/3</span><span>53s [42-64] · 97.2k tok · 11.3 tools · 3/3</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="compat">
+  <div class="wrap">
+    <h2>Reading</h2>
+    <p class="muted">On a small repo the harness context costs more tokens than orientation saves, and wall time lands within variance in most cells. It should pay off where repo-orientation cost dwarfs harness context (large unfamiliar codebases) — that bed is still untested. n=3, free-tier queueing noise visible (362s outlier). Full method, probe log (20 models tried, 2 live), and all 36 raw rows: <a href="https://github.com/TheElephantCoder/agent-harness/blob/main/research/findings/ab-results.md">research/findings/ab-results.md</a>.</p>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <h2>Run it on your stack</h2>
+    <p class="muted">Different model, provider, or hardware? Run both arms on the same tasks, 3 reps each (method in <code>research/plans/ab-perf.md</code>), and submit. Accepted submissions land in this table with your hardware label.</p>
+    <a class="btn" href="https://github.com/TheElephantCoder/agent-harness/issues/new?template=benchmark.yml">Submit benchmark results</a>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <span>MIT © TheElephantCoder</span>
+    <span>DM <strong>@theelephantcoder</strong> on Discord · GitHub issues for support</span>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll('[data-copy]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    navigator.clipboard.writeText(b.dataset.copy);
+    const t=b.textContent; b.textContent='copied'; setTimeout(()=>b.textContent=t,1200);
+  });
+});
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+  });
+});
+(function(){
+  const key='ah-theme';
+  const btn=document.getElementById('theme-toggle');
+  const mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function apply(t){
+    if(t==='dark') document.documentElement.setAttribute('data-theme','dark');
+    else if(t==='light') document.documentElement.setAttribute('data-theme','light');
+    else document.documentElement.removeAttribute('data-theme');
+  }
+  function initial(){
+    const saved=localStorage.getItem(key);
+    if(saved) apply(saved);
+  }
+  initial();
+  mq.addEventListener('change',()=>{
+    if(!localStorage.getItem(key)) apply(mq.matches ? 'dark' : 'light');
+  });
+  btn.addEventListener('click',()=>{
+    const cur=document.documentElement.getAttribute('data-theme') || (mq.matches ? 'dark' : 'light');
+    const next=cur==='dark' ? 'light' : 'dark';
+    localStorage.setItem(key,next);
+    apply(next);
+  });
+})();
+</script>
+</body>
+</html>
