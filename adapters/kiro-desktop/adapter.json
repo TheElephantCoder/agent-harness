@@ -7,5 +7,6 @@
   "agentsPath": ".kiro/AGENTS.md",
   "steeringPath": ".kiro/steering",
   "specsPath": ".kiro/specs",
-  "transpile": "./transpile.sh"
+  "transpile": "./transpile.sh",
+  "notes": "Skills install as flat .kiro/steering/<name>.md with inclusion:auto + name/description frontmatter (verified against Kiro steering doc)."
 }

@@ -71,7 +71,7 @@ You write skills and memory once, harness installs to each tool.
 
 - Claude Code -> `.claude/settings.json` + `.claude/skills/`
 - Opencode -> `opencode.json`
-- Codex -> `.codex/hooks.json`
+- Codex -> `.agents/skills/`
 - Cursor -> `.cursor/rules/*.mdc`
 - Kiro CLI -> `.kiro/skills/` + `.kiro/settings.json`
 - Kiro (Desktop) -> `.kiro/steering/` + `.kiro/settings.json`

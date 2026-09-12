@@ -6,5 +6,5 @@
   "memoryPath": "MEMORY.md",
   "agentsPath": "AGENTS.md",
   "transpile": "./transpile.sh",
-  "notes": "Cline has no hooks system; instincts ship as an always-on rule file. Memory uses native AGENTS.md support (v3.37.0+)."
+  "notes": "Cline reads .md files in .clinerules/ (verified against official rules doc). Skills install flat, one concern per file, no frontmatter so always active. No hooks system, so instincts ship as 00-harness-instincts.md, an always-on rule. AGENTS.md picked up natively."
 }

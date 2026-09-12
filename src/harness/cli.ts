@@ -699,13 +699,28 @@ const AUTO_MARKERS: Record<string, string> = {
   claude: ".claude",
   cursor: ".cursor",
   opencode: "opencode.json",
-  codex: ".codex",
   "kiro-cli": ".kiro",
   "kiro-desktop": ".kiro",
   aider: ".aider.conf.yml",
   cline: ".clinerules",
+  codex: ".agents",
   generic: "",
 };
+
+function stripFm(text: string): string {
+  return text.replace(/^---\n[\s\S]*?\n---\n/, "");
+}
+
+// first "# comment" line of a hook script (shebang excluded by the space).
+function hookBlurb(root: string, rel: string): string {
+  const text = readText(path.join(root, rel));
+  if (text === null) return rel;
+  for (const line of text.split("\n")) {
+    const m = /^# (.+)/.exec(line);
+    if (m) return m[1];
+  }
+  return rel;
+}
 
 function cmdInit(flags: string[]): boolean {
   const root = selfRoot();
@@ -792,9 +807,35 @@ function cmdInit(flags: string[]): boolean {
     const t = readText(s.file);
     if (t !== null) bodies.set(s.name, t);
   }
+  const hooks = listHooks(root);
   for (const n of names) {
     const sp = byName.get(n)!.json!.skillPath;
-    if (sp.endsWith(".md")) {
+    if (n === "cursor") {
+      // Cursor ignores plain .md here: .mdc + description/alwaysApply = agent-requested.
+      for (const [name, body] of bodies) {
+        const desc = (parseFrontmatter(body)?.desc ?? name).replace(/\s+/g, " ");
+        put(`${sp}/${name}.mdc`, `---\ndescription: ${desc}\nalwaysApply: false\n---\n\n${stripFm(body)}\n`);
+      }
+    } else if (n === "kiro-desktop") {
+      // flat steering files with inclusion:auto, verified against Kiro steering doc.
+      for (const [name, body] of bodies) {
+        const desc = (parseFrontmatter(body)?.desc ?? name).replace(/\s+/g, " ");
+        put(
+          `${sp}/${name}.md`,
+          `---\ninclusion: auto\nname: ${name}\ndescription: ${desc}\n---\n\n${stripFm(body)}\n`,
+        );
+      }
+    } else if (n === "cline") {
+      // .clinerules/ holds flat .md rules, no frontmatter = always active.
+      for (const [name, body] of bodies) {
+        put(`${sp}/${name}.md`, `# ${name}\n\n${stripFm(body)}\n`);
+      }
+      const lines = hooks.map((h) => `- \`${h}\`: ${hookBlurb(root, h)}`);
+      put(
+        `${sp}/00-harness-instincts.md`,
+        `# Harness instincts\n\nThis project has no hooks system. Before finishing a task, run these checks yourself:\n\n${lines.join("\n")}\n`,
+      );
+    } else if (sp.endsWith(".md")) {
       const content =
         [...bodies.entries()]
           .map(([name, body]) => `# ${name}\n\n${body}`)
@@ -802,6 +843,14 @@ function cmdInit(flags: string[]): boolean {
       put(sp, content);
     } else {
       for (const [name, body] of bodies) put(`${sp}/${name}/SKILL.md`, body);
+    }
+  }
+  if (names.includes("aider")) {
+    // verified shape: aider loads files listed under read:.
+    if (!tracked.has(".aider.conf.yml") && !fs.existsSync(path.join(cwd, ".aider.conf.yml"))) {
+      put(".aider.conf.yml", "# written by harness init\nread: CONVENTIONS.md\n");
+    } else if (!tracked.has(".aider.conf.yml")) {
+      console.log("[harness] init - .aider.conf.yml exists, add read: CONVENTIONS.md manually");
     }
   }
   const copied: string[] = [];
@@ -812,7 +861,7 @@ function cmdInit(flags: string[]): boolean {
     put(`.harness/hooks/${base}`, text, true);
     copied.push(base);
   };
-  for (const h of listHooks(root)) copyHook(h);
+  for (const h of hooks) copyHook(h);
   copyHook("security/audit.sh");
   if (names.includes("claude")) {
     const rel = ".claude/settings.json";
@@ -1094,6 +1143,30 @@ function cmdDoctor(flags: string[]): boolean {
     console.log(
       `[harness] ok - adapters: ${adapters.length}/${adapters.length} valid`,
     );
+  }
+  const tplBad: string[] = [];
+  for (const a of adapters) {
+    if (!a.json || !a.json.transpile || !/^[a-z0-9-]+$/.test(a.name)) continue;
+    const f = path.join(root, "adapters", a.name, "transpile.sh");
+    if (!fs.existsSync(f)) {
+      tplBad.push(`${a.name} (missing transpile.sh)`);
+      continue;
+    }
+    if (!isExec(f)) {
+      if (fix) {
+        try {
+          fs.chmodSync(f, 0o755);
+        } catch {
+          // keep going
+        }
+      }
+      if (!isExec(f)) tplBad.push(`${a.name} (transpile.sh not executable)`);
+    }
+  }
+  if (tplBad.length > 0) {
+    fail(`[harness] FAIL - adapter transpilers: ${tplBad.join(", ")}`);
+  } else if (adapters.some((a) => a.json && a.json.transpile)) {
+    console.log("[harness] ok - adapter transpilers executable");
   }
   const manText = readText(path.join(process.cwd(), ".harness", "config.json"));
   if (manText !== null) {

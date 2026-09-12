@@ -453,6 +453,28 @@ def cmd_doctor(args=None):
         fail("[harness] FAIL - adapters invalid: " + ", ".join(f"{a['name']} ({a['error']})" for a in bad))
     else:
         print(f"[harness] ok - adapters: {len(adapters)}/{len(adapters)} valid")
+    tpl_bad = []
+    for a in adapters:
+        if not a["json"] or not a["json"].get("transpile"):
+            continue
+        if not re.fullmatch(r"[a-z0-9-]+", a["name"]):
+            continue
+        f = os.path.join(root, "adapters", a["name"], "transpile.sh")
+        if not os.path.isfile(f):
+            tpl_bad.append(f"{a['name']} (missing transpile.sh)")
+            continue
+        if not is_exec(f):
+            if fix:
+                try:
+                    os.chmod(f, 0o755)
+                except OSError:
+                    pass
+            if not is_exec(f):
+                tpl_bad.append(f"{a['name']} (transpile.sh not executable)")
+    if tpl_bad:
+        fail(f"[harness] FAIL - adapter transpilers: {', '.join(tpl_bad)}")
+    elif any(a["json"] and a["json"].get("transpile") for a in adapters):
+        print("[harness] ok - adapter transpilers executable")
     man = read_text(os.path.join(os.getcwd(), ".harness", "config.json"))
     if man is not None:
         try:
@@ -555,8 +577,20 @@ def cmd_optimize(args=None):
     print(f"[harness] ok - skills {len(skills)} files ~{fmt_tok(total)} total{extra}")
     return True
 
+def strip_fm(text):
+    return re.sub(r"^---\n[\s\S]*?\n---\n", "", text, count=1)
+
+def hook_blurb(root, rel):
+    text = read_text(os.path.join(root, rel))
+    if text is None:
+        return rel
+    for line in text.split("\n"):
+        if line.startswith("# ") and not line.startswith("#!"):
+            return line[2:]
+    return rel
+
 AUTO_MARKERS = {"claude": ".claude", "cursor": ".cursor", "opencode": "opencode.json",
-                "codex": ".codex", "kiro-cli": ".kiro", "kiro-desktop": ".kiro",
+                "codex": ".agents", "kiro-cli": ".kiro", "kiro-desktop": ".kiro",
                 "aider": ".aider.conf.yml", "cline": ".clinerules", "generic": ""}
 
 def cmd_init(args=None):
@@ -625,14 +659,39 @@ def cmd_init(args=None):
         t = read_text(s["file"])
         if t is not None:
             bodies[s["name"]] = t
+    hooks = list_hooks(root)
     for n in names:
         sp = by_name[n]["json"]["skillPath"]
-        if sp.endswith(".md"):
+        if n == "cursor":
+            for name, body in bodies.items():
+                fm = parse_frontmatter(body)
+                desc = re.sub(r"\s+", " ", fm["desc"] if fm else name)
+                put(f"{sp}/{name}.mdc",
+                    f"---\ndescription: {desc}\nalwaysApply: false\n---\n\n{strip_fm(body)}\n")
+        elif n == "kiro-desktop":
+            for name, body in bodies.items():
+                fm = parse_frontmatter(body)
+                desc = re.sub(r"\s+", " ", fm["desc"] if fm else name)
+                put(f"{sp}/{name}.md",
+                    f"---\ninclusion: auto\nname: {name}\ndescription: {desc}\n---\n\n{strip_fm(body)}\n")
+        elif n == "cline":
+            for name, body in bodies.items():
+                put(f"{sp}/{name}.md", f"# {name}\n\n{strip_fm(body)}\n")
+            lines = [f"- `{h}`: {hook_blurb(root, h)}" for h in hooks]
+            put(f"{sp}/00-harness-instincts.md",
+                "# Harness instincts\n\nThis project has no hooks system. Before finishing a task, run these checks yourself:\n\n"
+                + "\n".join(lines) + "\n")
+        elif sp.endswith(".md"):
             content = "\n\n---\n\n".join(f"# {name}\n\n{body}" for name, body in bodies.items()) + "\n"
             put(sp, content)
         else:
             for name, body in bodies.items():
                 put(f"{sp}/{name}/SKILL.md", body)
+    if "aider" in names:
+        if ".aider.conf.yml" not in tracked and not os.path.exists(os.path.join(cwd, ".aider.conf.yml")):
+            put(".aider.conf.yml", "# written by harness init\nread: CONVENTIONS.md\n")
+        elif ".aider.conf.yml" not in tracked:
+            print("[harness] init - .aider.conf.yml exists, add read: CONVENTIONS.md manually")
     copied = []
     def copy_hook(rel):
         text = read_text(os.path.join(root, rel))
@@ -641,7 +700,7 @@ def cmd_init(args=None):
         base = os.path.basename(os.path.dirname(rel)) + "--" + os.path.basename(rel)
         put(os.path.join(".harness", "hooks", base), text, True)
         copied.append(base)
-    for h in list_hooks(root):
+    for h in hooks:
         copy_hook(h)
     copy_hook(os.path.join("security", "audit.sh"))
     if "claude" in names:

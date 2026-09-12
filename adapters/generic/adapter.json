@@ -2,7 +2,7 @@
   "name": "generic",
   "displayName": "Generic (AGENTS.md)",
   "skillPath": ".harness/skills",
-  "hookPath": ".harness/hooks.json",
+  "hookPath": ".harness/hooks",
   "memoryPath": "MEMORY.md",
   "agentsPath": "AGENTS.md",
   "transpile": "./transpile.sh"

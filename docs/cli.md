@@ -28,7 +28,17 @@ harness init --harness claude,opencode
 harness init --migrate                # fill in files added since you last ran init
 ```
 
-What it writes: `AGENTS.md`, `MEMORY.md` (plus per-harness copies like `.kiro/AGENTS.md` when needed), skills under each adapter's `skillPath`, hook scripts under `.harness/hooks/`, and a manifest at `.harness/config.json` that `doctor` verifies. For Claude it also writes `.claude/settings.json` wiring the hooks, but only when that file does not exist yet.
+What it writes: `AGENTS.md`, `MEMORY.md` (plus per-harness copies like `.kiro/AGENTS.md` when needed), skills in each adapter's native format (table below), hook scripts under `.harness/hooks/`, and a manifest at `.harness/config.json` that `doctor` verifies.
+
+Skill formats per harness (each verified against that tool's docs):
+
+- claude, opencode, codex, kiro-cli, generic: verbatim `<skillPath>/<name>/SKILL.md` (codex uses the current `.agents/skills` repo scope)
+- cursor: `<name>.mdc` with `description` + `alwaysApply: false` (agent-requested; plain `.md` is ignored by Cursor)
+- kiro-desktop: `<name>.md` steering files with `inclusion: auto` + name/description
+- cline: flat `<name>.md` rules in `.clinerules/` plus `00-harness-instincts.md`
+- aider: all skills concatenated into `CONVENTIONS.md`
+
+Hook auto-wiring: `.claude/settings.json` when absent, `.aider.conf.yml` (`read: CONVENTIONS.md`) when absent. Every other adapter gets the hook scripts under `.harness/hooks/` to wire by hand; `init` never edits an existing config file.
 
 `--migrate` adds missing files without touching anything already there. Running plain `init` twice errors out and tells you to use `--migrate`.
 
@@ -38,7 +48,7 @@ Checks the install and the project. Exit code is 1 when anything fails, so it wo
 
 - skills: every `SKILL.md` present with `name` and `description` frontmatter
 - hooks: every hook script present and executable (`--fix` chmods them back)
-- adapters: every `adapter.json` parses and has `name` plus `skillPath`
+- adapters: every `adapter.json` parses and has `name` plus `skillPath`, every referenced `transpile.sh` exists and is executable
 - project: every file in `.harness/config.json` still present (only when initialized)
 - memory: warns when `MEMORY.md` passes ~4k tokens
 - security: scans staged git changes for secret patterns (keys, tokens)

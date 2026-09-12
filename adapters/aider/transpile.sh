@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
-# transpile skills/instincts/memory to Aider (.aider.conf.yml + CONVENTIONS.md)
-# usage: ./transpile.sh <skillSrc> <dest>
-# Aider loads .aider.conf.yml at repo root and reads files listed under read:.
-# Skills merge into CONVENTIONS.md as sections. Post-edit instinct maps to
-# lint-cmd/test-cmd in config. There is no pre-tool hook equivalent.
+# install this adapter's files into the current project.
+# delegates to harness init so there is one real implementation.
 set -euo pipefail
-src="${1:-skills}"
-dest="${2:-.}"
-# write .aider.conf.yml with read: [CONVENTIONS.md, AGENTS.md, MEMORY.md]
-# append each skill as a section in CONVENTIONS.md
-# set lint-cmd/test-cmd from post-edit instinct
-# this is a placeholder: harness doctor --fix does the actual copy
-echo "[aider] transpile $src -> $dest (.aider.conf.yml + CONVENTIONS.md, harness doctor handles the real copy)"
+if ! command -v harness >/dev/null 2>&1; then
+  echo "[aider] harness not found - install it first:" >&2
+  echo "  npm install -g https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/refs/heads/main" >&2
+  exit 1
+fi
+exec harness init --harness aider --migrate

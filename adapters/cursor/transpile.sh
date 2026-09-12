@@ -3,8 +3,8 @@
 # delegates to harness init so there is one real implementation.
 set -euo pipefail
 if ! command -v harness >/dev/null 2>&1; then
-  echo "[kiro-desktop] harness not found - install it first:" >&2
+  echo "[cursor] harness not found - install it first:" >&2
   echo "  npm install -g https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/refs/heads/main" >&2
   exit 1
 fi
-exec harness init --harness kiro-desktop --migrate
+exec harness init --harness cursor --migrate

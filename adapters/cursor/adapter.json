@@ -5,5 +5,6 @@
   "hookPath": ".cursor/hooks.json",
   "memoryPath": "MEMORY.md",
   "agentsPath": "AGENTS.md",
-  "transpile": "./transpile.sh"
+  "transpile": "./transpile.sh",
+  "notes": "Cursor ignores plain .md in .cursor/rules, so skills install as <name>.mdc with description + alwaysApply:false (agent-requested)."
 }
