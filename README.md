@@ -110,6 +110,7 @@ npx -y https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/refs/he
 # python if you prefer (on Ubuntu 24.04 bare pip is blocked by PEP 668, use pipx or a venv)
 pip install agent-harness-cli
 pipx install agent-harness-cli
+# note: pip ships the CLI only (upgrade works); for init/doctor/bench use a source checkout or npm
 
 # apt (Ubuntu/Debian): repo hosted on Pages, no PPA needed
 echo "deb [trusted=yes] https://theelephantcoder.github.io/agent-harness/apt stable main" | sudo tee /etc/apt/sources.list.d/agent-harness.list

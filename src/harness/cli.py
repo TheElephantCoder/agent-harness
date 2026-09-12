@@ -293,7 +293,7 @@ def run_hook(abs_path, timeout_s=10):
 def cmd_bench(args=None):
     root = self_root()
     if not root:
-        print("[harness] bench - cannot locate install")
+        missing_data("bench")
         return False
     quick = bool(getattr(args, "quick", False))
     compare = bool(getattr(args, "compare", False))
@@ -402,7 +402,7 @@ def scan_staged():
 def cmd_doctor(args=None):
     root = self_root()
     if not root:
-        print("[harness] doctor - cannot locate install")
+        missing_data("doctor")
         return False
     fix = bool(getattr(args, "fix", False))
     strict = bool(getattr(args, "strict", False))
@@ -489,6 +489,9 @@ def cmd_doctor(args=None):
     else:
         print("[harness] info - project not initialized here (run harness init)")
     mem = read_text(os.path.join(os.getcwd(), "MEMORY.md"))
+    ag = read_text(os.path.join(os.getcwd(), "AGENTS.md"))
+    if mem is not None or ag is not None:
+        print(f"[harness] info - project context ~{fmt_tok(est_tokens((mem or '') + (ag or '')))} tokens (AGENTS.md + MEMORY.md)")
     if mem is not None:
         t = est_tokens(mem)
         if t > 4000:
@@ -542,7 +545,7 @@ def prune_file(abs_path, budget):
 def cmd_optimize(args=None):
     root = self_root()
     if not root:
-        print("[harness] optimize - cannot locate install")
+        missing_data("optimize")
         return False
     cwd = os.getcwd()
     mem = next((os.path.join(cwd, f) for f in ["MEMORY.md", os.path.join(".kiro", "MEMORY.md")]
@@ -596,7 +599,7 @@ AUTO_MARKERS = {"claude": ".claude", "cursor": ".cursor", "opencode": "opencode.
 def cmd_init(args=None):
     root = self_root()
     if not root:
-        print("[harness] init - cannot locate install")
+        missing_data("init")
         return False
     migrate = bool(getattr(args, "migrate", False))
     raw = getattr(args, "harness", "auto") or "auto"
@@ -639,7 +642,9 @@ def cmd_init(args=None):
             written.append(rel)
         except OSError:
             print(f"[harness] init - could not write {rel}")
-    agents_src = read_text(os.path.join(root, "AGENTS.md"))
+    agents_src = read_text(os.path.join(root, "templates", "AGENTS.project.md"))
+    if agents_src is None:
+        agents_src = read_text(os.path.join(root, "AGENTS.md"))
     mem_src = read_text(os.path.join(root, "memory", "MEMORY.md"))
     dests = {}
     if agents_src is not None:
@@ -809,6 +814,13 @@ def animated_run(cmd, stage):
         sys.stdout.write("\x1b[?25h\n")
         sys.stdout.flush()
 
+def missing_data(cmd):
+    here = os.path.realpath(__file__)
+    if "site-packages" in here or "dist-packages" in here:
+        print(f"[harness] {cmd} - pip installs ship the CLI only: run from a source checkout or npm install for project files (pip still handles upgrade)")
+    else:
+        print(f"[harness] {cmd} - cannot locate install")
+
 def cmd_upgrade(args=None):
     root = self_root()
     if root and os.path.isdir(os.path.join(root, ".git")):
@@ -935,7 +947,7 @@ class HarnessShell(cmdmod.Cmd):
         "list supported harnesses"
         root = self_root()
         if not root:
-            print("[harness] adapter - cannot locate install")
+            missing_data("adapter")
             return
         for a in list_adapters(root):
             extra = f" - {a['json']['displayName']}" if a["json"] and a["json"].get("displayName") else ""
@@ -948,7 +960,7 @@ class HarnessShell(cmdmod.Cmd):
         if parts and parts[0] == "list":
             root = self_root()
             if not root:
-                print("[harness] skill - cannot locate install")
+                missing_data("skill")
                 return
             for s in list_skills(root):
                 print(f"  {s['name']} - {s['desc'] or '(no description)'} (~{fmt_tok(s['tokens'])})")
@@ -976,7 +988,7 @@ class HarnessShell(cmdmod.Cmd):
         if parts and parts[0] == "list":
             root = self_root()
             if not root:
-                print("[harness] instinct - cannot locate install")
+                missing_data("instinct")
                 return
             for h in list_hooks(root):
                 print(f"  {h} {'exec' if is_exec(os.path.join(root, h)) else 'noexec'}")
@@ -1044,7 +1056,7 @@ def main():
     if args.cmd == "adapter" and (not args.args or args.args == ["list"]):
         root = self_root()
         if not root:
-            print("[harness] adapter - cannot locate install")
+            missing_data("adapter")
             sys.exit(1)
             return
         for a in list_adapters(root):
@@ -1055,7 +1067,7 @@ def main():
     if args.cmd == "skill" and args.args[:1] == ["list"]:
         root = self_root()
         if not root:
-            print("[harness] skill - cannot locate install")
+            missing_data("skill")
             sys.exit(1)
             return
         for s in list_skills(root):
@@ -1075,7 +1087,7 @@ def main():
     if args.cmd == "instinct" and args.args[:1] == ["list"]:
         root = self_root()
         if not root:
-            print("[harness] instinct - cannot locate install")
+            missing_data("instinct")
             sys.exit(1)
             return
         for h in list_hooks(root):

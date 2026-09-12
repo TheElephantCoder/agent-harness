@@ -791,7 +791,9 @@ function cmdInit(flags: string[]): boolean {
       console.log(`[harness] init - could not write ${rel}`);
     }
   };
-  const agentsSrc = readText(path.join(root, "AGENTS.md"));
+  const agentsSrc =
+    readText(path.join(root, "templates", "AGENTS.project.md")) ??
+    readText(path.join(root, "AGENTS.md"));
   const memSrc = readText(path.join(root, "memory", "MEMORY.md"));
   const dests = new Map<string, string>();
   if (agentsSrc !== null) dests.set("AGENTS.md", agentsSrc);
@@ -1193,6 +1195,11 @@ function cmdDoctor(flags: string[]): boolean {
     );
   }
   const mem = readText(path.join(process.cwd(), "MEMORY.md"));
+  const ag = readText(path.join(process.cwd(), "AGENTS.md"));
+  if (mem !== null || ag !== null) {
+    const t = estTokens((mem ?? "") + (ag ?? ""));
+    console.log(`[harness] info - project context ~${fmtTok(t)} tokens (AGENTS.md + MEMORY.md)`);
+  }
   if (mem !== null) {
     const t = estTokens(mem);
     if (t > 4000)

@@ -52,6 +52,7 @@
     "research/",
     "adapters/",
     "docs/",
+    "templates/",
     "AGENTS.md",
     "README.md",
     "LICENSE",

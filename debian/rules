@@ -16,7 +16,7 @@ override_dh_auto_install:
 	# lib
 	install -d debian/agent-harness/usr/lib/agent-harness/dist
 	cp -r dist/harness debian/agent-harness/usr/lib/agent-harness/dist/
-	cp -r skills instincts memory security research adapters debian/agent-harness/usr/lib/agent-harness/
+	cp -r skills instincts memory security research adapters templates debian/agent-harness/usr/lib/agent-harness/
 	cp AGENTS.md README.md LICENSE package.json debian/agent-harness/usr/lib/agent-harness/
 	mkdir -p debian/agent-harness/usr/lib/agent-harness/src/harness
 	cp src/harness/cli.py debian/agent-harness/usr/lib/agent-harness/src/harness/ || true
