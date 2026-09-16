@@ -10,7 +10,7 @@ case "$task" in
     ok=1
     { echo "$A" | grep -qE "summarize\.ts" || { echo "$A" | grep -q "summarize" && echo "$A" | grep -qE "src/|cli"; }; } || { echo "missing: summarize impl file"; ok=0; }
     { echo "$A" | grep -qE "util\.ts" || { echo "$A" | grep -qE "(^|[^a-z])util([^a-z]|$)" && echo "$A" | grep -q "src/"; }; } || { echo "missing: util file"; ok=0; }
-    echo "$A" | grep -qE "chars?:? ?11|character count[^0-9]*11|11[^0-9]{0,20}characters?" || { echo "missing: chars=11 fact"; ok=0; }
+    echo "$A" | grep -qE "chars?:? ?11|character count[^0-9]*11|11[^0-9]{0,20}characters?|11[^0-9]{0,20}chars?" || { echo "missing: chars=11 fact"; ok=0; }
     echo "$A" | grep -qE "hi\(2\)|hi ?[:(=-] ?2|hi (appears|occurs|shows up) (twice|two times)|twice[^.]{0,20}hi" || { echo "missing: hi x2 fact"; ok=0; }
     [ "$ok" = 1 ] && echo "T1 PASS" || echo "T1 FAIL"
     exit $((1 - ok))
