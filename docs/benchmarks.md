@@ -39,6 +39,35 @@ nemotron-3-super-120b ($0.43 total):
 - T3 bare: 119 [43-258], 183193 [96578-317906], 21.7, 3/3
 - T3 harness: 53 [42-64], 97190 [90738-104584], 11.3, 3/3
 
+## Run 2: slim init payload (same bed, both models)
+
+After run 1, `init` ships a slim AGENTS.md (724B vs 1948B). First-step
+measurement showed the direct payload costs only ~740 input tokens; the rest
+of historical deltas is trajectory compounding. A kept-events probe of
+T1/harness/kimi showed zero web search: 6 steps, inputs growing 7313 to 9221,
+i.e. thoroughness behavior (extra exploration resending history), not payload.
+
+kimi-k3 (free tier, $0):
+- T1 bare: 539 [527-549], 34787 [30866-39691], 5.3, 3/3
+- T1 harness: 573 [475-675], 49168 [41954-62201], 6.3, 3/3
+- T2 bare: 499 [439-564], 44172 [41273-49113], 7.3, 3/3
+- T2 harness: 496 [447-555], 45424 [41360-50858], 7.0, 3/3
+- T3 bare: 450 [410-502], 45479 [40535-48649], 7.3, 3/3
+- T3 harness: 466 [415-519], 48419 [42847-52345], 7.3, 3/3
+
+nemotron-3-super-120b:
+- T1 bare: 26 [24-28], 68873 [64100-77411], 8.3, 1/3
+- T1 harness: 20 [14-28], 65364 [56174-78516], 8.3, 2/3
+- T2 bare: 85 [61-120], 143352 [106958-207905], 17.0, 3/3
+- T2 harness: 81 [60-113], 115663 [103361-126309], 13.3, 3/3
+- T3 bare: 75 [30-99], 124790 [89270-193722], 12.7, 3/3
+- T3 harness: 37 [14-65], 86186 [51501-110465], 10.0, 2/3 (one 14s fast fail)
+
+Run-2 scorecard on tokens: 3 nemotron wins, 2 kimi ties (+3%, +6%),
+1 kimi loss (T1 +41%, thoroughness behavior above). Raw run-2 rows:
+`research/evidence/ab-results-run2.jsonl` (36 cells; one kimi T1-bare cell
+retried after a provider-side stall killed the first attempt, kept row used).
+
 ## Verdict vs published claims (180s to 13s, -65% tokens, -40% calls)
 
 Not reproduced. Wall time: tied within variance in 4 of 6 cells; one cell each
