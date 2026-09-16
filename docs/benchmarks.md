@@ -89,6 +89,50 @@ facts even under loose matching), split across both arms. Rerunning failures
 until they pass would be cherry-picking, so 18/18 stands unreached and the
 failures stay published.
 
+## Run 4: nemotron with v3 T1 wording (16/18)
+
+T1 gained one line ("name both implementation files and quote the exact
+full output"). Full fresh 18-cell rerun, both arms. Token deltas all fell
+inside noise (+8%, -6%, +9%). T1 still misses once per arm: the model answers
+thinly ~1/3 of the time no matter the arm, grader, or wording, across three
+datasets now. Raw rows: `research/evidence/ab-results-run4.jsonl`.
+
+nemotron-3-super-120b ($0.38):
+- T1 bare: 35 [24-41], 72886 [68098-75544], 8.7, 2/3
+- T1 harness: 58 [32-82], 78547 [56577-92996], 9.3, 2/3
+- T2 bare: 95 [56-134], 121468 [88579-150372], 14.0, 3/3
+- T2 harness: 74 [42-115], 113762 [91025-134609], 13.3, 3/3
+- T3 bare: 55 [46-66], 94967 [74839-134706], 11.3, 3/3
+- T3 harness: 74 [53-92], 103457 [88768-132275], 13.0, 3/3
+
+## New models probed (30 total, 6 live)
+
+Second sweep, Nvidia free tier, sequential with pauses, no 429s hit:
+live: mistral-nemotron, muse-glimmer-30b, nemotron-3.5-lightning-30b,
+laguna-xs-2.1 (plus kimi-k3 and nemotron-3-super from before).
+410 EOL: ministral-14b, mistral-small-4, mistral-medium-3.5, llama-3.1-70b,
+nemotron-3-nano-30b, nemotron-mini-4b, qwen3.5-397b, step-3.7-flash, inkling,
+solar-10.7b, minimax-m2.7, dracarys-70b, sarvam-m. Hung, skipped: gpt-oss-20b.
+
+Agentic smoke (T1 bare, 1 run each): mistral-nemotron produced zero tool
+calls in 227s (can't drive); lightning-30b and laguna-xs acted but missed
+(11 and 9 tools); muse-glimmer-30b passed with 15 tools and earned a full
+matrix below. Raw rows: `research/evidence/ab-smoke.jsonl`.
+
+## muse-glimmer-30b full matrix (17/18, $0)
+
+- T1 bare: 154 [131-194], 53471 [38996-64564], 3/3
+- T1 harness: 157 [145-164], 68855 [43856-90270], 3/3
+- T2 bare: 352 [301-416], 97115 [89945-108823], 3/3
+- T2 harness: 183 [6-326], 57569 [6406-106087], 2/3 (one 6s no-tool flake)
+- T3 bare: 222 [210-235], 92704 [87911-96343], 3/3
+- T3 harness: 260 [182-306], 105549 [57754-145160], 3/3
+
+Tokens: T1 +29% harness, T2 -41% (flake-aided), T3 +14%. Raw rows:
+`research/evidence/ab-results-glimmer.jsonl`. No model has yet gone 18/18
+with a sub-noise token delta on every cell; kimi-k3 is the only 18/18 driver
+(twice), nemotron tops out at 16/18 across three datasets.
+
 ## Verdict vs published claims (180s to 13s, -65% tokens, -40% calls)
 
 Not reproduced. Wall time: tied within variance in 4 of 6 cells; one cell each
