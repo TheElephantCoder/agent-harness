@@ -93,10 +93,36 @@
   </div>
 </section>
 
+<section class="perf">
+  <div class="wrap">
+    <h2>Run 4: nemotron, v3 tasks (16/18)</h2>
+    <p class="muted">T1 asks for files by name and quoted output. Token deltas all inside noise. T1 still misses once per arm: the model answers thinly ~1/3 of the time regardless of setup.</p>
+    <div class="perf-table">
+      <div class="row head"><span>cell</span><span>bare</span><span>harness</span></div>
+      <div class="row"><span>T1</span><span>35s [24-41] · 72.9k tok · 2/3</span><span>58s [32-82] · 78.5k tok · 2/3</span></div>
+      <div class="row"><span>T2</span><span>95s [56-134] · 121.5k tok · 3/3</span><span>74s [42-115] · 113.8k tok · 3/3</span></div>
+      <div class="row"><span>T3</span><span>55s [46-66] · 95.0k tok · 3/3</span><span>74s [53-92] · 103.5k tok · 3/3</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="perf">
+  <div class="wrap">
+    <h2>muse-glimmer-30b (17/18, new driver)</h2>
+    <p class="muted">Found in a 30-model probe sweep (6 live). Verbose agent, twice the tool calls. One 6s no-tool flake is the only miss.</p>
+    <div class="perf-table">
+      <div class="row head"><span>cell</span><span>bare</span><span>harness</span></div>
+      <div class="row"><span>T1</span><span>154s [131-194] · 53.5k tok · 3/3</span><span>157s [145-164] · 68.9k tok · 3/3</span></div>
+      <div class="row"><span>T2</span><span>352s [301-416] · 97.1k tok · 3/3</span><span>183s [6-326] · 57.6k tok · 2/3</span></div>
+      <div class="row"><span>T3</span><span>222s [210-235] · 92.7k tok · 3/3</span><span>260s [182-306] · 105.5k tok · 3/3</span></div>
+    </div>
+  </div>
+</section>
+
 <section class="compat">
   <div class="wrap">
     <h2>Reading</h2>
-    <p class="muted">On a small repo the harness context costs more tokens than orientation saves, and wall time lands within variance in most cells. It should pay off where repo-orientation cost dwarfs harness context (large unfamiliar codebases) — that bed is still untested. n=3, free-tier queueing noise visible (362s outlier). Full method, probe log (20 models tried, 2 live), and all 36 raw rows: <a href="https://github.com/TheElephantCoder/agent-harness/blob/main/docs/benchmarks.md">docs/benchmarks.md</a>.</p>
+    <p class="muted">On a small repo the harness context costs more tokens than orientation saves, and wall time lands within variance in most cells. It should pay off where repo-orientation cost dwarfs harness context (large unfamiliar codebases) — that bed is still untested. n=3, free-tier queueing noise visible (362s outlier). Full method, probe log (30 models tried, 6 live), and all raw rows: <a href="https://github.com/TheElephantCoder/agent-harness/blob/main/docs/benchmarks.md">docs/benchmarks.md</a>.</p>
   </div>
 </section>
 
