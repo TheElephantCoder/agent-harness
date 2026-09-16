@@ -68,6 +68,27 @@ Run-2 scorecard on tokens: 3 nemotron wins, 2 kimi ties (+3%, +6%),
 `research/evidence/ab-results-run2.jsonl` (36 cells; one kimi T1-bare cell
 retried after a provider-side stall killed the first attempt, kept row used).
 
+## Run 3: nemotron with semantic T1 grader (v2)
+
+T1's keyword grader was failing terse-but-correct answers, so v2 accepts
+equivalent phrasings (pre-registered in `research/evidence/ab/grade.sh`,
+fixture-tested 7/7 before running, one mid-pre-reg fix committed separately).
+Full fresh 18-cell nemotron rerun under v2. T2/T3 graders unchanged.
+Raw rows: `research/evidence/ab-results-run3.jsonl`.
+
+nemotron-3-super-120b:
+- T1 bare: 49 [34-59], 69113 [65245-76630], 8.3, 2/3
+- T1 harness: 61 [50-78], 88054 [56586-129215], 10.3, 1/3
+- T2 bare: 71 [35-110], 115029 [76063-134900], 14.0, 3/3
+- T2 harness: 70 [44-108], 121612 [87598-181201], 14.3, 3/3
+- T3 bare: 67 [39-89], 117318 [100920-141209], 13.7, 3/3
+- T3 harness: 72 [51-112], 94861 [83732-109022], 11.7, 3/3
+
+15/18. The three T1 misses are genuinely thin answers (missing files or
+facts even under loose matching), split across both arms. Rerunning failures
+until they pass would be cherry-picking, so 18/18 stands unreached and the
+failures stay published.
+
 ## Verdict vs published claims (180s to 13s, -65% tokens, -40% calls)
 
 Not reproduced. Wall time: tied within variance in 4 of 6 cells; one cell each
