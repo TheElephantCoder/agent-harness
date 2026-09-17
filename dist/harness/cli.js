@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as https from "node:https";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-export const VERSION = "0.1.2";
+export const VERSION = "0.2.0";
 const SHELL_COMMANDS = [
     "init",
     "doctor",

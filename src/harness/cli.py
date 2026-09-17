@@ -12,7 +12,7 @@ import time
 from types import SimpleNamespace
 from urllib.request import Request, urlopen
 
-VERSION = "0.1.2"
+VERSION = "0.2.0"
 
 RESET = "\x1b[0m"
 BOLD = "\x1b[1m"

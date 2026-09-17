@@ -1,4 +1,4 @@
-.TH HARNESS 1 "September 2026" "agent-harness 0.1.2" "User Commands"
+.TH HARNESS 1 "September 2026" "agent-harness 0.2.0" "User Commands"
 .SH NAME
 harness \- performance layer for coding agents
 .SH SYNOPSIS
@@ -14,23 +14,29 @@ Run \fBharness init\fR in your project, then \fBharness doctor\fR to verify.
 .B init [--harness <name>] [--auto] [--migrate]
 Set up harness in current project.
 .TP
-.B doctor [--fix]
+.B doctor [--fix] [--strict]
 Check adapters, skills, security.
 .TP
-.B bench [--quick]
-Run performance checks.
+.B bench [--compare] [--quick]
+Measure costs, save baseline.
 .TP
-.B skill <add|list|remove|search|info> [name]
-Manage skills.
+.B optimize
+Prune memory, repair, report savings.
 .TP
-.B memory <sync|show|edit|prune>
-Manage persistent memory.
+.B skill list
+List skills with cost.
 .TP
-.B research <query> [--plan]
-Research-first capture with citations.
+.B memory <show|prune>
+Show or prune MEMORY.md.
 .TP
-.B security <audit|scan|fix>
-Security checks.
+.B instinct list
+List hooks.
+.TP
+.B adapter list
+List supported harnesses.
+.TP
+.B upgrade
+Self-update to latest.
 .SH SEE ALSO
 .BR https://github.com/TheElephantCoder/agent-harness
 .SH AUTHOR

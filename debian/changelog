@@ -1,3 +1,13 @@
+agent-harness (0.2.0-1) UNRELEASED; urgency=medium
+
+  * Real CLI: init installs per-harness native files, doctor verifies
+    with exit codes, bench measures with baselines, optimize prunes
+    memory to budget, upgrade self-updates.
+  * Per-agent installs verified against vendor docs. A/B evidence
+    in docs/benchmarks.md.
+
+ -- TheElephantCoder <157982101+TheElephantCoder@users.noreply.github.com>  Thu, 17 Sep 2026 00:00:00 +0000
+
 agent-harness (0.1.2-1) UNRELEASED; urgency=medium
 
   * Initial release. Performance layer for coding agents with
