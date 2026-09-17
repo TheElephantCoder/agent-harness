@@ -121,15 +121,14 @@ wget https://github.com/TheElephantCoder/agent-harness/releases/latest/download/
 sudo apt install ./agent-harness_0.2.0_all.deb
 
 # brew (macOS + Linuxbrew): same repo is the tap, no second repo needed
-brew tap TheElephantCoder/agent-harness
+brew tap theelephantcoder/agent-harness https://github.com/TheElephantCoder/agent-harness
+brew trust theelephantcoder/agent-harness   # one-time, third-party taps need it
 brew install agent-harness
 # now it's just
 brew install agent-harness
 brew upgrade agent-harness
-# without pre-tapping, one-liner
-brew install TheElephantCoder/agent-harness/agent-harness
 # HEAD (latest on main)
-brew install --HEAD TheElephantCoder/agent-harness/agent-harness
+brew install --HEAD agent-harness
 # local, from this checkout
 brew install --build-from-source Formula/agent-harness.rb
 

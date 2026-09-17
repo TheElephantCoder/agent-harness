@@ -7,7 +7,8 @@ Single repo is the tap. `Formula/agent-harness.rb` lives here, so you don't need
 Direct install after tapping: then it's just `brew install agent-harness`:
 
 ```bash
-brew tap TheElephantCoder/agent-harness
+brew tap theelephantcoder/agent-harness https://github.com/TheElephantCoder/agent-harness
+brew trust theelephantcoder/agent-harness   # one-time, third-party taps need it
 brew install agent-harness
 
 # verify
@@ -16,12 +17,6 @@ harness doctor
 
 # later
 brew upgrade agent-harness
-```
-
-One-liner without pre-tapping:
-
-```bash
-brew install TheElephantCoder/agent-harness/agent-harness
 ```
 
 HEAD (latest on main, skips sha check):
