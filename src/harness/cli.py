@@ -734,7 +734,7 @@ def cmd_init(args=None):
             put(rel, json.dumps({"hooks": hj}, indent=2) + "\n")
         elif rel.replace(os.sep, "/") not in tracked:
             print("[harness] init - .claude/settings.json exists, merge hooks manually (see docs/cli.md)")
-    files = list(tracked) + written
+    files = list(dict.fromkeys(list(tracked) + written))
     try:
         os.makedirs(os.path.dirname(man_file), exist_ok=True)
         with open(man_file, "w", encoding="utf-8") as f:
@@ -781,7 +781,12 @@ def plain_len(s):
     return len(re.sub(r"\x1b\[[0-9;]*m", "", s))
 
 def use_upgrade_bar():
-    return bool(sys.stdout.isatty()) and os.environ.get("TERM") != "dumb"
+    if not sys.stdout.isatty() or os.environ.get("TERM") == "dumb":
+        return False
+    try:
+        return shutil.get_terminal_size().columns >= 50
+    except OSError:
+        return False
 
 def upgrade_bar(pct, stage, frame):
     try:

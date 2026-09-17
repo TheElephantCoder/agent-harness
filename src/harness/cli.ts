@@ -393,7 +393,11 @@ function plainLen(s: string): number {
 const UPGRADE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 function useUpgradeBar(): boolean {
-  return !!process.stdout.isTTY && process.env.TERM !== "dumb";
+  return (
+    !!process.stdout.isTTY &&
+    process.env.TERM !== "dumb" &&
+    termWidth() >= 50
+  );
 }
 
 function upgradeBar(pct: number, stage: string, frame: string): string {
@@ -430,12 +434,12 @@ function runNpmUpgrade(
 }
 
 async function animatedNpmUpgrade(
-  url: string,
-  tag: string,
+  pinned: string,
+  label: string,
 ): Promise<{ status: number | null; out: string }> {
   let frame = 0;
-  let pct = 4;
-  let stage = "resolving main";
+  let pct = 18;
+  let stage = `reinstalling ${label}`;
   const draw = () => {
     process.stdout.write(
       upgradeBar(pct, stage, UPGRADE_FRAMES[frame % UPGRADE_FRAMES.length]),
@@ -448,13 +452,6 @@ async function animatedNpmUpgrade(
     draw();
   }, 90);
   try {
-    draw();
-    const sha = await resolveMainSha();
-    const pinned = sha
-      ? `https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/${sha}`
-      : url;
-    stage = `reinstalling ${sha ? sha.slice(0, 7) : tag}`;
-    pct = Math.max(pct, 18);
     draw();
     const result = await runNpmUpgrade(pinned);
     stage = result.status === 0 ? "verifying" : "failed";
@@ -484,12 +481,13 @@ async function selfUpgrade(): Promise<boolean> {
       console.log(`[harness] npm not found - run: ${NPM_MANUAL}`);
       return false;
     }
-    const sha = useUpgradeBar() ? null : await resolveMainSha();
+    const sha = await resolveMainSha();
     const url = sha
       ? `https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/${sha}`
       : UPGRADE_TARBALL;
+    const tag = sha ? sha.slice(0, 7) : "latest";
     if (useUpgradeBar()) {
-      const result = await animatedNpmUpgrade(UPGRADE_TARBALL, "latest");
+      const result = await animatedNpmUpgrade(url, tag);
       if (result.status !== 0) {
         const tail = result.out.trim().split("\n").slice(-12).join("\n");
         if (tail) console.log(tail);
@@ -891,7 +889,7 @@ function cmdInit(flags: string[]): boolean {
       );
     }
   }
-  const files = [...tracked, ...written];
+  const files = [...new Set([...tracked, ...written])];
   try {
     fs.mkdirSync(path.dirname(manFile), { recursive: true });
     fs.writeFileSync(

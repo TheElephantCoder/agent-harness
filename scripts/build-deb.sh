@@ -69,7 +69,7 @@ CONTROL
 # dist is the compiled CLI, the rest is markdown + shell
 mkdir -p "$STAGE/usr/lib/agent-harness/dist"
 cp -r dist/harness "$STAGE/usr/lib/agent-harness/dist/"
-cp -r skills instincts memory security research adapters "$STAGE/usr/lib/agent-harness/"
+cp -r skills instincts memory security research adapters templates "$STAGE/usr/lib/agent-harness/"
 cp AGENTS.md README.md LICENSE "$STAGE/usr/lib/agent-harness/"
 cp package.json "$STAGE/usr/lib/agent-harness/"
 # python shim for pip users (optional, but keep for parity)
