@@ -16,10 +16,12 @@ if sed --version >/dev/null 2>&1; then
   # GNU sed (Linux)
   sed -i "s|url \".*\"|url \"$TARBALL\"|" "$FORMULA"
   sed -i "s/sha256 \".*\"/sha256 \"$SHA\"/" "$FORMULA"
+  sed -i "s/assert_match \"[0-9.]*\"/assert_match \"${VERSION}\"/" "$FORMULA"
 else
   # BSD sed (macOS)
   sed -i '' "s|url \".*\"|url \"$TARBALL\"|" "$FORMULA"
   sed -i '' "s/sha256 \".*\"/sha256 \"$SHA\"/" "$FORMULA"
+  sed -i '' "s/assert_match \"[0-9.]*\"/assert_match \"${VERSION}\"/" "$FORMULA"
 fi
 echo "updated $FORMULA to v${VERSION}"
 grep -E "url|sha256" "$FORMULA"
