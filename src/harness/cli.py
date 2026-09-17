@@ -377,7 +377,11 @@ def cmd_bench(args=None):
         print("[harness] warn - could not write .harness/bench.json")
     return ok
 
-SECRET_PATTERNS = ["BEGIN PRIVATE KEY", "AKIA", "ghp_", "github_pat_", "xoxb-", "xoxa-", "xoxp-"]
+SECRET_PATTERNS = ["AKIA", "ghp_", "github_pat_", "xoxb-", "xoxa-", "xoxp-"]
+
+
+def looks_like_pem(line):
+    return "-----BEGIN" in line and "PRIVATE KEY-----" in line
 
 def scan_staged():
     hits = []
@@ -393,7 +397,7 @@ def scan_staged():
             continue
         if l.startswith("+") and not l.startswith("+++"):
             line += 1
-            if any(p in l for p in SECRET_PATTERNS):
+            if looks_like_pem(l) or any(p in l for p in SECRET_PATTERNS):
                 if "AKIA" in l and not re.search(r"AKIA[0-9A-Z]{16}", l):
                     continue
                 hits.append((fname, line))

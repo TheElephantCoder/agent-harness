@@ -1038,7 +1038,7 @@ function cmdBench(flags: string[]): boolean {
 }
 
 const SECRET_PATTERNS: RegExp[] = [
-  /BEGIN PRIVATE KEY/,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
   /AKIA[0-9A-Z]{16}/,
   /ghp_[A-Za-z0-9]{20,}/,
   /github_pat_[A-Za-z0-9_]+/,
