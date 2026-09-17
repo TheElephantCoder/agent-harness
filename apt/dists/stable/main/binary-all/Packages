@@ -1,14 +1,14 @@
 Package: agent-harness
-Version: 0.1.2
+Version: 0.2.0
 Architecture: all
 Maintainer: TheElephantCoder
 Depends: nodejs (>= 20) | node (>= 20), git, bash, python3
 Recommends: pipx
-Filename: pool/agent-harness_0.1.2_all.deb
-Size: 16828
-MD5sum: ce0412d49c35b872261e09bfdc9f82c6
-SHA1: 6f69a2bfdc557b140a0e1aae09487e961a92e0b6
-SHA256: f3ca4c60541d2e6fa731b68a6b87ff64999c5ac46e46a3044003bcf5a40053d9
+Filename: pool/agent-harness_0.2.0_all.deb
+Size: 39388
+MD5sum: 374cea2a1ea5b12e9ce8cf6a6f807a34
+SHA1: faaec3941c377abc0c268e48dda5c09bc64f7837
+SHA256: e37283122121db38265685fa6f394a24f8456a1d70ed9a27d3d0edb3d53edf7b
 Section: utils
 Priority: optional
 Description: Performance layer for coding agents
