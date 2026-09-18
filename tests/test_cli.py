@@ -29,6 +29,14 @@ def test_strip_fm():
     assert cli.strip_fm("body") == "body"
 
 
+def test_map_symbols():
+    assert cli.map_symbols("export function foo() {}\nexport const bar = 1;") == ["foo()", "bar"]
+    assert cli.map_symbols("def hello():\n  pass") == ["hello()"]
+    assert cli.map_symbols("# Title\n\ntext") == ["Title"]
+    big = "\n".join(f"export const v{i} = {i};" for i in range(20))
+    assert len(cli.map_symbols(big)) == 12
+
+
 def test_slugify():
     assert cli.slugify("Token Overhead?!") == "token-overhead"
     assert cli.slugify("!!!") == "note"

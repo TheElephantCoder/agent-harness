@@ -192,6 +192,7 @@ harness init [--harness <name>] [--auto] [--migrate]
 harness doctor [--fix] [--strict]
 harness bench [--compare] [--quick]
 harness optimize
+harness map
 harness skill <list|search|info|add|remove|verify> ...
 harness memory <show|prune|sync|edit> [note]
 harness instinct <list|enable|disable> [name]

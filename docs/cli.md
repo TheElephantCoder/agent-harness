@@ -5,6 +5,7 @@ harness init [--harness <name>] [--auto] [--migrate]
 harness doctor [--fix] [--strict]
 harness bench [--compare] [--quick]
 harness optimize
+harness map
 harness skill <list|search|info|add|remove|verify> [query|name|repo]
 harness memory <show|prune|sync|edit> [note]
 harness instinct <list|enable|disable> [name]
@@ -93,6 +94,20 @@ The part that actually cuts cost:
 - prints the skill cost table with the largest skill
 
 `harness memory prune` does the same prune. Exits 1 only when the prune itself fails.
+
+## map
+
+Deterministic repo index for agents (and humans). Walks source files
+(`.ts` `.js` `.py` `.md` `.json` `.sh`, skips dotfiles, `node_modules`,
+`dist`, `.git`), extracts exported symbols, writes `.harness/MAP.md`:
+
+```bash
+harness map   # 200 files -> ~229-line index, ~2.8k tokens on megabox
+```
+
+Same output byte-for-byte on repeat runs. `init` writes (and `--migrate`
+refreshes) the map automatically; `AGENTS.md` points agents at it before
+exploring. Re-run `map` (or `init --migrate`) after restructuring.
 
 ## skill / instinct / memory / adapter
 

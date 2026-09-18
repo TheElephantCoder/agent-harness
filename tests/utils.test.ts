@@ -5,6 +5,7 @@ import * as path from "node:path";
 import {
   estTokens,
   fmtTok,
+  mapSymbols,
   parseFrontmatter,
   pruneFile,
   sanitizeSkillName,
@@ -42,6 +43,22 @@ describe("stripFm", () => {
   });
   it("leaves plain text alone", () => {
     expect(stripFm("body")).toBe("body");
+  });
+});
+
+describe("mapSymbols", () => {
+  it("extracts exports", () => {
+    expect(
+      mapSymbols("export function foo() {}\nexport const bar = 1;\nexport default x;"),
+    ).toEqual(["foo()", "bar", "default"]);
+  });
+  it("reads python defs and markdown titles", () => {
+    expect(mapSymbols("def hello():\n  pass")).toEqual(["hello()"]);
+    expect(mapSymbols("# Title\n\ntext")).toEqual(["Title"]);
+  });
+  it("caps at twelve", () => {
+    const src = Array.from({ length: 20 }, (_, i) => `export const v${i} = ${i};`).join("\n");
+    expect(mapSymbols(src)).toHaveLength(12);
   });
 });
 
