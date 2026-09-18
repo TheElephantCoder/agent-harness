@@ -2496,9 +2496,17 @@ async function main() {
 }
 
 // only auto-run as a CLI, never on import (vitest imports this module).
-const invokedAsCli =
-  typeof process.argv[1] === "string" &&
-  /(^|[\\/])cli\.(ts|js)$/.test(process.argv[1]);
+// argv[1] can be a bin symlink, so compare realpaths, not strings.
+const invokedAsCli = (() => {
+  try {
+    const a1 = process.argv[1];
+    if (typeof a1 !== "string" || a1 === "") return false;
+    if (/(^|[\\/])cli\.(ts|js)$/.test(a1)) return true;
+    return fs.realpathSync(a1) === fs.realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+})();
 if (invokedAsCli) {
   main().catch((e) => {
     console.error("[harness] error:", e);
