@@ -3,8 +3,10 @@
 // node >=20
 import * as readline from "node:readline";
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as https from "node:https";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 export const VERSION = "0.2.0";
@@ -81,9 +83,11 @@ usage: harness <command> [options]
   doctor [--fix] [--strict]                      verify install and project
   bench [--compare] [--quick]                    measure costs, save baseline
   optimize                                       prune memory, repair, report savings
-  skill list                                     list skills with cost
-  memory <show|prune>                            show or prune MEMORY.md
-  instinct list                                  list hooks
+  skill <list|search|info|add> [query|name|repo] list, search, show, fetch skills
+  memory <show|prune|sync> [note]                show, prune, append to MEMORY.md
+  instinct <list|enable|disable> [name]          list, toggle hooks
+  research <query>                               capture a finding stub
+  security <audit|scan> [--staged]               run the audit script
   adapter list                                   list supported harnesses
   upgrade                                        self-update to latest
   shell                                          open interactive prompt
@@ -341,9 +345,7 @@ function plainLen(s) {
 }
 const UPGRADE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 function useUpgradeBar() {
-    return (!!process.stdout.isTTY &&
-        process.env.TERM !== "dumb" &&
-        termWidth() >= 50);
+    return (!!process.stdout.isTTY && process.env.TERM !== "dumb" && termWidth() >= 50);
 }
 function upgradeBar(pct, stage, frame) {
     const width = termWidth();
@@ -473,13 +475,13 @@ function readText(p) {
     }
 }
 // ~4 chars per token for markdown. always printed with a ~ prefix.
-function estTokens(text) {
+export function estTokens(text) {
     return Math.ceil(text.length / 4);
 }
-function fmtTok(t) {
+export function fmtTok(t) {
     return t >= 1000 ? `${(t / 1000).toFixed(1)}k` : `${t}`;
 }
-function parseFrontmatter(text) {
+export function parseFrontmatter(text) {
     const m = /^---\n([\s\S]*?)\n---/.exec(text);
     if (!m)
         return null;
@@ -615,7 +617,7 @@ const AUTO_MARKERS = {
     codex: ".agents",
     generic: "",
 };
-function stripFm(text) {
+export function stripFm(text) {
     return text.replace(/^---\n[\s\S]*?\n---\n/, "");
 }
 // first "# comment" line of a hook script (shebang excluded by the space).
@@ -629,6 +631,9 @@ function hookBlurb(root, rel) {
             return m[1];
     }
     return rel;
+}
+export function sha256(text) {
+    return createHash("sha256").update(text, "utf8").digest("hex");
 }
 function cmdInit(flags) {
     const root = selfRoot();
@@ -644,8 +649,24 @@ function cmdInit(flags) {
             .map((s) => s.trim())
             .filter(Boolean)
         : [];
+    const cwd = process.cwd();
+    const manFile = path.join(cwd, ".harness", "config.json");
+    const prior = readText(manFile);
+    if (prior !== null && !migrate) {
+        console.log("[harness] init - already initialized here (use --migrate to fill gaps)");
+        return false;
+    }
     const adapters = listAdapters(root).filter((a) => a.json);
     const byName = new Map(adapters.map((a) => [a.name, a]));
+    let priorHarness = [];
+    try {
+        if (prior !== null) {
+            priorHarness = (JSON.parse(prior).harness ?? []).filter((n) => byName.has(n));
+        }
+    }
+    catch {
+        // corrupt manifest: autodetect below, rewrite after
+    }
     let names;
     if (explicit.length > 0) {
         const unknown = explicit.filter((n) => !byName.has(n));
@@ -655,6 +676,9 @@ function cmdInit(flags) {
         }
         names = explicit;
     }
+    else if (migrate && priorHarness.length > 0) {
+        names = priorHarness;
+    }
     else {
         names = adapters
             .map((a) => a.name)
@@ -663,18 +687,15 @@ function cmdInit(flags) {
             return m !== "" && fs.existsSync(path.join(process.cwd(), m));
         });
     }
-    const cwd = process.cwd();
-    const manFile = path.join(cwd, ".harness", "config.json");
-    const prior = readText(manFile);
-    if (prior !== null && !migrate) {
-        console.log("[harness] init - already initialized here (use --migrate to fill gaps)");
-        return false;
-    }
     const tracked = new Set();
+    const priorFiles = [];
     if (prior !== null) {
         try {
-            for (const f of JSON.parse(prior).files ?? [])
-                tracked.add(f);
+            const parsed = JSON.parse(prior).files ?? [];
+            for (const f of parsed) {
+                priorFiles.push(f);
+                tracked.add(typeof f === "string" ? f : f.path);
+            }
         }
         catch {
             // corrupt manifest: rewrite below
@@ -693,7 +714,7 @@ function cmdInit(flags) {
             fs.writeFileSync(abs, content);
             if (exec)
                 fs.chmodSync(abs, 0o755);
-            written.push(rel);
+            written.push({ rel, sha: sha256(content) });
         }
         catch {
             console.log(`[harness] init - could not write ${rel}`);
@@ -760,7 +781,8 @@ function cmdInit(flags) {
     }
     if (names.includes("aider")) {
         // verified shape: aider loads files listed under read:.
-        if (!tracked.has(".aider.conf.yml") && !fs.existsSync(path.join(cwd, ".aider.conf.yml"))) {
+        if (!tracked.has(".aider.conf.yml") &&
+            !fs.existsSync(path.join(cwd, ".aider.conf.yml"))) {
             put(".aider.conf.yml", "# written by harness init\nread: CONVENTIONS.md\n");
         }
         else if (!tracked.has(".aider.conf.yml")) {
@@ -808,7 +830,10 @@ function cmdInit(flags) {
             console.log("[harness] init - .claude/settings.json exists, merge hooks manually (see docs/cli.md)");
         }
     }
-    const files = [...new Set([...tracked, ...written])];
+    const files = [
+        ...priorFiles,
+        ...written.map((w) => ({ path: w.rel, sha: w.sha })),
+    ];
     try {
         fs.mkdirSync(path.dirname(manFile), { recursive: true });
         fs.writeFileSync(manFile, JSON.stringify({
@@ -895,6 +920,9 @@ function cmdBench(flags) {
     const baseline = {
         version: VERSION,
         ts: new Date().toISOString(),
+        platform: process.platform,
+        arch: process.arch,
+        runtime: process.version,
         coldStartMs: r1(cold),
         hooks: hookMs,
         skillTokens: totalTok,
@@ -1078,12 +1106,47 @@ function cmdDoctor(flags) {
     if (manText !== null) {
         try {
             const files = JSON.parse(manText).files ?? [];
-            const missing = files.filter((f) => !fs.existsSync(path.join(process.cwd(), f)));
+            const relOf = (f) => typeof f === "string" ? f : f.path;
+            const missing = files
+                .map(relOf)
+                .filter((f) => !fs.existsSync(path.join(process.cwd(), f)));
+            const modified = [];
+            for (const f of files) {
+                if (typeof f === "string")
+                    continue;
+                const abs = path.join(process.cwd(), f.path);
+                if (!fs.existsSync(abs))
+                    continue;
+                const text = readText(abs);
+                if (text !== null && sha256(text) !== f.sha)
+                    modified.push(f.path);
+            }
             if (missing.length > 0) {
                 fail(`[harness] FAIL - project init files missing: ${missing.join(", ")}`);
             }
-            else {
-                console.log(`[harness] ok - project: ${files.length}/${files.length} init files present`);
+            if (modified.length > 0) {
+                fail(`[harness] FAIL - project files modified: ${modified.join(", ")} (delete + migrate to restore, or keep your edit)`);
+            }
+            if (missing.length === 0 && modified.length === 0) {
+                console.log(`[harness] ok - project: ${files.length}/${files.length} init files present, hashes match`);
+            }
+            const addedSkills = JSON.parse(manText).addedSkills ?? [];
+            const addedBad = [];
+            for (const a of addedSkills) {
+                const p = path.join(process.cwd(), ".harness", "skills", String(a.name ?? ""), "SKILL.md");
+                const text = readText(p);
+                if (text === null) {
+                    addedBad.push(`${a.name} (missing)`);
+                }
+                else if (sha256(text) !== a.sha256) {
+                    addedBad.push(`${a.name} (modified)`);
+                }
+            }
+            if (addedBad.length > 0) {
+                fail(`[harness] FAIL - added skills: ${addedBad.join(", ")}`);
+            }
+            else if (addedSkills.length > 0) {
+                console.log(`[harness] ok - added skills: ${addedSkills.length} verified`);
             }
         }
         catch {
@@ -1134,7 +1197,7 @@ function cmdDoctor(flags) {
     return ok;
 }
 // prune a markdown file to a token budget, archiving overflow. no data loss.
-function pruneFile(abs, budget) {
+export function pruneFile(abs, budget) {
     const text = readText(abs);
     if (text === null)
         return null;
@@ -1212,6 +1275,194 @@ function cmdOptimize() {
     console.log(`[harness] ok - skills ${skills.length} files ~${fmtTok(total)} total${top ? `, largest ${top.name} ~${fmtTok(top.tokens)}` : ""}`);
     return true;
 }
+export function slugify(s) {
+    return (s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40) || "note");
+}
+function cmdMemorySync(note) {
+    const memFile = path.join(process.cwd(), "MEMORY.md");
+    if (readText(memFile) === null) {
+        console.log("[harness] memory - no MEMORY.md here (run harness init)");
+        return false;
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    try {
+        fs.appendFileSync(memFile, `\n- (${stamp}) ${note}\n`);
+    }
+    catch {
+        console.log("[harness] FAIL - memory: could not write MEMORY.md");
+        return false;
+    }
+    const r = pruneFile(memFile, 2000);
+    if (!r) {
+        console.log("[harness] FAIL - memory: could not prune MEMORY.md");
+        return false;
+    }
+    console.log(`[harness] ok - memory synced (~${fmtTok(r.after)}${r.moved > 0 ? `, ${r.moved} lines archived` : ""})`);
+    return true;
+}
+function fetchTarball(url, maxBytes) {
+    return new Promise((resolve) => {
+        try {
+            const req = https.get(url, { headers: { "User-Agent": "agent-harness" } }, (res) => {
+                if (res.statusCode !== 200 ||
+                    !res.headers["content-type"]?.includes("gzip")) {
+                    res.resume();
+                    resolve(null);
+                    return;
+                }
+                const chunks = [];
+                let size = 0;
+                res.on("data", (c) => {
+                    size += c.length;
+                    if (size > maxBytes) {
+                        req.destroy();
+                        resolve(null);
+                        return;
+                    }
+                    chunks.push(c);
+                });
+                res.on("end", () => resolve(Buffer.concat(chunks)));
+            });
+            req.setTimeout(15000, () => {
+                req.destroy();
+                resolve(null);
+            });
+            req.on("error", () => resolve(null));
+        }
+        catch {
+            resolve(null);
+        }
+    });
+}
+function tarList(archive) {
+    const r = spawnSync("tar", ["-tzf", archive], { encoding: "utf8" });
+    if (r.status !== 0)
+        return [];
+    return r.stdout.split("\n").filter(Boolean);
+}
+function tarRead(archive, entry) {
+    const r = spawnSync("tar", ["-xzOf", archive, entry], {
+        encoding: "utf8",
+        maxBuffer: 2 * 1024 * 1024,
+    });
+    if (r.status !== 0)
+        return null;
+    return r.stdout;
+}
+export function sanitizeSkillName(s) {
+    return s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 64);
+}
+async function cmdSkillAdd(args) {
+    const spec = (args[0] ?? "").trim();
+    const m = /^([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)(?:@([A-Za-z0-9_.\-/]+))?$/.exec(spec);
+    if (!m) {
+        console.log("[harness] skill add - want owner/repo[@ref] (GitHub only)");
+        return false;
+    }
+    const [, repo, givenRef] = m;
+    const cwd = process.cwd();
+    for (const ref of givenRef ? [givenRef] : ["main", "master"]) {
+        const url = `https://codeload.github.com/${repo}/tar.gz/${ref}`;
+        console.log(`[harness] skill add - fetching ${repo}@${ref}...`);
+        const buf = await fetchTarball(url, 8 * 1024 * 1024);
+        if (!buf)
+            continue;
+        const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "harness-skill-")), "pkg.tgz");
+        let entries = [];
+        try {
+            fs.mkdirSync(path.dirname(tmp), { recursive: true });
+            fs.writeFileSync(tmp, buf);
+            entries = tarList(tmp);
+        }
+        catch {
+            // fall through to cleanup + failure below
+        }
+        const top = entries.length > 0 ? entries[0].split("/")[0] + "/" : "";
+        const cands = entries.filter((e) => e === `${top}SKILL.md` || /^[^/]+\/skills\/[^/]+\/SKILL\.md$/.test(e));
+        cands.sort((a, b) => a.length - b.length);
+        const body = cands.length > 0 ? tarRead(tmp, cands[0]) : null;
+        try {
+            fs.rmSync(path.dirname(tmp), { recursive: true, force: true });
+        }
+        catch {
+            // best effort cleanup
+        }
+        if (!body) {
+            console.log(`[harness] skill add - no SKILL.md in ${repo}@${ref} (want SKILL.md at root or skills/<name>/SKILL.md)`);
+            return false;
+        }
+        const fm = parseFrontmatter(body);
+        if (!fm) {
+            console.log(`[harness] skill add - ${repo}@${ref} SKILL.md lacks name/description frontmatter`);
+            return false;
+        }
+        const name = sanitizeSkillName(fm.name);
+        if (!name) {
+            console.log("[harness] skill add - unusable skill name in frontmatter");
+            return false;
+        }
+        const rel = path.join(".harness", "skills", name, "SKILL.md");
+        if (fs.existsSync(path.join(cwd, rel))) {
+            console.log(`[harness] skill add - ${rel} exists already`);
+            return false;
+        }
+        try {
+            fs.mkdirSync(path.join(cwd, ".harness", "skills", name), {
+                recursive: true,
+            });
+            fs.writeFileSync(path.join(cwd, rel), body);
+        }
+        catch {
+            console.log(`[harness] skill add - could not write ${rel}`);
+            return false;
+        }
+        const manFile = path.join(cwd, ".harness", "config.json");
+        let man = {
+            version: VERSION,
+            harness: [],
+            files: [],
+        };
+        const manText = readText(manFile);
+        if (manText !== null) {
+            try {
+                man = JSON.parse(manText);
+            }
+            catch {
+                console.log("[harness] skill add - .harness/config.json corrupt");
+                return false;
+            }
+        }
+        const added = (man.addedSkills ?? []);
+        added.push({
+            name,
+            repo,
+            ref,
+            sha256: sha256(body),
+            ts: new Date().toISOString(),
+        });
+        man.addedSkills = added;
+        try {
+            fs.mkdirSync(path.dirname(manFile), { recursive: true });
+            fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+        }
+        catch {
+            console.log("[harness] skill add - could not update .harness/config.json");
+            return false;
+        }
+        console.log(`[harness] ok - skill ${name} from ${repo}@${ref} pinned in manifest`);
+        return true;
+    }
+    console.log(`[harness] skill add - could not fetch ${repo} (tried main, master)`);
+    return false;
+}
 async function runCommand(cmd, flags) {
     const all = [cmd, ...flags];
     if (all.includes("-h") ||
@@ -1259,15 +1510,53 @@ async function runCommand(cmd, flags) {
             return true;
         }
         case "skill": {
-            if (flags[0] === "list") {
-                const root = selfRoot();
-                if (!root) {
-                    console.log("[harness] skill - cannot locate install");
-                    return false;
-                }
-                for (const s of listSkills(root)) {
+            if (flags[0] === "add") {
+                return cmdSkillAdd(flags.slice(1));
+            }
+            const root = selfRoot();
+            if (!root) {
+                console.log("[harness] skill - cannot locate install");
+                return false;
+            }
+            const skills = listSkills(root);
+            if (flags.length === 0 || flags[0] === "list") {
+                for (const s of skills) {
                     console.log(`  ${s.name} - ${s.desc || "(no description)"} (~${fmtTok(s.tokens)})`);
                 }
+                return true;
+            }
+            if (flags[0] === "search") {
+                const q = flags.slice(1).join(" ").toLowerCase().trim();
+                if (!q) {
+                    console.log("[harness] skill search - give a query");
+                    return false;
+                }
+                const hits = skills.filter((s) => {
+                    const body = (readText(s.file) ?? "").toLowerCase();
+                    return (s.name.includes(q) ||
+                        s.desc.toLowerCase().includes(q) ||
+                        body.includes(q));
+                });
+                if (hits.length === 0) {
+                    console.log(`[harness] skill search - no skills match "${q}"`);
+                }
+                for (const s of hits) {
+                    console.log(`  ${s.name} - ${s.desc || "(no description)"}`);
+                }
+                return true;
+            }
+            if (flags[0] === "info") {
+                const s = skills.find((x) => x.name === flags[1]);
+                if (!s) {
+                    console.log("[harness] skill info - unknown skill (try: harness skill list)");
+                    return false;
+                }
+                const body = readText(s.file);
+                if (body === null) {
+                    console.log(`[harness] skill info - cannot read ${s.name}`);
+                    return false;
+                }
+                console.log(body);
                 return true;
             }
             console.log(`[harness] skill ${flags.join(" ")} - not implemented yet`);
@@ -1287,28 +1576,106 @@ async function runCommand(cmd, flags) {
             if (flags[0] === "prune") {
                 return cmdOptimize();
             }
+            if (flags[0] === "sync") {
+                const note = flags.slice(1).join(" ").trim();
+                if (!note) {
+                    console.log("[harness] memory sync - give a note to append");
+                    return false;
+                }
+                return cmdMemorySync(note);
+            }
             console.log(`[harness] memory ${flags.join(" ")} - not implemented yet`);
             return true;
         }
         case "instinct": {
-            if (flags[0] === "list") {
-                const root = selfRoot();
-                if (!root) {
-                    console.log("[harness] instinct - cannot locate install");
-                    return false;
-                }
+            const root = selfRoot();
+            if (!root) {
+                console.log("[harness] instinct - cannot locate install");
+                return false;
+            }
+            if (flags[0] === "list" || flags.length === 0) {
                 for (const h of listHooks(root)) {
                     console.log(`  ${h} ${isExec(path.join(root, h)) ? "exec" : "noexec"}`);
                 }
                 return true;
             }
+            if (flags[0] === "enable" || flags[0] === "disable") {
+                const name = flags[1] ?? "";
+                if (!name) {
+                    console.log(`[harness] instinct ${flags[0]} - give a hook name`);
+                    return false;
+                }
+                const matched = listHooks(root).filter((h) => h.includes(name));
+                if (matched.length === 0) {
+                    console.log(`[harness] instinct - no hooks match "${name}"`);
+                    return false;
+                }
+                let done = 0;
+                for (const h of matched) {
+                    try {
+                        fs.chmodSync(path.join(root, h), flags[0] === "enable" ? 0o755 : 0o644);
+                        done += 1;
+                    }
+                    catch {
+                        // keep going
+                    }
+                }
+                console.log(`[harness] ok - instinct ${flags[0]}d ${done}/${matched.length}`);
+                return done === matched.length;
+            }
             console.log(`[harness] instinct ${flags.join(" ")} - not implemented yet`);
             return true;
         }
-        case "research":
-        case "security":
-            console.log(`[harness] ${cmd} ${flags.join(" ")} - not implemented yet`);
+        case "research": {
+            const query = flags.join(" ").trim();
+            if (!query) {
+                console.log("[harness] research - give a query to capture");
+                return false;
+            }
+            const rel = path.join("research", "findings", `${slugify(query)}.md`);
+            const abs = path.join(process.cwd(), rel);
+            if (fs.existsSync(abs)) {
+                console.log(`[harness] research - ${rel} exists already`);
+                return true;
+            }
+            const stamp = new Date().toISOString().slice(0, 10);
+            try {
+                fs.mkdirSync(path.dirname(abs), { recursive: true });
+                fs.writeFileSync(abs, `# Findings: ${query}\n\nDate: ${stamp}\nStatus: draft\nSources:\n\n- \n\n## Verdict\n\n\n`);
+            }
+            catch {
+                console.log("[harness] FAIL - research: could not write finding");
+                return false;
+            }
+            console.log(`[harness] ok - research stub: ${rel} (fill it in, then plan)`);
             return true;
+        }
+        case "security": {
+            const root = selfRoot();
+            if (!root) {
+                console.log("[harness] security - cannot locate install");
+                return false;
+            }
+            const sub = flags[0] ?? "audit";
+            if (sub !== "audit" && sub !== "scan") {
+                console.log(`[harness] security ${flags.join(" ")} - not implemented yet`);
+                return true;
+            }
+            const abs = path.join(root, "security", "audit.sh");
+            if (!fs.existsSync(abs)) {
+                console.log("[harness] security - audit.sh missing from install");
+                return false;
+            }
+            const rest = flags.slice(1);
+            const args = sub === "scan" && !rest.includes("--staged")
+                ? ["--staged", ...rest]
+                : rest;
+            const r = spawnSync("bash", [abs, ...args], {
+                stdio: "inherit",
+                cwd: process.cwd(),
+            });
+            return r.status === 0;
+        }
         case "upgrade":
             return selfUpgrade();
         case "shell":
@@ -1336,7 +1703,12 @@ async function main() {
         process.exit(1);
     }
 }
-main().catch((e) => {
-    console.error("[harness] error:", e);
-    process.exit(1);
-});
+// only auto-run as a CLI, never on import (vitest imports this module).
+const invokedAsCli = typeof process.argv[1] === "string" &&
+    /(^|[\\/])cli\.(ts|js)$/.test(process.argv[1]);
+if (invokedAsCli) {
+    main().catch((e) => {
+        console.error("[harness] error:", e);
+        process.exit(1);
+    });
+}

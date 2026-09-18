@@ -23,14 +23,20 @@ Measure costs, save baseline.
 .B optimize
 Prune memory, repair, report savings.
 .TP
-.B skill list
-List skills with cost.
+.B skill <list|search|info|add> [query|name|repo]
+List, search, show, fetch skills.
 .TP
-.B memory <show|prune>
-Show or prune MEMORY.md.
+.B memory <show|prune|sync> [note]
+Show, prune, append to MEMORY.md.
 .TP
-.B instinct list
-List hooks.
+.B instinct <list|enable|disable> [name]
+List, toggle hooks.
+.TP
+.B research <query>
+Capture a finding stub.
+.TP
+.B security <audit|scan> [--staged]
+Run the audit script.
 .TP
 .B adapter list
 List supported harnesses.

@@ -180,7 +180,9 @@ harness optimize             # prune MEMORY.md to budget, archive overflow
 harness doctor               # verify install, scan staged for secrets
 harness bench --compare      # measure against baseline
 harness skill list           # skills with ~token cost
-harness memory show          # print MEMORY.md
+harness skill search "hook"  # grep skills
+harness memory sync "note"   # append + re-prune
+harness security audit       # run the audit script here
 ```
 
 ## CLI
@@ -190,9 +192,12 @@ harness init [--harness <name>] [--auto] [--migrate]
 harness doctor [--fix] [--strict]
 harness bench [--compare] [--quick]
 harness optimize
-harness skill list
-harness memory <show|prune>
-harness instinct list
+harness skill <list|search|info|add> [query|name|repo]
+harness memory <show|prune|sync> [note]
+harness instinct <list|enable|disable> [name]
+harness research <query>
+harness security <audit|scan> [--staged]
+harness adapter list
 harness upgrade
 harness shell
 ```

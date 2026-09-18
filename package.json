@@ -12,7 +12,7 @@
     "build": "tsc",
     "doctor": "tsx src/harness/cli.ts doctor",
     "test": "vitest run",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint .",
     "format": "prettier --write src"
   },
   "keywords": [
@@ -39,8 +39,11 @@
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
+    "eslint": "^10.10.0",
+    "prettier": "^3.9.8",
     "tsx": "^4.0.0",
     "typescript": "^5.5.0",
+    "typescript-eslint": "^8.70.0",
     "vitest": "^1.0.0"
   },
   "files": [

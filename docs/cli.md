@@ -5,9 +5,11 @@ harness init [--harness <name>] [--auto] [--migrate]
 harness doctor [--fix] [--strict]
 harness bench [--compare] [--quick]
 harness optimize
-harness skill list
-harness memory <show|prune>
-harness instinct list
+harness skill <list|search|info|add> [query|name|repo]
+harness memory <show|prune|sync> [note]
+harness instinct <list|enable|disable> [name]
+harness research <query>
+harness security <audit|scan> [--staged]
 harness adapter list
 harness upgrade
 harness shell
@@ -78,14 +80,25 @@ The part that actually cuts cost:
 
 ## skill / instinct / memory / adapter
 
-Read-only helpers, all measured from disk:
-
 ```bash
 harness skill list        # name, description, ~tokens from frontmatter
+harness skill search tok  # grep names, descriptions, bodies
+harness skill info NAME   # print the SKILL.md
+harness skill add owner/repo[@ref]   # fetch from GitHub, validate frontmatter,
+                                     # install to .harness/skills, pin sha in manifest
 harness instinct list     # hook scripts with exec bit
+harness instinct disable guard   # chmod -x matching hooks (enable reverses)
 harness memory show       # print MEMORY.md
+harness memory sync "note"  # append a dated note, re-prune to budget
+harness memory prune      # same prune as optimize
 harness adapter list      # supported harnesses from adapters/
+harness research "query"  # capture a findings stub to fill in
+harness security audit    # run security/audit.sh here (scan = --staged)
 ```
+
+`init` records a sha256 per installed file in `.harness/config.json`
+(plus `addedSkills` pins from `skill add`). `doctor` re-hashes and reports
+missing or modified files. Old manifests without hashes still verify by existence.
 
 ## claude settings merge
 
