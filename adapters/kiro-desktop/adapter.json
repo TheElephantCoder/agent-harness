@@ -2,7 +2,7 @@
   "name": "kiro-desktop",
   "displayName": "Kiro",
   "skillPath": ".kiro/steering",
-  "hookPath": ".kiro/settings.json",
+  "hookPath": ".kiro/hooks",
   "memoryPath": ".kiro/MEMORY.md",
   "agentsPath": ".kiro/AGENTS.md",
   "steeringPath": ".kiro/steering",

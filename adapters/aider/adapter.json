@@ -8,5 +8,5 @@
   "configPath": ".aider.conf.yml",
   "conventionsPath": "CONVENTIONS.md",
   "transpile": "./transpile.sh",
-  "notes": "Skills merge into CONVENTIONS.md as sections and are listed under read: in config. Post-edit instinct maps to lint-cmd/test-cmd; pre-tool and research-first have no equivalent and are documented as conventions."
+  "notes": "Skills merge into CONVENTIONS.md as sections and are listed under read: in config. Aider has no lint/test hook wiring from init; run check.sh yourself or set lint-cmd/test-cmd to it."
 }

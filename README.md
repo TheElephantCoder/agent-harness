@@ -70,11 +70,11 @@ Notes and how it works in [`docs/performance.md`](docs/performance.md). One meas
 You write skills and memory once, harness installs to each tool.
 
 - Claude Code -> `.claude/settings.json` + `.claude/skills/`
-- Opencode -> `opencode.json`
-- Codex -> `.agents/skills/`
-- Cursor -> `.cursor/rules/*.mdc`
-- Kiro CLI -> `.kiro/skills/` + `.kiro/settings.json`
-- Kiro (Desktop) -> `.kiro/steering/` + `.kiro/settings.json`
+- Opencode -> `.opencode/plugins/harness.js` + `.opencode/skills/`
+- Codex -> `.codex/hooks.json` + `.agents/skills/`
+- Cursor -> `.cursor/hooks.json` + `.cursor/rules/*.mdc`
+- Kiro CLI -> `.kiro/hooks/` + `.kiro/skills/`
+- Kiro (Desktop) -> `.kiro/hooks/` + `.kiro/steering/`
 - Cline -> `.clinerules/*.md` + `AGENTS.md`
 - Aider -> `.aider.conf.yml` + `CONVENTIONS.md`
 - anything else -> `.harness/` + `AGENTS.md`

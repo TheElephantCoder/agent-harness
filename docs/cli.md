@@ -40,7 +40,23 @@ Skill formats per harness (each verified against that tool's docs):
 - cline: flat `<name>.md` rules in `.clinerules/` plus `00-harness-instincts.md`
 - aider: all skills concatenated into `CONVENTIONS.md`
 
-Hook auto-wiring: `.claude/settings.json` when absent, `.aider.conf.yml` (`read: CONVENTIONS.md`) when absent. Every other adapter gets the hook scripts under `.harness/hooks/` to wire by hand; `init` never edits an existing config file.
+Hook auto-wiring (each verified against that tool's docs, written only when absent,
+never merged into existing files):
+
+- claude: `.claude/settings.json` (SessionStart/PreToolUse/PostToolUse/PreCommit, ms timeouts)
+- cursor: `.cursor/hooks.json` v1 (sessionStart/preToolUse/afterFileEdit, exit 2 blocks, seconds)
+- kiro-cli, kiro-desktop: `.kiro/hooks/session-hydrate.json` (SessionStart + Agent Spawn),
+  `pre-tool-guard.json` (Pre Tool Use), `post-tool-check.json` (Post Tool Use), seconds.
+  Blocking there depends on Kiro honoring non-zero exits.
+- opencode: `.opencode/plugins/harness.js` (tool.execute.before runs guard and throws
+  to block, proven live; .after runs check; session hydration via AGENTS.md)
+- codex: `.codex/hooks.json` (SessionStart/PreToolUse/PostToolUse, exit 2 + stderr
+  blocks, seconds, git-rooted commands; review with `/hooks` on first run)
+- aider: `.aider.conf.yml` with `read: CONVENTIONS.md`
+- cline: instincts ship inside `.clinerules/` as `00-harness-instincts.md` (no hooks system)
+- generic: scripts under `.harness/hooks/`, nothing to wire into
+
+`init` never edits an existing config file; it prints a merge pointer instead.
 
 `--migrate` adds missing files without touching anything already there. Running plain `init` twice errors out and tells you to use `--migrate`.
 
@@ -163,5 +179,51 @@ When `.claude/settings.json` already exists, `init` leaves it alone. Merge the h
       }
     ]
   }
+}
+```
+
+## cursor / codex / kiro merge snippets
+
+When those config files already exist, `init` leaves them alone. Merge by hand:
+
+```json
+// .cursor/hooks.json (add alongside your existing hooks)
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [{ "command": ".harness/hooks/session-start--hydrate.sh", "timeout": 15 }],
+    "preToolUse": [{ "command": ".harness/hooks/pre-tool--guard.sh", "timeout": 5 }],
+    "afterFileEdit": [{ "command": ".harness/hooks/post-edit--check.sh", "timeout": 5 }]
+  }
+}
+```
+
+```json
+// .codex/hooks.json (review with /hooks on first run)
+{
+  "hooks": {
+    "SessionStart": [{ "matcher": "startup|resume", "hooks": [
+      { "type": "command", "command": "bash \"$(git rev-parse --show-toplevel)/.harness/hooks/session-start--hydrate.sh\"", "timeout": 15 }
+    ] }],
+    "PreToolUse": [{ "matcher": "Bash", "hooks": [
+      { "type": "command", "command": "bash \"$(git rev-parse --show-toplevel)/.harness/hooks/pre-tool--guard.sh\"", "timeout": 5 }
+    ] }],
+    "PostToolUse": [{ "matcher": "Bash", "hooks": [
+      { "type": "command", "command": "bash \"$(git rev-parse --show-toplevel)/.harness/hooks/post-edit--check.sh\"", "timeout": 5 }
+    ] }]
+  }
+}
+```
+
+```json
+// .kiro/hooks/session-hydrate.json (same shape for guard/check files)
+{
+  "version": "v1",
+  "hooks": [
+    { "name": "harness hydrate on session start", "trigger": "SessionStart",
+      "action": { "type": "command", "command": "./.harness/hooks/session-start--hydrate.sh" }, "timeout": 15 },
+    { "name": "harness hydrate on agent spawn", "trigger": "Agent Spawn",
+      "action": { "type": "command", "command": "./.harness/hooks/session-start--hydrate.sh" }, "timeout": 15 }
+  ]
 }
 ```

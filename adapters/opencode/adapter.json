@@ -2,8 +2,9 @@
   "name": "opencode",
   "displayName": "Opencode",
   "skillPath": ".opencode/skills",
-  "hookPath": "opencode.json",
+  "hookPath": ".opencode/plugins/harness.js",
   "memoryPath": "MEMORY.md",
   "agentsPath": "AGENTS.md",
-  "transpile": "./transpile.sh"
+  "transpile": "./transpile.sh",
+  "notes": "Hooks ship as a local plugin (tool.execute.before runs guard, throw-to-block; tool.execute.after runs check). Session hydration via AGENTS.md, which opencode reads natively."
 }

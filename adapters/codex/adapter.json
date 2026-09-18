@@ -2,8 +2,9 @@
   "name": "codex",
   "displayName": "Codex",
   "skillPath": ".agents/skills",
+  "hookPath": ".codex/hooks.json",
   "memoryPath": "MEMORY.md",
   "agentsPath": "AGENTS.md",
   "transpile": "./transpile.sh",
-  "notes": "Repo scope per OpenAI docs is .agents/skills (verbatim SKILL.md copies). No project hooks file, so instincts ship as scripts under .harness/hooks only."
+  "notes": "Repo scope per OpenAI hooks+skills docs is .agents/skills and <repo>/.codex/hooks.json (SessionStart/PreToolUse/PostToolUse, exit 2 blocks). First run asks to review hooks via /hooks."
 }

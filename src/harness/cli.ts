@@ -729,6 +729,37 @@ export function sha256(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
+const OPENCODE_PLUGIN = `// harness opencode plugin: wires .harness/hooks into tool events.
+// guard blocks by throwing (opencode plugin pattern); check runs best-effort.
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+
+function runHook(directory, script, input) {
+  const r = spawnSync("bash", [path.join(directory, ".harness", "hooks", script)], {
+    input: input === undefined ? undefined : JSON.stringify(input),
+    encoding: "utf8",
+    timeout: 10000,
+    cwd: directory,
+  });
+  return typeof r.status === "number" ? r.status : 1;
+}
+
+export const HarnessPlugin = async ({ directory }) => ({
+  "tool.execute.before": async (input, output) => {
+    // opencode passes the command in the second arg (output.args); the first
+    // arg carries only tool/session/call IDs.
+    const args = (output && output.args) || {};
+    const seen = { tool: input && input.tool, args };
+    if (runHook(directory, "pre-tool--guard.sh", seen) === 2) {
+      throw new Error("Blocked by harness guard (possible prompt injection or secret).");
+    }
+  },
+  "tool.execute.after": async () => {
+    runHook(directory, "post-edit--check.sh");
+  },
+});
+`;
+
 function cmdInit(flags: string[]): boolean {
   const root = selfRoot();
   if (!root) {
@@ -891,10 +922,7 @@ function cmdInit(flags: string[]): boolean {
   }
   if (names.includes("aider")) {
     // verified shape: aider loads files listed under read:.
-    if (
-      !tracked.has(".aider.conf.yml") &&
-      !fs.existsSync(path.join(cwd, ".aider.conf.yml"))
-    ) {
+    if (!fs.existsSync(path.join(cwd, ".aider.conf.yml"))) {
       put(
         ".aider.conf.yml",
         "# written by harness init\nread: CONVENTIONS.md\n",
@@ -917,7 +945,7 @@ function cmdInit(flags: string[]): boolean {
   copyHook("security/audit.sh");
   if (names.includes("claude")) {
     const rel = ".claude/settings.json";
-    if (!tracked.has(rel) && !fs.existsSync(path.join(cwd, rel))) {
+    if (!fs.existsSync(path.join(cwd, rel))) {
       const entry = (base: string, matcher: string, timeout: number) => ({
         matcher,
         hooks: [
@@ -938,6 +966,123 @@ function cmdInit(flags: string[]): boolean {
     } else if (!tracked.has(rel)) {
       console.log(
         "[harness] init - .claude/settings.json exists, merge hooks manually (see docs/cli.md)",
+      );
+    }
+  }
+  const findHook = (sfx: string) => copied.find((c) => c.endsWith(sfx));
+  if (names.includes("cursor")) {
+    // verified: .cursor/hooks.json v1, exit 2 blocks, seconds, project-root cwd.
+    const rel = ".cursor/hooks.json";
+    if (!fs.existsSync(path.join(cwd, rel))) {
+      const entry = (base: string, timeout: number) => ({
+        command: `.harness/hooks/${base}`,
+        timeout,
+      });
+      const hj: Record<string, unknown[]> = {};
+      const hyd = findHook("session-start--hydrate.sh");
+      const grd = findHook("pre-tool--guard.sh");
+      const chk = findHook("post-edit--check.sh");
+      if (hyd) hj.sessionStart = [entry(hyd, 15)];
+      if (grd) hj.preToolUse = [entry(grd, 5)];
+      if (chk) hj.afterFileEdit = [entry(chk, 5)];
+      put(rel, JSON.stringify({ version: 1, hooks: hj }, null, 2) + "\n");
+    } else if (!tracked.has(rel)) {
+      console.log(
+        "[harness] init - .cursor/hooks.json exists, merge hooks manually (see docs/cli.md)",
+      );
+    }
+  }
+  if (names.includes("kiro-cli") || names.includes("kiro-desktop")) {
+    // verified: .kiro/hooks/*.json v1 schema, seconds, project-root cwd.
+    const kh = (nm: string, trigger: string, base: string, timeout: number) => ({
+      name: nm,
+      trigger,
+      action: {
+        type: "command",
+        command: `./.harness/hooks/${base}`,
+      },
+      timeout,
+    });
+    const hyd = findHook("session-start--hydrate.sh");
+    const grd = findHook("pre-tool--guard.sh");
+    const chk = findHook("post-edit--check.sh");
+    if (hyd) {
+      put(
+        ".kiro/hooks/session-hydrate.json",
+        JSON.stringify(
+          {
+            version: "v1",
+            hooks: [
+              kh("harness hydrate on session start", "SessionStart", hyd, 15),
+              kh("harness hydrate on agent spawn", "Agent Spawn", hyd, 15),
+            ],
+          },
+          null,
+          2,
+        ) + "\n",
+      );
+    }
+    if (grd) {
+      put(
+        ".kiro/hooks/pre-tool-guard.json",
+        JSON.stringify(
+          {
+            version: "v1",
+            hooks: [kh("harness pre-tool guard", "Pre Tool Use", grd, 5)],
+          },
+          null,
+          2,
+        ) + "\n",
+      );
+    }
+    if (chk) {
+      put(
+        ".kiro/hooks/post-tool-check.json",
+        JSON.stringify(
+          {
+            version: "v1",
+            hooks: [kh("harness post-edit check", "Post Tool Use", chk, 5)],
+          },
+          null,
+          2,
+        ) + "\n",
+      );
+    }
+  }
+  if (names.includes("opencode")) {
+    // verified: local plugins in .opencode/plugins/*.js, throw-to-block.
+    const rel = ".opencode/plugins/harness.js";
+    if (!fs.existsSync(path.join(cwd, rel))) {
+      put(rel, OPENCODE_PLUGIN);
+    }
+  }
+  if (names.includes("codex")) {
+    // verified: <repo>/.codex/hooks.json, exit 2 + stderr blocks, seconds.
+    // commands resolve from the git root (codex may start in a subdirectory).
+    const rel = ".codex/hooks.json";
+    if (!fs.existsSync(path.join(cwd, rel))) {
+      const root = '"$(git rev-parse --show-toplevel)"';
+      const entry = (matcher: string, base: string, timeout: number) => ({
+        matcher,
+        hooks: [
+          {
+            type: "command",
+            command: `bash ${root}/.harness/hooks/${base}`,
+            timeout,
+          },
+        ],
+      });
+      const hj: Record<string, unknown> = {};
+      const hyd = findHook("session-start--hydrate.sh");
+      const grd = findHook("pre-tool--guard.sh");
+      const chk = findHook("post-edit--check.sh");
+      if (hyd) hj.SessionStart = [entry("startup|resume", hyd, 15)];
+      if (grd) hj.PreToolUse = [entry("Bash", grd, 5)];
+      if (chk) hj.PostToolUse = [entry("Bash", chk, 5)];
+      put(rel, JSON.stringify({ hooks: hj }, null, 2) + "\n");
+    } else if (!tracked.has(rel)) {
+      console.log(
+        "[harness] init - .codex/hooks.json exists, merge hooks manually (see docs/cli.md); review new hooks with /hooks on first run",
       );
     }
   }

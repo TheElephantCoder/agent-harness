@@ -623,6 +623,37 @@ def hook_blurb(root, rel):
             return line[2:]
     return rel
 
+OPENCODE_PLUGIN = """// harness opencode plugin: wires .harness/hooks into tool events.
+// guard blocks by throwing (opencode plugin pattern); check runs best-effort.
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+
+function runHook(directory, script, input) {
+  const r = spawnSync("bash", [path.join(directory, ".harness", "hooks", script)], {
+    input: input === undefined ? undefined : JSON.stringify(input),
+    encoding: "utf8",
+    timeout: 10000,
+    cwd: directory,
+  });
+  return typeof r.status === "number" ? r.status : 1;
+}
+
+export const HarnessPlugin = async ({ directory }) => ({
+  "tool.execute.before": async (input, output) => {
+    // opencode passes the command in the second arg (output.args); the first
+    // arg carries only tool/session/call IDs.
+    const args = (output && output.args) || {};
+    const seen = { tool: input && input.tool, args };
+    if (runHook(directory, "pre-tool--guard.sh", seen) === 2) {
+      throw new Error("Blocked by harness guard (possible prompt injection or secret).");
+    }
+  },
+  "tool.execute.after": async () => {
+    runHook(directory, "post-edit--check.sh");
+  },
+});
+"""
+
 AUTO_MARKERS = {"claude": ".claude", "cursor": ".cursor", "opencode": "opencode.json",
                 "codex": ".agents", "kiro-cli": ".kiro", "kiro-desktop": ".kiro",
                 "aider": ".aider.conf.yml", "cline": ".clinerules", "generic": ""}
@@ -741,7 +772,7 @@ def cmd_init(args=None):
             for name, body in bodies.items():
                 put(f"{sp}/{name}/SKILL.md", body)
     if "aider" in names:
-        if ".aider.conf.yml" not in tracked and not os.path.exists(os.path.join(cwd, ".aider.conf.yml")):
+        if not os.path.exists(os.path.join(cwd, ".aider.conf.yml")):
             put(".aider.conf.yml", "# written by harness init\nread: CONVENTIONS.md\n")
         elif ".aider.conf.yml" not in tracked:
             print("[harness] init - .aider.conf.yml exists, add read: CONVENTIONS.md manually")
@@ -758,7 +789,7 @@ def cmd_init(args=None):
     copy_hook(os.path.join("security", "audit.sh"))
     if "claude" in names:
         rel = os.path.join(".claude", "settings.json")
-        if rel.replace(os.sep, "/") not in tracked and not os.path.exists(os.path.join(cwd, rel)):
+        if not os.path.exists(os.path.join(cwd, rel)):
             def entry(base, matcher, timeout):
                 return {"matcher": matcher,
                         "hooks": [{"type": "command", "command": f"./.harness/hooks/{base}", "timeout": timeout}]}
@@ -778,6 +809,75 @@ def cmd_init(args=None):
             put(rel, json.dumps({"hooks": hj}, indent=2) + "\n")
         elif rel.replace(os.sep, "/") not in tracked:
             print("[harness] init - .claude/settings.json exists, merge hooks manually (see docs/cli.md)")
+    def find_hook(sfx):
+        return next((c for c in copied if c.endswith(sfx)), None)
+    if "cursor" in names:
+        rel = os.path.join(".cursor", "hooks.json")
+        if not os.path.exists(os.path.join(cwd, rel)):
+            def centry(base, timeout):
+                return {"command": f".harness/hooks/{base}", "timeout": timeout}
+            ch = {}
+            hyd = find_hook("session-start--hydrate.sh")
+            grd = find_hook("pre-tool--guard.sh")
+            chk = find_hook("post-edit--check.sh")
+            if hyd:
+                ch["sessionStart"] = [centry(hyd, 15)]
+            if grd:
+                ch["preToolUse"] = [centry(grd, 5)]
+            if chk:
+                ch["afterFileEdit"] = [centry(chk, 5)]
+            put(rel, json.dumps({"version": 1, "hooks": ch}, indent=2) + "\n")
+        elif rel.replace(os.sep, "/") not in tracked:
+            print("[harness] init - .cursor/hooks.json exists, merge hooks manually (see docs/cli.md)")
+    if "kiro-cli" in names or "kiro-desktop" in names:
+        def kentry(nm, trigger, base, timeout):
+            return {"name": nm, "trigger": trigger,
+                    "action": {"type": "command", "command": f"./.harness/hooks/{base}"},
+                    "timeout": timeout}
+        hyd = find_hook("session-start--hydrate.sh")
+        grd = find_hook("pre-tool--guard.sh")
+        chk = find_hook("post-edit--check.sh")
+        if hyd:
+            put(os.path.join(".kiro", "hooks", "session-hydrate.json"), json.dumps({
+                "version": "v1",
+                "hooks": [
+                    kentry("harness hydrate on session start", "SessionStart", hyd, 15),
+                    kentry("harness hydrate on agent spawn", "Agent Spawn", hyd, 15),
+                ]}, indent=2) + "\n")
+        if grd:
+            put(os.path.join(".kiro", "hooks", "pre-tool-guard.json"), json.dumps({
+                "version": "v1",
+                "hooks": [kentry("harness pre-tool guard", "Pre Tool Use", grd, 5)]}, indent=2) + "\n")
+        if chk:
+            put(os.path.join(".kiro", "hooks", "post-tool-check.json"), json.dumps({
+                "version": "v1",
+                "hooks": [kentry("harness post-edit check", "Post Tool Use", chk, 5)]}, indent=2) + "\n")
+    if "opencode" in names:
+        rel = os.path.join(".opencode", "plugins", "harness.js")
+        if not os.path.exists(os.path.join(cwd, rel)):
+            put(rel, OPENCODE_PLUGIN)
+    if "codex" in names:
+        rel = os.path.join(".codex", "hooks.json")
+        if not os.path.exists(os.path.join(cwd, rel)):
+            gitroot = '"$(git rev-parse --show-toplevel)"'
+            def xentry(matcher, base, timeout):
+                return {"matcher": matcher, "hooks": [{
+                    "type": "command",
+                    "command": f"bash {gitroot}/.harness/hooks/{base}",
+                    "timeout": timeout}]}
+            xh = {}
+            hyd = find_hook("session-start--hydrate.sh")
+            grd = find_hook("pre-tool--guard.sh")
+            chk = find_hook("post-edit--check.sh")
+            if hyd:
+                xh["SessionStart"] = [xentry("startup|resume", hyd, 15)]
+            if grd:
+                xh["PreToolUse"] = [xentry("Bash", grd, 5)]
+            if chk:
+                xh["PostToolUse"] = [xentry("Bash", chk, 5)]
+            put(rel, json.dumps({"hooks": xh}, indent=2) + "\n")
+        elif rel.replace(os.sep, "/") not in tracked:
+            print("[harness] init - .codex/hooks.json exists, merge hooks manually (see docs/cli.md); review new hooks with /hooks on first run")
     files = list(prior_files) + written
     try:
         os.makedirs(os.path.dirname(man_file), exist_ok=True)
