@@ -154,6 +154,26 @@ T2/T3: harness -18%/-14% wall/tokens (T2), -13% tokens (T3), equal or better
 success. First consistent pro-harness token signal, modest, both arms
 throttled (free-tier queueing visible throughout).
 
+## Mega bed with map treatment, nemotron (12/18)
+
+Same bed, treatment adds the new deterministic repo index (206 files to a
+229-line MAP.md, byte-identical across runs) plus richer memory and a narrowed
+research trigger. Kimi cells were abandoned after provider throttling killed
+3 straight runs at the cap (rows kept out of analysis, disclosed here).
+
+nemotron-3-super-120b ($0.56):
+- T1 bare: 0/3, wall 39 [29-56], tok 107295
+- T1 harness: 0/3, wall 62 [48-83], tok 117571
+- T2 bare: 3/3, wall 119 [75-147], tok 192958, tools 23.0
+- T2 harness: 3/3, wall 130 [45-212], tok 264719, tools 33.3
+- T3 bare: 3/3, wall 56 [43-73], tok 87186, tools 9.0
+- T3 harness: 3/3, wall 58 [37-97], tok 98234, tools 10.3
+
+The map did not move the needle: harness costs MORE tokens in every
+measurable cell here (+10%, +37%, +13%). Extra context (map + memory) plus
+extra exploration steps outweighs the orientation it saves, on this bed,
+with this driver. Raw rows: `research/evidence/ab-results-mega-nemotron.jsonl`.
+
 ## Verdict vs published claims (180s to 13s, -65% tokens, -40% calls)
 
 Not reproduced. Wall time: tied within variance in 4 of 6 cells; one cell each
