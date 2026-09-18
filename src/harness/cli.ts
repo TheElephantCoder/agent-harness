@@ -111,12 +111,12 @@ usage: harness <command> [options]
   doctor [--fix] [--strict]                      verify install and project
   bench [--compare] [--quick]                    measure costs, save baseline
   optimize                                       prune memory, repair, report savings
-  skill <list|search|info|add> [query|name|repo] list, search, show, fetch skills
-  memory <show|prune|sync> [note]                show, prune, append to MEMORY.md
+  skill <list|search|info|add|remove|verify> ...  list, search, show, fetch skills
+  memory <show|prune|sync|edit> [note]             show, prune, append, edit MEMORY.md
   instinct <list|enable|disable> [name]          list, toggle hooks
   research <query>                               capture a finding stub
   security <audit|scan> [--staged]               run the audit script
-  adapter list                                   list supported harnesses
+  adapter <list|add> [name]                       list, scaffold harnesses
   upgrade                                        self-update to latest
   shell                                          open interactive prompt
 
@@ -635,16 +635,17 @@ interface AdapterInfo {
   error: string | null;
 }
 
-function listAdapters(root: string): AdapterInfo[] {
+function listAdapters(root: string, sub = "adapters"): AdapterInfo[] {
+  const base = path.join(root, sub);
   let entries: string[] = [];
   try {
-    entries = fs.readdirSync(path.join(root, "adapters")).sort();
+    entries = fs.readdirSync(base).sort();
   } catch {
     return [];
   }
   const out: AdapterInfo[] = [];
   for (const e of entries) {
-    const d = path.join(root, "adapters", e);
+    const d = path.join(base, e);
     try {
       if (!fs.statSync(d).isDirectory()) continue;
     } catch {
@@ -754,6 +755,9 @@ function cmdInit(flags: string[]): boolean {
   }
   const adapters = listAdapters(root).filter((a) => a.json);
   const byName = new Map(adapters.map((a) => [a.name, a]));
+  for (const c of listAdapters(process.cwd(), path.join(".harness", "adapters"))) {
+    if (c.json) byName.set(c.name, c);
+  }
   let priorHarness: string[] = [];
   try {
     if (prior !== null) {
@@ -835,6 +839,12 @@ function cmdInit(flags: string[]): boolean {
   const hooks = listHooks(root);
   for (const n of names) {
     const sp = byName.get(n)!.json!.skillPath;
+    if (!sp) {
+      console.log(
+        `[harness] init - ${n}: fill in skillPath in its adapter.json first`,
+      );
+      continue;
+    }
     if (n === "cursor") {
       // Cursor ignores plain .md here: .mdc + description/alwaysApply = agent-requested.
       for (const [name, body] of bodies) {
@@ -1249,29 +1259,16 @@ function cmdDoctor(flags: string[]): boolean {
           `[harness] ok - project: ${files.length}/${files.length} init files present, hashes match`,
         );
       }
-      const addedSkills = JSON.parse(manText).addedSkills ?? [];
+      const { added } = readAddedSkills(process.cwd());
       const addedBad: string[] = [];
-      for (const a of addedSkills) {
-        const p = path.join(
-          process.cwd(),
-          ".harness",
-          "skills",
-          String(a.name ?? ""),
-          "SKILL.md",
-        );
-        const text = readText(p);
-        if (text === null) {
-          addedBad.push(`${a.name} (missing)`);
-        } else if (sha256(text) !== a.sha256) {
-          addedBad.push(`${a.name} (modified)`);
-        }
+      for (const a of added) {
+        const reason = verifyAddedSkill(process.cwd(), a);
+        if (reason) addedBad.push(reason);
       }
       if (addedBad.length > 0) {
         fail(`[harness] FAIL - added skills: ${addedBad.join(", ")}`);
-      } else if (addedSkills.length > 0) {
-        console.log(
-          `[harness] ok - added skills: ${addedSkills.length} verified`,
-        );
+      } else if (added.length > 0) {
+        console.log(`[harness] ok - added skills: ${added.length} verified`);
       }
     } catch {
       fail("[harness] FAIL - project: .harness/config.json corrupt");
@@ -1509,120 +1506,299 @@ export function sanitizeSkillName(s: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
 }
-
-async function cmdSkillAdd(args: string[]): Promise<boolean> {
-  const spec = (args[0] ?? "").trim();
-  const m =
-    /^([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)(?:@([A-Za-z0-9_.\-/]+))?$/.exec(spec);
-  if (!m) {
-    console.log("[harness] skill add - want owner/repo[@ref] (GitHub only)");
-    return false;
-  }
-  const [, repo, givenRef] = m;
-  const cwd = process.cwd();
-  for (const ref of givenRef ? [givenRef] : ["main", "master"]) {
-    const url = `https://codeload.github.com/${repo}/tar.gz/${ref}`;
-    console.log(`[harness] skill add - fetching ${repo}@${ref}...`);
-    const buf = await fetchTarball(url, 8 * 1024 * 1024);
-    if (!buf) continue;
-    const tmp = path.join(
-      fs.mkdtempSync(path.join(os.tmpdir(), "harness-skill-")),
-      "pkg.tgz",
-    );
-    let entries: string[] = [];
+function fetchText(url: string, maxBytes: number): Promise<string | null> {
+  return new Promise((resolve) => {
     try {
-      fs.mkdirSync(path.dirname(tmp), { recursive: true });
-      fs.writeFileSync(tmp, buf);
-      entries = tarList(tmp);
+      const req = https.get(
+        url,
+        { headers: { "User-Agent": "agent-harness" } },
+        (res) => {
+          if (res.statusCode !== 200) {
+            res.resume();
+            resolve(null);
+            return;
+          }
+          const chunks: Buffer[] = [];
+          let size = 0;
+          res.on("data", (c: Buffer) => {
+            size += c.length;
+            if (size > maxBytes) {
+              req.destroy();
+              resolve(null);
+              return;
+            }
+            chunks.push(c);
+          });
+          res.on("end", () =>
+            resolve(Buffer.concat(chunks).toString("utf8")),
+          );
+        },
+      );
+      req.setTimeout(15000, () => {
+        req.destroy();
+        resolve(null);
+      });
+      req.on("error", () => resolve(null));
     } catch {
-      // fall through to cleanup + failure below
+      resolve(null);
     }
+  });
+}
+
+// first SKILL.md in a tarball: root SKILL.md preferred, then skills/*/SKILL.md.
+function extractSkillBody(buf: Buffer): string | null {
+  const tmp = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), "harness-skill-")),
+    "pkg.tgz",
+  );
+  try {
+    fs.mkdirSync(path.dirname(tmp), { recursive: true });
+    fs.writeFileSync(tmp, buf);
+    const entries = tarList(tmp);
     const top = entries.length > 0 ? entries[0].split("/")[0] + "/" : "";
-    const cands = entries.filter(
-      (e) =>
-        e === `${top}SKILL.md` || /^[^/]+\/skills\/[^/]+\/SKILL\.md$/.test(e),
-    );
-    cands.sort((a, b) => a.length - b.length);
-    const body = cands.length > 0 ? tarRead(tmp, cands[0]) : null;
+    const cands = entries
+      .filter(
+        (e) =>
+          e === `${top}SKILL.md` ||
+          /^[^/]+\/skills\/[^/]+\/SKILL\.md$/.test(e),
+      )
+      .sort((a, b) => a.length - b.length);
+    return cands.length > 0 ? tarRead(tmp, cands[0]) : null;
+  } catch {
+    return null;
+  } finally {
     try {
       fs.rmSync(path.dirname(tmp), { recursive: true, force: true });
     } catch {
       // best effort cleanup
     }
+  }
+}
+
+function finishSkillAdd(
+  body: string,
+  repoLabel: string,
+  ref: string,
+): boolean {
+  const cwd = process.cwd();
+  const fm = parseFrontmatter(body);
+  if (!fm) {
+    console.log(
+      `[harness] skill add - ${repoLabel} SKILL.md lacks name/description frontmatter`,
+    );
+    return false;
+  }
+  const name = sanitizeSkillName(fm.name);
+  if (!name) {
+    console.log("[harness] skill add - unusable skill name in frontmatter");
+    return false;
+  }
+  const rel = path.join(".harness", "skills", name, "SKILL.md");
+  if (fs.existsSync(path.join(cwd, rel))) {
+    console.log(`[harness] skill add - ${rel} exists already`);
+    return false;
+  }
+  try {
+    fs.mkdirSync(path.join(cwd, ".harness", "skills", name), {
+      recursive: true,
+    });
+    fs.writeFileSync(path.join(cwd, rel), body);
+  } catch {
+    console.log(`[harness] skill add - could not write ${rel}`);
+    return false;
+  }
+  const manFile = path.join(cwd, ".harness", "config.json");
+  let man: Record<string, unknown> = {
+    version: VERSION,
+    harness: [],
+    files: [],
+  };
+  const manText = readText(manFile);
+  if (manText !== null) {
+    try {
+      man = JSON.parse(manText);
+    } catch {
+      console.log("[harness] skill add - .harness/config.json corrupt");
+      return false;
+    }
+  }
+  const added = (man.addedSkills ?? []) as Array<Record<string, string>>;
+  added.push({
+    name,
+    repo: repoLabel,
+    ref,
+    sha256: sha256(body),
+    ts: new Date().toISOString(),
+  });
+  man.addedSkills = added;
+  try {
+    fs.mkdirSync(path.dirname(manFile), { recursive: true });
+    fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+  } catch {
+    console.log(
+      "[harness] skill add - could not update .harness/config.json",
+    );
+    return false;
+  }
+  console.log(
+    `[harness] ok - skill ${name} from ${ref === "-" ? repoLabel : `${repoLabel}@${ref}`} pinned in manifest`,
+  );
+  return true;
+}
+
+function addFromDir(dir: string): boolean {
+  const abs = path.resolve(dir.replace(/^~(?=\/|$)/, os.homedir()));
+  let stat: fs.Stats | null = null;
+  try {
+    stat = fs.statSync(abs);
+  } catch {
+    stat = null;
+  }
+  if (!stat || !stat.isDirectory()) {
+    console.log(`[harness] skill add - not a directory: ${dir}`);
+    return false;
+  }
+  const cands: string[] = [];
+  const direct = path.join(abs, "SKILL.md");
+  if (fs.existsSync(direct)) cands.push(direct);
+  const skillsDir = path.join(abs, "skills");
+  try {
+    for (const e of fs.readdirSync(skillsDir).sort()) {
+      const f = path.join(skillsDir, e, "SKILL.md");
+      if (fs.existsSync(f)) cands.push(f);
+    }
+  } catch {
+    // no skills/ dir is fine
+  }
+  if (cands.length === 0) {
+    console.log(
+      `[harness] skill add - no SKILL.md in ${dir} (want SKILL.md at root or skills/<name>/SKILL.md)`,
+    );
+    return false;
+  }
+  const body = readText(cands[0]);
+  if (body === null) {
+    console.log(`[harness] skill add - cannot read ${cands[0]}`);
+    return false;
+  }
+  return finishSkillAdd(body, `local:${abs}`, "-");
+}
+
+async function addFromUrl(url: string): Promise<boolean> {
+  // codeload URLs carry tar.gz as a path segment (.../tar.gz/<ref>).
+  const pathPart = url.split(/[?#]/)[0].toLowerCase();
+  const segs = new Set(pathPart.split("/"));
+  const isMd = pathPart.endsWith(".md");
+  const isTarball =
+    !isMd &&
+    (segs.has("tar.gz") ||
+      segs.has("tgz") ||
+      pathPart.endsWith(".tar.gz") ||
+      pathPart.endsWith(".tgz") ||
+      pathPart.endsWith(".tar") ||
+      pathPart.endsWith(".gz"));
+  if (!isMd && !isTarball) {
+    console.log(
+      "[harness] skill add - want a .md file or .tar.gz archive URL (or owner/repo, or --path)",
+    );
+    return false;
+  }
+  console.log(`[harness] skill add - fetching ${url}...`);
+  if (isMd) {
+    const body = await fetchText(url, 256 * 1024);
+    if (!body) {
+      console.log(`[harness] skill add - could not fetch ${url}`);
+      return false;
+    }
+    return finishSkillAdd(body, url, "-");
+  }
+  const buf = await fetchTarball(url, 8 * 1024 * 1024);
+  if (!buf) {
+    console.log(`[harness] skill add - could not fetch ${url}`);
+    return false;
+  }
+  const body = extractSkillBody(buf);
+  if (!body) {
+    console.log(
+      `[harness] skill add - no SKILL.md in ${url} (want SKILL.md at root or skills/<name>/SKILL.md)`,
+    );
+    return false;
+  }
+  return finishSkillAdd(body, url, "-");
+}
+
+async function cmdSkillAdd(args: string[]): Promise<boolean> {
+  if (args[0] === "--path") {
+    if (!args[1]) {
+      console.log("[harness] skill add - usage: skill add --path <dir>");
+      return false;
+    }
+    return addFromDir(args[1]);
+  }
+  const spec = (args[0] ?? "").trim();
+  if (/^https?:\/\//.test(spec)) {
+    return addFromUrl(spec);
+  }
+  if (
+    spec.startsWith(".") ||
+    spec.startsWith("/") ||
+    spec.startsWith("~") ||
+    fs.existsSync(path.resolve(spec))
+  ) {
+    return addFromDir(spec);
+  }
+  const m =
+    /^([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)(?:@([A-Za-z0-9_.\-/]+))?$/.exec(spec);
+  if (!m) {
+    console.log(
+      "[harness] skill add - want owner/repo[@ref], an https URL, or --path <dir>",
+    );
+    return false;
+  }
+  const [, repo] = m;
+  const givenRef = m[2];
+  for (const ref of givenRef ? [givenRef] : ["main", "master"]) {
+    const url = `https://codeload.github.com/${repo}/tar.gz/${ref}`;
+    console.log(`[harness] skill add - fetching ${repo}@${ref}...`);
+    const buf = await fetchTarball(url, 8 * 1024 * 1024);
+    if (!buf) continue;
+    const body = extractSkillBody(buf);
     if (!body) {
       console.log(
         `[harness] skill add - no SKILL.md in ${repo}@${ref} (want SKILL.md at root or skills/<name>/SKILL.md)`,
       );
       return false;
     }
-    const fm = parseFrontmatter(body);
-    if (!fm) {
-      console.log(
-        `[harness] skill add - ${repo}@${ref} SKILL.md lacks name/description frontmatter`,
-      );
-      return false;
-    }
-    const name = sanitizeSkillName(fm.name);
-    if (!name) {
-      console.log("[harness] skill add - unusable skill name in frontmatter");
-      return false;
-    }
-    const rel = path.join(".harness", "skills", name, "SKILL.md");
-    if (fs.existsSync(path.join(cwd, rel))) {
-      console.log(`[harness] skill add - ${rel} exists already`);
-      return false;
-    }
-    try {
-      fs.mkdirSync(path.join(cwd, ".harness", "skills", name), {
-        recursive: true,
-      });
-      fs.writeFileSync(path.join(cwd, rel), body);
-    } catch {
-      console.log(`[harness] skill add - could not write ${rel}`);
-      return false;
-    }
-    const manFile = path.join(cwd, ".harness", "config.json");
-    let man: Record<string, unknown> = {
-      version: VERSION,
-      harness: [],
-      files: [],
-    };
-    const manText = readText(manFile);
-    if (manText !== null) {
-      try {
-        man = JSON.parse(manText);
-      } catch {
-        console.log("[harness] skill add - .harness/config.json corrupt");
-        return false;
-      }
-    }
-    const added = (man.addedSkills ?? []) as Array<Record<string, string>>;
-    added.push({
-      name,
-      repo,
-      ref,
-      sha256: sha256(body),
-      ts: new Date().toISOString(),
-    });
-    man.addedSkills = added;
-    try {
-      fs.mkdirSync(path.dirname(manFile), { recursive: true });
-      fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
-    } catch {
-      console.log(
-        "[harness] skill add - could not update .harness/config.json",
-      );
-      return false;
-    }
-    console.log(
-      `[harness] ok - skill ${name} from ${repo}@${ref} pinned in manifest`,
-    );
-    return true;
+    return finishSkillAdd(body, repo, ref);
   }
   console.log(
     `[harness] skill add - could not fetch ${repo} (tried main, master)`,
   );
   return false;
+}
+
+interface AddedSkill {
+  name: string;
+  sha256: string;
+}
+
+function readAddedSkills(cwd: string): { added: AddedSkill[]; corrupt: boolean } {
+  const manText = readText(path.join(cwd, ".harness", "config.json"));
+  if (manText === null) return { added: [], corrupt: false };
+  try {
+    const v = JSON.parse(manText).addedSkills ?? [];
+    return { added: Array.isArray(v) ? v : [], corrupt: false };
+  } catch {
+    return { added: [], corrupt: true };
+  }
+}
+
+function verifyAddedSkill(cwd: string, a: AddedSkill): string | null {
+  const p = path.join(cwd, ".harness", "skills", String(a.name ?? ""), "SKILL.md");
+  const text = readText(p);
+  if (text === null) return `${a.name} (missing)`;
+  if (sha256(text) !== a.sha256) return `${a.name} (modified)`;
+  return null;
 }
 
 async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
@@ -1663,15 +1839,70 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
       return cmdOptimize();
     }
     case "adapter": {
+      if (flags[0] === "add") {
+        const raw = flags[1] ?? "";
+        if (!/^[a-z0-9-]+$/.test(raw)) {
+          console.log("[harness] adapter add - want a lowercase-hyphen name");
+          return false;
+        }
+        const dir = path.join(process.cwd(), ".harness", "adapters", raw);
+        if (fs.existsSync(dir)) {
+          console.log(`[harness] adapter add - ${dir} exists already`);
+          return false;
+        }
+        const adapterJson =
+          JSON.stringify(
+            {
+              name: raw,
+              displayName: raw,
+              skillPath: "",
+              hookPath: "",
+              memoryPath: "MEMORY.md",
+              agentsPath: "AGENTS.md",
+              transpile: "./transpile.sh",
+              notes: `Fill in skillPath, then run: harness init --harness ${raw}`,
+            },
+            null,
+            2,
+          ) + "\n";
+        const wrapper = `#!/usr/bin/env bash\n# install this adapter's files into the current project.\n# delegates to harness init so there is one real implementation.\nset -euo pipefail\nif ! command -v harness >/dev/null 2>&1; then\n  echo "[${raw}] harness not found - install it first" >&2\n  exit 1\nfi\nexec harness init --harness ${raw} --migrate\n`;
+        try {
+          fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(path.join(dir, "adapter.json"), adapterJson);
+          fs.writeFileSync(path.join(dir, "transpile.sh"), wrapper);
+          fs.chmodSync(path.join(dir, "transpile.sh"), 0o755);
+        } catch {
+          console.log(`[harness] adapter add - could not scaffold ${raw}`);
+          return false;
+        }
+        console.log(
+          `[harness] ok - adapter ${raw} scaffolded (fill in skillPath, then: harness init --harness ${raw})`,
+        );
+        return true;
+      }
       if (flags[0] === "list" || flags.length === 0) {
         const root = selfRoot();
         if (!root) {
           console.log("[harness] adapter - cannot locate install");
           return false;
         }
-        for (const a of listAdapters(root)) {
+        const packaged = listAdapters(root);
+        const packagedNames = new Set(packaged.map((a) => a.name));
+        for (const a of packaged) {
           console.log(
             `  ${a.name}${a.json?.displayName ? ` - ${a.json.displayName}` : ""}${a.error ? ` (${a.error})` : ""}`,
+          );
+        }
+        for (const a of listAdapters(
+          process.cwd(),
+          path.join(".harness", "adapters"),
+        )) {
+          if (packagedNames.has(a.name)) {
+            console.log(`  ${a.name} (custom override)`);
+            continue;
+          }
+          console.log(
+            `  ${a.name} (custom)${a.error ? ` (${a.error})` : ""}`,
           );
         }
         return true;
@@ -1682,6 +1913,75 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
     case "skill": {
       if (flags[0] === "add") {
         return cmdSkillAdd(flags.slice(1));
+      }
+      if (flags[0] === "remove") {
+        const name = sanitizeSkillName(flags[1] ?? "");
+        if (!name) {
+          console.log("[harness] skill remove - give an added skill name");
+          return false;
+        }
+        const dir = path.join(process.cwd(), ".harness", "skills", name);
+        if (!fs.existsSync(dir)) {
+          console.log(
+            `[harness] skill remove - no added skill named "${flags[1]}" (built-ins live in the install, not here)`,
+          );
+          return false;
+        }
+        try {
+          fs.rmSync(dir, { recursive: true, force: true });
+        } catch {
+          console.log(`[harness] skill remove - could not remove ${name}`);
+          return false;
+        }
+        const manFile = path.join(process.cwd(), ".harness", "config.json");
+        const manText = readText(manFile);
+        if (manText !== null) {
+          try {
+            const man = JSON.parse(manText);
+            man.addedSkills = (man.addedSkills ?? []).filter(
+              (a: AddedSkill) => a.name !== name,
+            );
+            fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+          } catch {
+            console.log("[harness] skill remove - manifest left stale, edit it by hand");
+            return false;
+          }
+        }
+        console.log(`[harness] ok - skill ${name} removed`);
+        return true;
+      }
+      if (flags[0] === "verify") {
+        const { added, corrupt } = readAddedSkills(process.cwd());
+        if (corrupt) {
+          console.log("[harness] FAIL - .harness/config.json corrupt");
+          return false;
+        }
+        const list = flags[1]
+          ? added.filter((a) => a.name === flags[1])
+          : added;
+        if (flags[1] && list.length === 0) {
+          console.log(
+            `[harness] skill verify - no added skill named "${flags[1]}"`,
+          );
+          return false;
+        }
+        if (list.length === 0) {
+          console.log(
+            "[harness] skill verify - no added skills (add one with: harness skill add owner/repo)",
+          );
+          return true;
+        }
+        const bad = list
+          .map((a) => verifyAddedSkill(process.cwd(), a))
+          .filter((x): x is string => Boolean(x));
+        if (bad.length > 0) {
+          console.log(`[harness] FAIL - skills: ${bad.join(", ")}`);
+          return false;
+        }
+        console.log(
+          `[harness] ok - ${list.length} added skill(s) verified`,
+        );
+        return true;
       }
       const root = selfRoot();
       if (!root) {
@@ -1761,6 +2061,20 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
         }
         return cmdMemorySync(note);
       }
+      if (flags[0] === "edit") {
+        const memFile = path.join(process.cwd(), "MEMORY.md");
+        if (!fs.existsSync(memFile)) {
+          console.log("[harness] memory - no MEMORY.md here (run harness init)");
+          return false;
+        }
+        if (!process.stdin.isTTY || !process.stdout.isTTY) {
+          console.log(`[harness] memory - no terminal, edit ${memFile} by hand`);
+          return false;
+        }
+        const editor = (process.env.EDITOR || process.env.VISUAL || "vi").split(" ")[0];
+        const r = spawnSync(editor, [memFile], { stdio: "inherit" });
+        return r.status === 0;
+      }
       console.log(`[harness] memory ${flags.join(" ")} - not implemented yet`);
       return true;
     }
@@ -1812,6 +2126,34 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
       return true;
     }
     case "research": {
+      if (flags.length === 0) {
+        let files: string[] = [];
+        try {
+          files = fs
+            .readdirSync(path.join(process.cwd(), "research", "findings"))
+            .filter((f) => f.endsWith(".md"))
+            .sort();
+        } catch {
+          files = [];
+        }
+        if (files.length === 0) {
+          console.log(
+            '[harness] research - no findings yet (capture one: harness research "query")',
+          );
+          return true;
+        }
+        for (const f of files) {
+          const text = readText(
+            path.join(process.cwd(), "research", "findings", f),
+          );
+          const title =
+            text
+              ?.split("\n")
+              .find((l) => l.startsWith("# ")) ?? f;
+          console.log(`  ${f} - ${title.replace(/^# /, "")}`);
+        }
+        return true;
+      }
       const query = flags.join(" ").trim();
       if (!query) {
         console.log("[harness] research - give a query to capture");

@@ -192,12 +192,12 @@ harness init [--harness <name>] [--auto] [--migrate]
 harness doctor [--fix] [--strict]
 harness bench [--compare] [--quick]
 harness optimize
-harness skill <list|search|info|add> [query|name|repo]
-harness memory <show|prune|sync> [note]
+harness skill <list|search|info|add|remove|verify> ...
+harness memory <show|prune|sync|edit> [note]
 harness instinct <list|enable|disable> [name]
-harness research <query>
+harness research [query]
 harness security <audit|scan> [--staged]
-harness adapter list
+harness adapter <list|add> [name]
 harness upgrade
 harness shell
 ```

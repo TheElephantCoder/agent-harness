@@ -5,12 +5,12 @@ harness init [--harness <name>] [--auto] [--migrate]
 harness doctor [--fix] [--strict]
 harness bench [--compare] [--quick]
 harness optimize
-harness skill <list|search|info|add> [query|name|repo]
-harness memory <show|prune|sync> [note]
+harness skill <list|search|info|add|remove|verify> [query|name|repo]
+harness memory <show|prune|sync|edit> [note]
 harness instinct <list|enable|disable> [name]
-harness research <query>
+harness research [query]
 harness security <audit|scan> [--staged]
-harness adapter list
+harness adapter <list|add> [name]
 harness upgrade
 harness shell
 ```
@@ -84,15 +84,22 @@ The part that actually cuts cost:
 harness skill list        # name, description, ~tokens from frontmatter
 harness skill search tok  # grep names, descriptions, bodies
 harness skill info NAME   # print the SKILL.md
-harness skill add owner/repo[@ref]   # fetch from GitHub, validate frontmatter,
-                                     # install to .harness/skills, pin sha in manifest
+harness skill add owner/repo[@ref]     # GitHub tarball, validate, pin
+harness skill add https://host/skill.md  # raw file, same validation
+harness skill add https://host/pack.tar.gz  # archive with SKILL.md inside
+harness skill add --path ./dir           # local dir (SKILL.md at root or skills/*/)
+harness skill remove NAME   # delete project-added skill + drop its pin
+harness skill verify [NAME] # re-check pins against files
 harness instinct list     # hook scripts with exec bit
 harness instinct disable guard   # chmod -x matching hooks (enable reverses)
 harness memory show       # print MEMORY.md
 harness memory sync "note"  # append a dated note, re-prune to budget
 harness memory prune      # same prune as optimize
+harness memory edit       # open MEMORY.md in $EDITOR (terminal only)
 harness adapter list      # supported harnesses from adapters/
+harness adapter add mytool  # scaffold .harness/adapters/mytool/ (fill skillPath, init picks it up)
 harness research "query"  # capture a findings stub to fill in
+harness research          # list captured findings
 harness security audit    # run security/audit.sh here (scan = --staged)
 ```
 
