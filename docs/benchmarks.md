@@ -133,6 +133,27 @@ Tokens: T1 +29% harness, T2 -41% (flake-aided), T3 +14%. Raw rows:
 with a sub-noise token delta on every cell; kimi-k3 is the only 18/18 driver
 (twice), nemotron tops out at 16/18 across three datasets.
 
+## Megabox bed (200 files, generator committed)
+
+`scripts/ab-megabox-gen.mjs` (seeded) builds a TS monorepo with a real
+order-pricing flow and a green suite. Same rig: kimi-k3, 3 tasks, bare vs
+harness+curated-memory, fresh worktree per cell.
+Raw rows: `research/evidence/ab-results-mega1.jsonl`.
+
+kimi-k3 (free tier, $0):
+- T1 bare: 0/3, wall 647 [561-780], tok 69535
+- T1 harness: 0/3, wall 539 [420-664], tok 57182
+- T2 bare: 2/3 (one 780s cap-kill), wall 671, tok 57399
+- T2 harness: 3/3, wall 549 [369-767], tok 49310
+- T3 bare: 3/3, wall 523 [467-561], tok 38966
+- T3 harness: 3/3, wall 573 [559-584], tok 33975
+
+T1 sits below this driver's measurement threshold (one diagnostic run
+produced a near-perfect answer, so the task is fair but hard: ~1/8 solves).
+T2/T3: harness -18%/-14% wall/tokens (T2), -13% tokens (T3), equal or better
+success. First consistent pro-harness token signal, modest, both arms
+throttled (free-tier queueing visible throughout).
+
 ## Verdict vs published claims (180s to 13s, -65% tokens, -40% calls)
 
 Not reproduced. Wall time: tied within variance in 4 of 6 cells; one cell each
