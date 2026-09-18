@@ -119,10 +119,23 @@
   </div>
 </section>
 
+<section class="perf">
+  <div class="wrap">
+    <h2>Megabox: 200-file bed, kimi-k3</h2>
+    <p class="muted">Generated monorepo (seeded, generator committed). Harness wins tokens on build/fix tasks; orientation Q&A sits below this driver's threshold (0/6, one diagnostic near-perfect answer proves the task fair).</p>
+    <div class="perf-table">
+      <div class="row head"><span>cell</span><span>bare</span><span>harness</span></div>
+      <div class="row"><span>T1 orient</span><span>647s · 69.5k tok · 0/3</span><span>539s · 57.2k tok · 0/3</span></div>
+      <div class="row"><span>T2 feature</span><span>671s · 57.4k tok · 2/3</span><span>549s · 49.3k tok · 3/3</span></div>
+      <div class="row"><span>T3 bugfix</span><span>523s · 39.0k tok · 3/3</span><span>573s · 34.0k tok · 3/3</span></div>
+    </div>
+  </div>
+</section>
+
 <section class="compat">
   <div class="wrap">
     <h2>Reading</h2>
-    <p class="muted">On a small repo the harness context costs more tokens than orientation saves, and wall time lands within variance in most cells. It should pay off where repo-orientation cost dwarfs harness context (large unfamiliar codebases) — that bed is still untested. n=3, free-tier queueing noise visible (362s outlier). Full method, probe log (30 models tried, 6 live), and all raw rows: <a href="https://github.com/TheElephantCoder/agent-harness/blob/main/docs/benchmarks.md">docs/benchmarks.md</a>.</p>
+    <p class="muted">On a small repo the harness context costs more tokens than orientation saves; on a 200-file bed it wins tokens on build/fix tasks (-13/-14%). Wall time lands within variance in most cells. n=3 throughout, free-tier queueing noise visible. Full method, probe log (30 models tried, 6 live), and all raw rows: <a href="https://github.com/TheElephantCoder/agent-harness/blob/main/docs/benchmarks.md">docs/benchmarks.md</a>.</p>
   </div>
 </section>
 
