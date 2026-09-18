@@ -1,6 +1,6 @@
 ---
 name: research-first
-description: Look things up before you code. Use for features, bug fixes, or anything that touches more than trivial code.
+description: Look things up before you code. Use for features, bug fixes, or anything that touches more than trivial code. Not for single-file reads, explanations, or answering questions about code.
 version: 1.0.0
 license: MIT
 allowed-tools: [read, grep, glob, bash, webfetch, websearch, write, edit]
