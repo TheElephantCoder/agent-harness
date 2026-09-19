@@ -7,6 +7,7 @@ import {
   fmtTok,
   mapSymbols,
   parseFrontmatter,
+  slowHooks,
   pruneFile,
   sanitizeSkillName,
   sha256,
@@ -59,6 +60,16 @@ describe("mapSymbols", () => {
   it("caps at twelve", () => {
     const src = Array.from({ length: 20 }, (_, i) => `export const v${i} = ${i};`).join("\n");
     expect(mapSymbols(src)).toHaveLength(12);
+  });
+});
+
+describe("slowHooks", () => {
+  it("flags only hooks over budget, sorted", () => {
+    expect(slowHooks({ a: 10, b: 2500, c: 2000, d: 2001 }, 2000)).toEqual([
+      "b",
+      "d",
+    ]);
+    expect(slowHooks({}, 2000)).toEqual([]);
   });
 });
 

@@ -179,6 +179,7 @@ Day to day:
 
 ```bash
 harness optimize             # prune MEMORY.md to budget, archive overflow
+harness optimizations        # cost controls, all on (menu item 4 too)
 harness doctor               # verify install, scan staged for secrets
 harness bench --compare      # measure against baseline
 harness skill list           # skills with ~token cost
@@ -194,6 +195,7 @@ harness init [--harness <name>] [--auto] [--migrate]
 harness doctor [--fix] [--strict]
 harness bench [--compare] [--quick]
 harness optimize
+harness optimizations [enable|disable] [name|all]
 harness map
 harness skill <list|search|info|add|remove|verify> ...
 harness memory <show|prune|sync|edit> [note]

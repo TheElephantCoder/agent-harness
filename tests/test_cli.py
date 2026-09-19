@@ -37,6 +37,11 @@ def test_map_symbols():
     assert len(cli.map_symbols(big)) == 12
 
 
+def test_slow_hooks():
+    assert cli.slow_hooks({"a": 10, "b": 2500, "c": 2000, "d": 2001}, 2000) == ["b", "d"]
+    assert cli.slow_hooks({}, 2000) == []
+
+
 def test_slugify():
     assert cli.slugify("Token Overhead?!") == "token-overhead"
     assert cli.slugify("!!!") == "note"

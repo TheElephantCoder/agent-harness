@@ -95,6 +95,33 @@ The part that actually cuts cost:
 
 `harness memory prune` does the same prune. Exits 1 only when the prune itself fails.
 
+## optimizations
+
+Local-model cost controls, all on by default. Stored per project in
+`.harness/config.json` (`optimizations: {name: bool}`, `disabledByPerf: [...]`).
+`init` writes defaults; `migrate` never resets your choices.
+
+```bash
+harness optimizations                  # status table with scopes
+harness optimizations disable map-index
+harness optimizations enable all
+```
+
+| name | scope | what it does when on |
+|---|---|---|
+| slim-agents | ram | `init` installs slim AGENTS.md (~180 tok) instead of full (~490 tok) |
+| prune-memory | ram | `optimize`/`sync` keep MEMORY.md within the 2k budget |
+| map-index | ram | `init` writes `.harness/MAP.md` file index |
+| fast-hooks | cpu | `optimize` times hooks and disables any averaging over 2s (recorded, `doctor --fix` respects it) |
+| archive-rotate | disk | `optimize` caps `MEMORY.archive.md` at 500 lines |
+
+The interactive prompt has the same controls under menu item 4 ("Manage
+optimizations"). Mechanism notes with local measurements: slim-vs-full
+prefill runs ~0.6s vs ~2.6s on qwen2.5-coder:1.5b/M4 (linear ~1ms/token);
+server RAM stays flat across prompt sizes at fixed `num_ctx` (KV
+pre-allocated at load), so the RAM lever is context size plus a matching
+`num_ctx`, not the prompt alone. See `benchmarks.md`.
+
 ## map
 
 Deterministic repo index for agents (and humans). Walks source files

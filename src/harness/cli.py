@@ -182,6 +182,7 @@ def show_menu():
         "Set up this project",
         "Check setup",
         "Run benchmark",
+        "Manage optimizations",
         "Skip straight to the prompt",
     ]
     picked = pick("What do you want to do?", options)
@@ -191,7 +192,23 @@ def show_menu():
         cmd_doctor(SimpleNamespace(fix=False))
     elif picked == 2:
         cmd_bench(SimpleNamespace())
+    elif picked == 3:
+        show_optimizations_menu()
     print(paint(DIM, "╌" * term_width()))
+
+def show_optimizations_menu():
+    while True:
+        opts = read_optimizations(os.getcwd())
+        print("[harness] optimizations (all on by default):")
+        names = [o["name"] for o in OPTIMIZATIONS]
+        for i, o in enumerate(OPTIMIZATIONS):
+            print(f"  {i + 1}. {o['name']} [{o['scope']}] {'on' if opts[o['name']] else 'off'} - {o['desc']}")
+        print(f"  {len(names) + 1}. Back")
+        picked = pick("Toggle which?", [f"toggle {n}" for n in names] + ["Back"])
+        if picked is None or picked < 0 or picked >= len(names):
+            return
+        name = names[picked]
+        cmd_optimizations(["disable" if opts[name] else "enable", name])
 
 def read_text(p):
     try:
@@ -432,28 +449,34 @@ def cmd_doctor(args=None):
     else:
         print(f"[harness] ok - skills: {len(skills)} checked, frontmatter ok")
     hooks = list_hooks(root)
+    perf_off = read_disabled_by_perf(os.getcwd())
     noexec = [h for h in hooks if not is_exec(os.path.join(root, h))]
-    if noexec:
+    skipped_perf = [h for h in noexec if h in perf_off]
+    repairable = [h for h in noexec if h not in perf_off]
+    if skipped_perf:
+        print(f"[harness] info - left disabled by optimize: {', '.join(skipped_perf)}")
+    if repairable:
         if fix:
             repaired = 0
-            for h in noexec:
+            for h in repairable:
                 try:
                     os.chmod(os.path.join(root, h), 0o755)
                     if is_exec(os.path.join(root, h)):
                         repaired += 1
                 except OSError:
                     pass
-            still = [h for h in hooks if not is_exec(os.path.join(root, h))]
+            still = [h for h in hooks if not is_exec(os.path.join(root, h)) and h not in perf_off]
             if not still:
-                print(f"[harness] ok - hooks: repaired exec on {repaired}, {len(hooks)} executable")
+                print(f"[harness] ok - hooks: repaired exec on {repaired}, {len(hooks) - len(skipped_perf)} executable")
             else:
                 fail(f"[harness] FAIL - hooks not executable: {', '.join(still)}")
         else:
-            fail(f"[harness] FAIL - hooks not executable (run --fix): {', '.join(noexec)}")
+            fail(f"[harness] FAIL - hooks not executable (run --fix): {', '.join(repairable)}")
     elif not hooks:
         fail("[harness] FAIL - hooks: none found")
     else:
-        print(f"[harness] ok - hooks: {len(hooks)} executable")
+        skipped = f" ({len(skipped_perf)} disabled by optimize)" if skipped_perf else ""
+        print(f"[harness] ok - hooks: {len(hooks) - len(skipped_perf)} executable{skipped}")
     adapters = list_adapters(root)
     bad = [a for a in adapters if not a["json"]]
     if not adapters:
@@ -576,10 +599,14 @@ def cmd_optimize(args=None):
         missing_data("optimize")
         return False
     cwd = os.getcwd()
+    opts = read_optimizations(cwd)
     mem = next((os.path.join(cwd, f) for f in ["MEMORY.md", os.path.join(".kiro", "MEMORY.md")]
                 if os.path.exists(os.path.join(cwd, f))), None)
     if not mem:
         print("[harness] optimize - no MEMORY.md here (run harness init)")
+    elif opts.get("prune-memory", True) is False:
+        text = read_text(mem) or ""
+        print(f"[harness] info - prune-memory off, MEMORY.md ~{fmt_tok(est_tokens(text))} (enable: harness optimizations enable prune-memory)")
     else:
         r = prune_file(mem, 2000)
         if not r:
@@ -589,6 +616,20 @@ def cmd_optimize(args=None):
             print(f"[harness] ok - memory ~{fmt_tok(r['before'])} - under 2k budget, nothing to do")
         else:
             print(f"[harness] ok - memory ~{fmt_tok(r['before'])} -> ~{fmt_tok(r['after'])}, {r['moved']} lines archived")
+    if opts.get("archive-rotate", True) is not False and mem:
+        base, _ext = os.path.splitext(mem)
+        archive = base + ".archive.md"
+        text = read_text(archive)
+        if text is not None:
+            lines = text.split("\n")
+            if len(lines) > 500:
+                trimmed = lines[len(lines) - 500:]
+                try:
+                    with open(archive, "w", encoding="utf-8") as f:
+                        f.write("\n".join(trimmed))
+                    print(f"[harness] ok - archive rotated: {len(lines)} -> {len(trimmed)} lines (oldest dropped)")
+                except OSError:
+                    print("[harness] warn - could not rotate archive")
     repaired = 0
     for h in list_hooks(root):
         abs_path = os.path.join(root, h)
@@ -601,6 +642,41 @@ def cmd_optimize(args=None):
                 pass
     if repaired:
         print(f"[harness] ok - repaired exec on {repaired} hooks")
+    if opts.get("fast-hooks", True) is not False:
+        times = {}
+        for h in list_hooks(root):
+            total = 0.0
+            for _ in range(3):
+                ms, _st = run_hook(os.path.join(root, h))
+                total += ms
+            times[h] = round(total / 3, 1)
+        slow = slow_hooks(times, 2000)
+        if slow:
+            man_file = os.path.join(cwd, ".harness", "config.json")
+            man = {"version": VERSION, "harness": [], "files": []}
+            man_text = read_text(man_file)
+            if man_text is not None:
+                try:
+                    man = json.loads(man_text)
+                except ValueError:
+                    pass
+            disabled = set(man.get("disabledByPerf", []) or [])
+            dropped = 0
+            for h in slow:
+                try:
+                    os.chmod(os.path.join(root, h), 0o644)
+                    disabled.add(h)
+                    dropped += 1
+                except OSError:
+                    pass
+            man["disabledByPerf"] = sorted(disabled)
+            try:
+                os.makedirs(os.path.dirname(man_file), exist_ok=True)
+                with open(man_file, "w", encoding="utf-8") as f:
+                    json.dump(man, f, indent=2)
+            except OSError:
+                print("[harness] warn - could not record disabled hooks")
+            print(f"[harness] ok - fast-hooks: disabled {dropped} slow hook(s) over 2s mean: {', '.join(slow)} (re-enable: harness instinct enable <name>)")
     skills = list_skills(root)
     total = sum(s["tokens"] for s in skills)
     top = max(skills, key=lambda s: s["tokens"]) if skills else None
@@ -718,9 +794,13 @@ def cmd_init(args=None):
             written.append({"path": rel, "sha": sha256(content)})
         except OSError:
             print(f"[harness] init - could not write {rel}")
-    agents_src = read_text(os.path.join(root, "templates", "AGENTS.project.md"))
-    if agents_src is None:
+    agents_src = None
+    if read_optimizations(cwd).get("slim-agents", True) is False:
         agents_src = read_text(os.path.join(root, "AGENTS.md"))
+    else:
+        agents_src = read_text(os.path.join(root, "templates", "AGENTS.project.md"))
+        if agents_src is None:
+            agents_src = read_text(os.path.join(root, "AGENTS.md"))
     mem_src = read_text(os.path.join(root, "memory", "MEMORY.md"))
     dests = {}
     if agents_src is not None:
@@ -878,14 +958,35 @@ def cmd_init(args=None):
             put(rel, json.dumps({"hooks": xh}, indent=2) + "\n")
         elif rel.replace(os.sep, "/") not in tracked:
             print("[harness] init - .codex/hooks.json exists, merge hooks manually (see docs/cli.md); review new hooks with /hooks on first run")
-    m = build_map(cwd)
-    put(os.path.join(".harness", "MAP.md"), m["text"], False, True)
-    print(f"[harness] init - map: {m['files']} files, ~{fmt_tok(m['tokens'])} tokens")
+    if read_optimizations(cwd).get("map-index", True) is not False:
+        m = build_map(cwd)
+        put(os.path.join(".harness", "MAP.md"), m["text"], False, True)
+        print(f"[harness] init - map: {m['files']} files, ~{fmt_tok(m['tokens'])} tokens")
     files = list(prior_files) + written
+    seen_paths = set()
+    deduped = []
+    for f in reversed(files):
+        p = f if isinstance(f, str) else f.get("path", "")
+        if p in seen_paths:
+            continue
+        seen_paths.add(p)
+        deduped.append(f)
+    files = list(reversed(deduped))
+    prior_opts = {}
+    if prior is not None:
+        try:
+            prior_opts = json.loads(prior).get("optimizations", {}) or {}
+        except (ValueError, AttributeError):
+            pass
+    optimizations = dict(default_optimizations())
+    for o in OPTIMIZATIONS:
+        if isinstance(prior_opts.get(o["name"]), bool):
+            optimizations[o["name"]] = prior_opts[o["name"]]
     try:
         os.makedirs(os.path.dirname(man_file), exist_ok=True)
         with open(man_file, "w", encoding="utf-8") as f:
             json.dump({"version": VERSION, "harness": names, "files": files,
+                       "optimizations": optimizations,
                        "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, f, indent=2)
     except OSError:
         print("[harness] init - could not write .harness/config.json")
@@ -1056,6 +1157,97 @@ def cmd_map(args=None):
     print(f"[harness] ok - map: {r['files']} files, {r['lines']} lines, ~{fmt_tok(r['tokens'])} tokens -> .harness/MAP.md")
     return True
 
+OPTIMIZATIONS = [
+    {"name": "slim-agents", "scope": "ram",
+     "desc": "install slim AGENTS.md (~180 tok) instead of full (~490 tok)"},
+    {"name": "prune-memory", "scope": "ram",
+     "desc": "keep MEMORY.md within the 2k-token budget"},
+    {"name": "map-index", "scope": "ram",
+     "desc": "write .harness/MAP.md file index on init"},
+    {"name": "fast-hooks", "scope": "cpu",
+     "desc": "disable hooks averaging over 2s, measured in optimize"},
+    {"name": "archive-rotate", "scope": "disk",
+     "desc": "cap MEMORY.archive.md at 500 lines in optimize"},
+]
+
+def default_optimizations():
+    return {o["name"]: True for o in OPTIMIZATIONS}
+
+def read_optimizations(cwd):
+    out = default_optimizations()
+    try:
+        text = read_text(os.path.join(cwd, ".harness", "config.json"))
+        if text is None:
+            return out
+        saved = json.loads(text).get("optimizations", {})
+        for o in OPTIMIZATIONS:
+            if isinstance(saved.get(o["name"]), bool):
+                out[o["name"]] = saved[o["name"]]
+    except (ValueError, AttributeError):
+        pass
+    return out
+
+def write_optimizations(cwd, patch):
+    man_file = os.path.join(cwd, ".harness", "config.json")
+    man = {"version": VERSION, "harness": [], "files": []}
+    man_text = read_text(man_file)
+    if man_text is not None:
+        try:
+            man = json.loads(man_text)
+        except ValueError:
+            print("[harness] FAIL - .harness/config.json corrupt")
+            return False
+    merged = dict(default_optimizations())
+    prev = man.get("optimizations", {})
+    if isinstance(prev, dict):
+        merged.update(prev)
+    merged.update(patch)
+    man["optimizations"] = {o["name"]: merged.get(o["name"], True) is not False for o in OPTIMIZATIONS}
+    try:
+        os.makedirs(os.path.dirname(man_file), exist_ok=True)
+        with open(man_file, "w", encoding="utf-8") as f:
+            json.dump(man, f, indent=2)
+    except OSError:
+        print("[harness] FAIL - could not write .harness/config.json")
+        return False
+    return True
+
+def read_disabled_by_perf(cwd):
+    try:
+        text = read_text(os.path.join(cwd, ".harness", "config.json"))
+        if text is None:
+            return set()
+        lst = json.loads(text).get("disabledByPerf", [])
+        return set(x for x in lst if isinstance(x, str)) if isinstance(lst, list) else set()
+    except (ValueError, AttributeError):
+        return set()
+
+def slow_hooks(measurements, budget_ms):
+    return sorted(n for n, ms in measurements.items() if ms > budget_ms)
+
+def cmd_optimizations(args=None):
+    args = args or []
+    cwd = os.getcwd()
+    sub = args[0] if args else ""
+    if sub in ("", "list"):
+        print("[harness] optimizations (all on by default):")
+        opts = read_optimizations(cwd)
+        for o in OPTIMIZATIONS:
+            print(f"  {o['name']} [{o['scope']}] {'on' if opts[o['name']] else 'off'} - {o['desc']}")
+        return True
+    if sub not in ("enable", "disable"):
+        print("[harness] optimizations - want [enable|disable] <name|all>")
+        return False
+    target = args[1] if len(args) > 1 else ""
+    names = [o["name"] for o in OPTIMIZATIONS] if target == "all" else [o["name"] for o in OPTIMIZATIONS if o["name"] == target]
+    if not names:
+        print(f"[harness] optimizations - unknown name \"{target}\" (try: {', '.join(o['name'] for o in OPTIMIZATIONS)})")
+        return False
+    if not write_optimizations(cwd, {n: sub == "enable" for n in names}):
+        return False
+    print(f"[harness] ok - optimizations {sub}d: {', '.join(names)}")
+    return True
+
 def missing_data(cmd):
     here = os.path.realpath(__file__)
     if "site-packages" in here or "dist-packages" in here:
@@ -1153,6 +1345,10 @@ def cmd_memory_sync(note):
     except OSError:
         print("[harness] FAIL - memory: could not write MEMORY.md")
         return False
+    if read_optimizations(os.getcwd()).get("prune-memory", True) is False:
+        t = est_tokens(read_text(mem_file) or "")
+        print(f"[harness] ok - memory synced (~{fmt_tok(t)}, pruning off)")
+        return True
     r = prune_file(mem_file, 2000)
     if not r:
         print("[harness] FAIL - memory: could not prune MEMORY.md")
@@ -1479,6 +1675,11 @@ class HarnessShell(cmdmod.Cmd):
         "prune memory, repair, report savings"
         cmd_optimize()
 
+    def do_optimizations(self, arg):
+        "list and toggle optimizations"
+        parts = shlex.split(arg) if arg else []
+        cmd_optimizations(parts)
+
     def do_adapter(self, arg):
         "list supported harnesses"
         parts = shlex.split(arg) if arg else []
@@ -1742,7 +1943,7 @@ def main():
     c.add_argument("--compare", action="store_true")
     c.add_argument("--quick", action="store_true")
 
-    for name in ["skill", "memory", "instinct", "research", "security", "upgrade", "shell", "optimize", "adapter", "map"]:
+    for name in ["skill", "memory", "instinct", "research", "security", "upgrade", "shell", "optimize", "optimizations", "adapter", "map"]:
         s = sub.add_parser(name)
         s.add_argument("args", nargs=argparse.REMAINDER)
 
@@ -2006,6 +2207,10 @@ def main():
             cmd_research_list()
             return
         if not cmd_research(" ".join(args.args or [])):
+            sys.exit(1)
+        return
+    if args.cmd == "optimizations":
+        if not cmd_optimizations(list(args.args or [])):
             sys.exit(1)
         return
     rest = " ".join(getattr(args, "args", []) or [])

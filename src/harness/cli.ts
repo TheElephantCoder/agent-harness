@@ -25,6 +25,7 @@ type Command =
   | "upgrade"
   | "shell"
   | "optimize"
+  | "optimizations"
   | "adapter"
   | "map"
   | "help"
@@ -42,6 +43,7 @@ const SHELL_COMMANDS = [
   "upgrade",
   "shell",
   "optimize",
+  "optimizations",
   "adapter",
   "map",
   "menu",
@@ -113,6 +115,7 @@ usage: harness <command> [options]
   doctor [--fix] [--strict]                      verify install and project
   bench [--compare] [--quick]                    measure costs, save baseline
   optimize                                       prune memory, repair, report savings
+  optimizations [enable|disable] [name|all]      list, toggle optimizations
   map                                            index repo to .harness/MAP.md
   skill <list|search|info|add|remove|verify> ...  list, search, show, fetch skills
   memory <show|prune|sync|edit> [note]             show, prune, append, edit MEMORY.md
@@ -274,6 +277,7 @@ async function showMenu(): Promise<void> {
     "Set up this project",
     "Check setup",
     "Run benchmark",
+    "Manage optimizations",
     "Skip straight to the prompt",
   ];
   const picked = await selectOption("What do you want to do?", options);
@@ -283,11 +287,41 @@ async function showMenu(): Promise<void> {
     await runCommand("doctor", []);
   } else if (picked === 2) {
     await runCommand("bench", []);
+  } else if (picked === 3) {
+    await showOptimizationsMenu();
   }
   console.log(paint(ANSI.dim, "╌".repeat(termWidth())));
 }
 
+async function showOptimizationsMenu(): Promise<void> {
+  for (;;) {
+    const opts = readOptimizations(process.cwd());
+    console.log("[harness] optimizations (all on by default):");
+    const names = OPTIMIZATIONS.map((o) => o.name);
+    names.forEach((n, i) => {
+      const o = OPTIMIZATIONS[i];
+      console.log(`  ${i + 1}. ${n} [${o.scope}] ${opts[n] ? "on" : "off"} - ${o.desc}`);
+    });
+    console.log(`  ${names.length + 1}. Back`);
+    const picked = await selectOption("Toggle which?", [
+      ...names.map((n) => `toggle ${n}`),
+      "Back",
+    ]);
+    if (picked < 0 || picked >= names.length) return;
+    const name = names[picked];
+    if (opts[name]) {
+      cmdOptimizations(["disable", name]);
+    } else {
+      cmdOptimizations(["enable", name]);
+    }
+  }
+}
+
 async function interactive() {
+  console.log(welcome());
+  await showMenu();
+  // created after the menus: an earlier readline would auto-close on stdin
+  // EOF (piped/closed input) and take prompt() down with it.
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -300,8 +334,6 @@ async function interactive() {
   rl.on("SIGINT", () => {
     rl.close();
   });
-  console.log(welcome());
-  await showMenu();
   rl.prompt();
   for await (const line of rl) {
     const parts = line.trim().split(/\s+/).filter(Boolean);
@@ -852,9 +884,12 @@ function cmdInit(flags: string[]): boolean {
       console.log(`[harness] init - could not write ${rel}`);
     }
   };
+  const opts = readOptimizations(cwd);
   const agentsSrc =
-    readText(path.join(root, "templates", "AGENTS.project.md")) ??
-    readText(path.join(root, "AGENTS.md"));
+    opts["slim-agents"] === false
+      ? readText(path.join(root, "AGENTS.md"))
+      : (readText(path.join(root, "templates", "AGENTS.project.md")) ??
+        readText(path.join(root, "AGENTS.md")));
   const memSrc = readText(path.join(root, "memory", "MEMORY.md"));
   const dests = new Map<string, string>();
   if (agentsSrc !== null) dests.set("AGENTS.md", agentsSrc);
@@ -1089,7 +1124,7 @@ function cmdInit(flags: string[]): boolean {
       );
     }
   }
-  {
+  if (opts["map-index"] !== false) {
     // generated index: always refreshed, even on --migrate.
     const m = buildMap(cwd);
     put(".harness/MAP.md", m.text, false, true);
@@ -1101,6 +1136,24 @@ function cmdInit(flags: string[]): boolean {
     ...priorFiles,
     ...written.map((w) => ({ path: w.rel, sha: w.sha })),
   ];
+  // migrate re-records regenerated files (MAP.md): keep the latest entry per path.
+  const seenPaths = new Set<string>();
+  const deduped = files.reverse().filter((f) => {
+    const p = typeof f === "string" ? f : f.path;
+    if (seenPaths.has(p)) return false;
+    seenPaths.add(p);
+    return true;
+  }).reverse();
+  let priorOpts: Record<string, unknown> = {};
+  try {
+    if (prior !== null) priorOpts = JSON.parse(prior).optimizations ?? {};
+  } catch {
+    // corrupt manifest: defaults below
+  }
+  const optimizations: Record<string, boolean> = { ...defaultOptimizations() };
+  for (const o of OPTIMIZATIONS) {
+    if (typeof priorOpts[o.name] === "boolean") optimizations[o.name] = priorOpts[o.name] as boolean;
+  }
   try {
     fs.mkdirSync(path.dirname(manFile), { recursive: true });
     fs.writeFileSync(
@@ -1109,7 +1162,8 @@ function cmdInit(flags: string[]): boolean {
         {
           version: VERSION,
           harness: names,
-          files,
+          files: deduped,
+          optimizations,
           ts: new Date().toISOString(),
         },
         null,
@@ -1316,11 +1370,19 @@ function cmdDoctor(flags: string[]): boolean {
     );
   }
   const hooks = listHooks(root);
+  const perfOff = readDisabledByPerf(process.cwd());
   const noexec = hooks.filter((h) => !isExec(path.join(root, h)));
-  if (noexec.length > 0) {
+  const skippedPerf = noexec.filter((h) => perfOff.has(h));
+  const repairable = noexec.filter((h) => !perfOff.has(h));
+  if (skippedPerf.length > 0) {
+    console.log(
+      `[harness] info - left disabled by optimize: ${skippedPerf.join(", ")}`,
+    );
+  }
+  if (repairable.length > 0) {
     if (fix) {
       let repaired = 0;
-      for (const h of noexec) {
+      for (const h of repairable) {
         try {
           fs.chmodSync(path.join(root, h), 0o755);
           if (isExec(path.join(root, h))) repaired += 1;
@@ -1328,23 +1390,27 @@ function cmdDoctor(flags: string[]): boolean {
           // keep going
         }
       }
-      const still = hooks.filter((h) => !isExec(path.join(root, h)));
+      const still = hooks.filter(
+        (h) => !isExec(path.join(root, h)) && !perfOff.has(h),
+      );
       if (still.length === 0) {
         console.log(
-          `[harness] ok - hooks: repaired exec on ${repaired}, ${hooks.length} executable`,
+          `[harness] ok - hooks: repaired exec on ${repaired}, ${hooks.length - skippedPerf.length} executable`,
         );
       } else {
         fail(`[harness] FAIL - hooks not executable: ${still.join(", ")}`);
       }
     } else {
       fail(
-        `[harness] FAIL - hooks not executable (run --fix): ${noexec.join(", ")}`,
+        `[harness] FAIL - hooks not executable (run --fix): ${repairable.join(", ")}`,
       );
     }
   } else if (hooks.length === 0) {
     fail("[harness] FAIL - hooks: none found");
   } else {
-    console.log(`[harness] ok - hooks: ${hooks.length} executable`);
+    console.log(
+      `[harness] ok - hooks: ${hooks.length - skippedPerf.length} executable${skippedPerf.length > 0 ? ` (${skippedPerf.length} disabled by optimize)` : ""}`,
+    );
   }
   const adapters = listAdapters(root);
   const bad = adapters.filter((a) => !a.json);
@@ -1521,11 +1587,17 @@ function cmdOptimize(): boolean {
     return false;
   }
   const cwd = process.cwd();
+  const opts = readOptimizations(cwd);
   const mem = ["MEMORY.md", path.join(".kiro", "MEMORY.md")]
     .map((f) => path.join(cwd, f))
     .find((f) => fs.existsSync(f));
   if (!mem) {
     console.log("[harness] optimize - no MEMORY.md here (run harness init)");
+  } else if (opts["prune-memory"] === false) {
+    const text = readText(mem);
+    console.log(
+      `[harness] info - prune-memory off, MEMORY.md ~${fmtTok(estTokens(text ?? ""))} (enable: harness optimizations enable prune-memory)`,
+    );
   } else {
     const r = pruneFile(mem, 2000);
     if (!r) {
@@ -1540,6 +1612,25 @@ function cmdOptimize(): boolean {
       console.log(
         `[harness] ok - memory ~${fmtTok(r.before)} -> ~${fmtTok(r.after)}, ${r.moved} lines archived`,
       );
+    }
+  }
+  if (opts["archive-rotate"] !== false && mem) {
+    const base = mem.slice(0, -path.extname(mem).length);
+    const archive = `${base}.archive.md`;
+    const text = readText(archive);
+    if (text !== null) {
+      const lines = text.split("\n");
+      if (lines.length > 500) {
+        const trimmed = lines.slice(lines.length - 500);
+        try {
+          fs.writeFileSync(archive, trimmed.join("\n"));
+          console.log(
+            `[harness] ok - archive rotated: ${lines.length} -> ${trimmed.length} lines (oldest dropped)`,
+          );
+        } catch {
+          console.log("[harness] warn - could not rotate archive");
+        }
+      }
     }
   }
   const hooks = listHooks(root);
@@ -1557,6 +1648,50 @@ function cmdOptimize(): boolean {
   }
   if (repaired > 0)
     console.log(`[harness] ok - repaired exec on ${repaired} hooks`);
+  if (opts["fast-hooks"] !== false) {
+    const times: Record<string, number> = {};
+    for (const h of hooks) {
+      let total = 0;
+      for (let i = 0; i < 3; i++) total += runHook(path.join(root, h), 10000).ms;
+      times[h] = Math.round((total / 3) * 10) / 10;
+    }
+    const slow = slowHooks(times, 2000);
+    if (slow.length > 0) {
+      const manFile = path.join(cwd, ".harness", "config.json");
+      let man: Record<string, unknown> = { version: VERSION, harness: [], files: [] };
+      const manText = readText(manFile);
+      if (manText !== null) {
+        try {
+          man = JSON.parse(manText);
+        } catch {
+          // keep shell below
+        }
+      }
+      const disabled = new Set<string>(
+        Array.isArray(man.disabledByPerf) ? man.disabledByPerf.filter((x) => typeof x === "string") : [],
+      );
+      let dropped = 0;
+      for (const h of slow) {
+        try {
+          fs.chmodSync(path.join(root, h), 0o644);
+          disabled.add(h);
+          dropped += 1;
+        } catch {
+          // keep going
+        }
+      }
+      man.disabledByPerf = [...disabled];
+      try {
+        fs.mkdirSync(path.dirname(manFile), { recursive: true });
+        fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+      } catch {
+        console.log("[harness] warn - could not record disabled hooks");
+      }
+      console.log(
+        `[harness] ok - fast-hooks: disabled ${dropped} slow hook(s) over 2s mean: ${slow.join(", ")} (re-enable: harness instinct enable <name>)`,
+      );
+    }
+  }
   const skills = listSkills(root);
   const total = skills.reduce((a, s) => a + s.tokens, 0);
   const top = [...skills].sort((a, b) => b.tokens - a.tokens)[0];
@@ -1588,6 +1723,12 @@ function cmdMemorySync(note: string): boolean {
   } catch {
     console.log("[harness] FAIL - memory: could not write MEMORY.md");
     return false;
+  }
+  const opts = readOptimizations(process.cwd());
+  if (opts["prune-memory"] === false) {
+    const t = estTokens(readText(memFile) ?? "");
+    console.log(`[harness] ok - memory synced (~${fmtTok(t)}, pruning off)`);
+    return true;
   }
   const r = pruneFile(memFile, 2000);
   if (!r) {
@@ -2054,6 +2195,124 @@ function cmdMap(): boolean {
   return true;
 }
 
+interface Optimization {
+  name: string;
+  scope: "ram" | "cpu" | "disk";
+  desc: string;
+}
+
+const OPTIMIZATIONS: Optimization[] = [
+  { name: "slim-agents", scope: "ram", desc: "install slim AGENTS.md (~180 tok) instead of full (~490 tok)" },
+  { name: "prune-memory", scope: "ram", desc: "keep MEMORY.md within the 2k-token budget" },
+  { name: "map-index", scope: "ram", desc: "write .harness/MAP.md file index on init" },
+  { name: "fast-hooks", scope: "cpu", desc: "disable hooks averaging over 2s, measured in optimize" },
+  { name: "archive-rotate", scope: "disk", desc: "cap MEMORY.archive.md at 500 lines in optimize" },
+];
+
+function defaultOptimizations(): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  for (const o of OPTIMIZATIONS) out[o.name] = true;
+  return out;
+}
+
+// manifest toggles merged over defaults (unknown names ignored).
+function readOptimizations(cwd: string): Record<string, boolean> {
+  const out = defaultOptimizations();
+  try {
+    const text = readText(path.join(cwd, ".harness", "config.json"));
+    if (text === null) return out;
+    const saved = JSON.parse(text).optimizations ?? {};
+    for (const o of OPTIMIZATIONS) {
+      if (typeof saved[o.name] === "boolean") out[o.name] = saved[o.name];
+    }
+  } catch {
+    // corrupt manifest: defaults stand
+  }
+  return out;
+}
+
+function writeOptimizations(cwd: string, patch: Record<string, boolean>): boolean {
+  const manFile = path.join(cwd, ".harness", "config.json");
+  let man: Record<string, unknown> = {
+    version: VERSION,
+    harness: [],
+    files: [],
+  };
+  const manText = readText(manFile);
+  if (manText !== null) {
+    try {
+      man = JSON.parse(manText);
+    } catch {
+      console.log("[harness] FAIL - .harness/config.json corrupt");
+      return false;
+    }
+  }
+  const merged = { ...defaultOptimizations(), ...((man.optimizations ?? {}) as Record<string, boolean>), ...patch };
+  const clean: Record<string, boolean> = {};
+  for (const o of OPTIMIZATIONS) clean[o.name] = merged[o.name] !== false;
+  man.optimizations = clean;
+  try {
+    fs.mkdirSync(path.dirname(manFile), { recursive: true });
+    fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+  } catch {
+    console.log("[harness] FAIL - could not write .harness/config.json");
+    return false;
+  }
+  return true;
+}
+
+function readDisabledByPerf(cwd: string): Set<string> {
+  try {
+    const text = readText(path.join(cwd, ".harness", "config.json"));
+    if (text === null) return new Set();
+    const list = JSON.parse(text).disabledByPerf ?? [];
+    return new Set(Array.isArray(list) ? list.filter((x) => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+// pure: which hooks exceed budget. unit-tested.
+export function slowHooks(measurements: Record<string, number>, budgetMs: number): string[] {
+  return Object.entries(measurements)
+    .filter(([, ms]) => ms > budgetMs)
+    .map(([name]) => name)
+    .sort();
+}
+
+function cmdOptimizations(args: string[]): boolean {
+  const cwd = process.cwd();
+  const sub = args[0] ?? "";
+  if (sub === "" || sub === "list") {
+    const opts = readOptimizations(cwd);
+    console.log("[harness] optimizations (all on by default):");
+    for (const o of OPTIMIZATIONS) {
+      console.log(`  ${o.name} [${o.scope}] ${opts[o.name] ? "on" : "off"} - ${o.desc}`);
+    }
+    return true;
+  }
+  if (sub !== "enable" && sub !== "disable") {
+    console.log("[harness] optimizations - want [enable|disable] <name|all>");
+    return false;
+  }
+  const target = args[1] ?? "";
+  const names =
+    target === "all"
+      ? OPTIMIZATIONS.map((o) => o.name)
+      : OPTIMIZATIONS.map((o) => o.name).filter((n) => n === target);
+  if (names.length === 0) {
+    console.log(
+      `[harness] optimizations - unknown name "${target}" (try: ${OPTIMIZATIONS.map((o) => o.name).join(", ")})`,
+    );
+    return false;
+  }
+  const patch: Record<string, boolean> = {};
+  for (const n of names) patch[n] = sub === "enable";
+  if (!writeOptimizations(cwd, patch)) return false;
+  console.log(`[harness] ok - optimizations ${sub}d: ${names.join(", ")}`);
+  return true;
+}
+
 async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
   const all = [cmd, ...flags];
 
@@ -2093,6 +2352,9 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
     }
     case "optimize": {
       return cmdOptimize();
+    }
+    case "optimizations": {
+      return cmdOptimizations(flags);
     }
     case "adapter": {
       if (flags[0] === "add") {
