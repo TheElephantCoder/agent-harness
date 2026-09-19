@@ -4,6 +4,11 @@ Targets I try to keep, from my own setup (250k LOC TS monorepo, M2 Max).
 Independent A/B numbers on other models and hardware live on the site
 Benchmark tab, raw rows in `benchmarks.md`.
 
+Verified regardless of model (deterministic, in `benchmarks.md` under
+"Model-independent ratios"): `optimize` shrinks overgrown memory 3-11x to
+budget, the repo index compresses orientation 13.5x vs reading everything,
+policy hooks run in milliseconds.
+
 - cold start <15s (currently ~13s, was ~180s)
 - tokens per task <50k (around 48k)
 - tool calls per task <60 (around 51)

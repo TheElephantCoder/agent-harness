@@ -65,6 +65,8 @@ harness bench --compare   # diffs against .harness/bench.json (first run saves i
 
 Notes and how it works in [`docs/performance.md`](docs/performance.md). One measured caveat from an M4 Mac mini: guards run ~5ms, the post-edit check ~300ms in JS repos, details on the Benchmark tab.
 
+Verified regardless of model (file arithmetic, not behavior): `optimize` shrinks overgrown memory 3-11x to budget, and the repo index compresses orientation 13.5x vs reading everything. Method in [`docs/benchmarks.md`](docs/benchmarks.md).
+
 ## Works with
 
 You write skills and memory once, harness installs to each tool.

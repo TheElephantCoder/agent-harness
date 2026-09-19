@@ -174,6 +174,23 @@ measurable cell here (+10%, +37%, +13%). Extra context (map + memory) plus
 extra exploration steps outweighs the orientation it saves, on this bed,
 with this driver. Raw rows: `research/evidence/ab-results-mega-nemotron.jsonl`.
 
+## Model-independent ratios (deterministic, no LLM involved)
+
+These hold regardless of model because they are file arithmetic and measured
+micro-costs, not behavior:
+
+- Orientation compression (megabox bed): 204 source files, 148,267 bytes
+  (~37.1k tokens) exhaustive-read ceiling vs `.harness/MAP.md` at 228 lines,
+  10,979 bytes (~2.7k tokens). **13.5x.** Framing: locating *where* things
+  live costs one index read instead of up to a full read-through. Comprehension
+  still costs reading the files themselves.
+- Memory prune scaling (`optimize`, budget 2k tokens, overflow archived,
+  nothing deleted): 5.3k -> 1.9k (2.8x), 7.2k -> 2.0k (3.6x),
+  21.9k -> 2.0k (11x). Under-budget files untouched (1.8k fixture: no-op).
+- Hook fast-paths (550 timed executions): guard ~5ms, hydrate ~7ms,
+  enforce p99 45.7ms, post-edit check ~300ms in JS repos (npx startup).
+  Policy checks that cost milliseconds, not model calls.
+
 ## Verdict vs published claims (180s to 13s, -65% tokens, -40% calls)
 
 Not reproduced. Wall time: tied within variance in 4 of 6 cells; one cell each
