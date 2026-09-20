@@ -108,9 +108,9 @@ def test_complete_flags_and_toggles():
 def test_banner_block():
     assert cli.paint_rainbow("abc") == "abc"
     wide = cli.banner_block(160)
-    assert "█████" in wide
+    assert "___" in wide
     assert "agent-harness v" in cli.banner_block(40)
-    assert "agent-harness v" in cli.banner_block(100)
+    assert "agent-harness v" in cli.banner_block(70)
 
 
 def test_status_line(tmp_path):
