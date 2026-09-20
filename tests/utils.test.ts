@@ -60,13 +60,14 @@ describe("bannerBlock", () => {
   it("passes paintRainbow through with no tty", () => {
     expect(paintRainbow("abc")).toBe("abc");
   });
-  it("renders the figlet name on wide terminals", () => {
-    const b = bannerBlock(100);
-    expect(b).toContain("|___/");
+  it("renders the block-letter name on wide terminals", () => {
+    const b = bannerBlock(160);
+    expect(b).toContain("█████");
     expect(b).toContain("v");
   });
   it("falls back to plain text on narrow terminals", () => {
     expect(bannerBlock(40)).toContain("agent-harness v");
+    expect(bannerBlock(100)).toContain("agent-harness v");
   });
 });
 
