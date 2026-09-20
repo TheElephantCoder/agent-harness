@@ -109,9 +109,10 @@ npm install -g https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz
 npx -y https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/refs/heads/main init
 # registry publish (@theelephantcoder/agent-harness) is pending, same package
 
-# python if you prefer (on Ubuntu 24.04 bare pip is blocked by PEP 668, use pipx or a venv)
-pip install agent-harness-cli
-pipx install agent-harness-cli
+# python if you prefer: no PyPI release yet, install from git
+# (on Ubuntu 24.04 bare pip is blocked by PEP 668, use pipx or a venv)
+pip install "git+https://github.com/TheElephantCoder/agent-harness.git"
+pipx install "git+https://github.com/TheElephantCoder/agent-harness.git"
 # note: pip ships the CLI only (upgrade works); for init/doctor/bench use a source checkout or npm
 
 # apt (Ubuntu/Debian): repo hosted on Pages, no PPA needed

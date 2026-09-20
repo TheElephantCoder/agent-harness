@@ -7,15 +7,14 @@ skills/
   research-first/    # research and plan before editing
   performance/       # keep it fast
   security-guard/    # basic guardrails
-  memory-sync/       # hydrate and distill memory
+  memory-sync/       # hydrate memory, append notes
 ```
 
 Use them:
 
 ```bash
 harness skill list
-harness skill add harness/research-first
-harness skill add vercel-labs/agent-skills --harness claude,opencode
+harness skill add owner/repo
 ```
 
 Or copy a folder to `.harness/skills/` manually if you prefer.

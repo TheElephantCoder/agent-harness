@@ -23,7 +23,7 @@ For >2 files the pre-tool hook will actually block edits until the plan exists. 
 ## Memory
 
 - Start: read `memory/MEMORY.md` + `memory/tiers/hot.md` if it exists.
-- End: run `harness memory sync` to distill what you learned.
+- End: run `harness memory sync "what you learned"` to append it.
 - Keep `MEMORY.md` curated. If you weighed a few options, drop a short ADR in `memory/decisions/`.
 
 ## Skills and instincts

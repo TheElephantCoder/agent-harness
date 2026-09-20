@@ -54,7 +54,7 @@ Short files about the agent and the user. Nothing clever, just helps keep tone c
 
 ## Sessions
 
-The exit hook writes `sessions/<date>.md` and `harness memory sync` distills it into `MEMORY.md`.
+Per-session raw notes live in `sessions/<date>.md`. Append what matters with `harness memory sync "note"`; `optimize` prunes to budget.
 
 ## How fast
 

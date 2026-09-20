@@ -24,7 +24,7 @@ Make it fast, keep tokens low.
 
 **Don't load everything.** MEMORY summary first, details on demand. Skills load when triggered, not at boot. That's what `memory/tiers` is for.
 
-**Keep context small.** Summarize long logs instead of pasting 500 lines. Keep `MEMORY.md` under 8k. Prefer surgical `edit` over rewriting a whole file.
+**Keep context small.** Summarize long logs instead of pasting 500 lines. Keep `MEMORY.md` under 2k. Prefer surgical `edit` over rewriting a whole file.
 
 **Measure.** Run `harness bench --quick` before and after you try to optimize. Track cold start, tokens, tool calls, hook time.
 

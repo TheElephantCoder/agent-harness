@@ -165,7 +165,7 @@ nemotron-3-super-120b ($0.56):
 - T1 bare: 0/3, wall 39 [29-56], tok 107295
 - T1 harness: 0/3, wall 62 [48-83], tok 117571
 - T2 bare: 3/3, wall 119 [75-147], tok 192958, tools 23.0
-- T2 harness: 3/3, wall 130 [45-212], tok 264719, tools 33.3
+- T2 harness: 3/3, wall 130 [81-212], tok 264719, tools 33.3
 - T3 bare: 3/3, wall 56 [43-73], tok 87186, tools 9.0
 - T3 harness: 3/3, wall 58 [37-97], tok 98234, tools 10.3
 
@@ -190,6 +190,25 @@ micro-costs, not behavior:
 - Hook fast-paths (550 timed executions): guard ~5ms, hydrate ~7ms,
   enforce p99 45.7ms, post-edit check ~300ms in JS repos (npx startup).
   Policy checks that cost milliseconds, not model calls.
+
+## Mega bed with map treatment, nemotron, second run (11/18, $0.56)
+
+Treatment adds enriched memory and narrowed skill triggers on top of the
+map. Raw rows: `research/evidence/ab-results-mega-nemotron-enriched.jsonl`
+(a prior 12/18 run under map-only treatment lives in
+`research/evidence/ab-results-mega-nemotron.jsonl`; the two runs differ
+only in memory/trigger content, same bed, same driver).
+
+nemotron-3-super-120b:
+- T1 bare: 0/3, wall 63 [47-81], tok 147598
+- T1 harness: 0/3, wall 106 [83-151], tok 138348
+- T2 bare: 2/3, wall 130 [55-264], tok 142248, tools 15.3
+- T2 harness: 3/3, wall 122 [65-173], tok 178366, tools 19.7
+- T3 bare: 3/3, wall 71 [50-95], tok 90754, tools 9.7
+- T3 harness: 3/3, wall 107 [62-135], tok 139623, tools 16.0
+
+One honest bright spot inside it: harness went 3/3 on T2 where bare went
+2/3. Robustness, not efficiency, and n=1 either way.
 
 ## Verdict vs published claims (180s to 13s, -65% tokens, -40% calls)
 
