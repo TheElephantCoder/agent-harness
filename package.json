@@ -44,7 +44,7 @@
     "tsx": "^4.0.0",
     "typescript": "^5.5.0",
     "typescript-eslint": "^8.70.0",
-    "vitest": "^1.0.0"
+    "vitest": "^4.1.11"
   },
   "files": [
     "src/",
