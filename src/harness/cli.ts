@@ -80,7 +80,6 @@ function centerLine(line: string, width: number): string {
   const pad = Math.max(0, Math.floor((width - plain.length) / 2));
   return " ".repeat(pad) + line;
 }
-
 function paintArt(line: string): string {
   return line
     .split("")
@@ -92,22 +91,62 @@ function paintArt(line: string): string {
     .join("");
 }
 
+// figlet "agent-harness" (figlet `small` font), embedded so the welcome
+// banner needs no runtime dependency.
+const FIGLET = [
+  "                   _       _",
+  " __ _ __ _ ___ _ _| |_ ___| |_  __ _ _ _ _ _  ___ ______",
+  "/ _` / _` / -_) ' \\  _|___| ' \\/ _` | '_| ' \\/ -_|_-<_-<",
+  "\\__,_\\__, \\___|_||_\\__|   |_||_\\__,_|_| |_||_\\___/__/__/",
+  "     |___/",
+];
+
+const FIGLET_MIN_WIDTH = 60;
+
+// horizontal rainbow bands, lolcat style. plain text when color is off.
+export function paintRainbow(line: string): string {
+  if (!useColor()) return line;
+  const bands = [
+    ANSI.red,
+    ANSI.yellow,
+    ANSI.green,
+    ANSI.cyan,
+    ANSI.blue,
+    ANSI.magenta,
+  ];
+  const w = Math.max(1, Math.ceil(line.length / bands.length));
+  let out = "";
+  for (let i = 0; i < line.length; i++) {
+    out += `${bands[Math.min(bands.length - 1, Math.floor(i / w))]}${line[i]}`;
+  }
+  return `${out}${ANSI.reset}`;
+}
+
+// big rainbow name, or the plain title when the terminal is too narrow.
+// exported for tests.
+export function bannerBlock(width: number): string {
+  if (width < FIGLET_MIN_WIDTH) {
+    return centerLine(`agent-harness ${paint(ANSI.dim, `v${VERSION}`)}`, width);
+  }
+  const fig = FIGLET.map((l) => centerLine(paintRainbow(l), width)).join(
+    "\n",
+  );
+  return `${fig}\n${centerLine(paint(ANSI.dim, `v${VERSION}`), width)}`;
+}
+
 function welcome(): string {
   const width = termWidth();
   const rule = paint(ANSI.dim, "·".repeat(width));
   const divider = paint(ANSI.dim, "╌".repeat(width));
   const art = ART.map((l) => centerLine(paintArt(l), width)).join("\n");
-  const title = centerLine(
-    `Welcome to ${paint(ANSI.bold, "agent-harness")} ${paint(ANSI.dim, `v${VERSION}`)}`,
-    width,
-  );
   const sub = centerLine(paint(ANSI.dim, "Let's get started."), width);
   const credit = centerLine(paint(ANSI.dim, "by TheElephantCoder"), width);
   return (
-    [rule, "", art, "", title, "", sub, credit, ""].join("\n") + "\n" + divider
+    [rule, "", art, "", bannerBlock(width), "", sub, credit, ""].join("\n") +
+    "\n" +
+    divider
   );
 }
-
 function help() {
   console.log(`
 harness v${VERSION} - agent harness perf layer by TheElephantCoder
@@ -157,8 +196,11 @@ const ANSI = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
   dim: "\x1b[2m",
-  cyan: "\x1b[36m",
+  red: "\x1b[31m",
+  yellow: "\x1b[33m",
   green: "\x1b[32m",
+  cyan: "\x1b[36m",
+  blue: "\x1b[34m",
   magenta: "\x1b[35m",
 };
 

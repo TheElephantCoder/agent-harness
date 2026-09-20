@@ -3,8 +3,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+  bannerBlock,
   completeLine,
   estTokens,
+  paintRainbow,
   statusLine,
   fmtTok,
   mapSymbols,
@@ -51,6 +53,20 @@ describe("completeLine", () => {
     const [all] = completeLine("instinct enable ");
     expect(all.length).toBeGreaterThan(0);
     expect(all.every((h) => h.endsWith(".sh"))).toBe(true);
+  });
+});
+
+describe("bannerBlock", () => {
+  it("passes paintRainbow through with no tty", () => {
+    expect(paintRainbow("abc")).toBe("abc");
+  });
+  it("renders the figlet name on wide terminals", () => {
+    const b = bannerBlock(100);
+    expect(b).toContain("|___/");
+    expect(b).toContain("v");
+  });
+  it("falls back to plain text on narrow terminals", () => {
+    expect(bannerBlock(40)).toContain("agent-harness v");
   });
 });
 

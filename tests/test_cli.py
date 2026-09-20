@@ -105,6 +105,13 @@ def test_complete_flags_and_toggles():
     ]
 
 
+def test_banner_block():
+    assert cli.paint_rainbow("abc") == "abc"
+    wide = cli.banner_block(100)
+    assert "|___/" in wide
+    assert "agent-harness v" in cli.banner_block(40)
+
+
 def test_status_line(tmp_path):
     assert cli.status_line(str(tmp_path)) == "project: not initialized · no MEMORY.md · skills 4"
     (tmp_path / ".harness").mkdir()

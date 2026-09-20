@@ -21,7 +21,11 @@ VERSION = "0.2.1"
 RESET = "\x1b[0m"
 BOLD = "\x1b[1m"
 DIM = "\x1b[2m"
+RED = "\x1b[31m"
+YELLOW = "\x1b[33m"
+GREEN = "\x1b[32m"
 CYAN = "\x1b[36m"
+BLUE = "\x1b[34m"
 MAGENTA = "\x1b[35m"
 
 def use_color():
@@ -53,7 +57,7 @@ def term_width():
 
 def center_line(line, width):
     plain = line
-    for code in (RESET, BOLD, DIM, CYAN, MAGENTA):
+    for code in (RESET, BOLD, DIM, RED, YELLOW, GREEN, CYAN, BLUE, MAGENTA):
         plain = plain.replace(code, "")
     pad = max(0, (width - len(plain)) // 2)
     return " " * pad + line
@@ -69,15 +73,44 @@ def paint_art(line):
             out.append(paint(DIM, ch))
     return "".join(out)
 
+# figlet "agent-harness" (figlet `small` font), embedded so the welcome
+# banner needs no runtime dependency.
+FIGLET = [
+    "                   _       _",
+    " __ _ __ _ ___ _ _| |_ ___| |_  __ _ _ _ _ _  ___ ______",
+    "/ _` / _` / -_) ' \\  _|___| ' \\/ _` | '_| ' \\/ -_|_-<_-<",
+    "\\__,_\\__, \\___|_||_\\__|   |_||_\\__,_|_| |_||_\\___/__/__/",
+    "     |___/",
+]
+
+FIGLET_MIN_WIDTH = 60
+RAINBOW = [RED, YELLOW, GREEN, CYAN, BLUE, MAGENTA]
+
+def paint_rainbow(line):
+    """Horizontal rainbow bands, lolcat style. Plain text when color is off."""
+    if not use_color():
+        return line
+    w = max(1, -(-len(line) // len(RAINBOW)))
+    out = []
+    for i, ch in enumerate(line):
+        out.append(f"{RAINBOW[min(len(RAINBOW) - 1, i // w)]}{ch}")
+    return "".join(out) + RESET
+
+def banner_block(width):
+    """Big rainbow name, or the plain title when the terminal is too narrow."""
+    if width < FIGLET_MIN_WIDTH:
+        return center_line(f"agent-harness {paint(DIM, f'v{VERSION}')}", width)
+    fig = "\n".join(center_line(paint_rainbow(l), width) for l in FIGLET)
+    return f"{fig}\n{center_line(paint(DIM, f'v{VERSION}'), width)}"
+
 def welcome():
     width = term_width()
     rule = paint(DIM, "·" * width)
     divider = paint(DIM, "╌" * width)
     art = "\n".join(center_line(paint_art(l), width) for l in ART)
-    title = center_line(f"Welcome to {paint(BOLD, 'agent-harness')} {paint(DIM, f'v{VERSION}')}", width)
     sub = center_line(paint(DIM, "Let's get started."), width)
     credit = center_line(paint(DIM, "by TheElephantCoder"), width)
-    return "\n".join([rule, "", art, "", title, "", sub, credit, ""]) + "\n" + divider
+    return "\n".join([rule, "", art, "", banner_block(width), "", sub, credit, ""]) + "\n" + divider
 
 def pick_numbered(title, options):
     print(paint(BOLD, title))
