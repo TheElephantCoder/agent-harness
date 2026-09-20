@@ -16,6 +16,7 @@ export const VERSION = "0.2.0";
 type Command =
   | "init"
   | "doctor"
+  | "status"
   | "bench"
   | "skill"
   | "memory"
@@ -34,6 +35,7 @@ type Command =
 const SHELL_COMMANDS = [
   "init",
   "doctor",
+  "status",
   "bench",
   "skill",
   "memory",
@@ -113,6 +115,7 @@ usage: harness <command> [options]
 
   init [--harness <name>] [--auto] [--migrate]   install into current project
   doctor [--fix] [--strict]                      verify install and project
+  status                                         project snapshot: memory, skills, hooks, last bench
   bench [--compare] [--quick]                    measure costs, save baseline
   optimize                                       prune memory, repair, report savings
   optimizations [enable|disable] [name|all]      list, toggle optimizations
@@ -201,6 +204,17 @@ async function selectOption(title: string, options: string[]): Promise<number> {
   return new Promise<number>((resolve) => {
     let index = 0;
     let rendered = 0;
+    let finished = false;
+    // first digit of a two-digit option number, with its commit timer.
+    let pendingDigit = 0;
+    let pendingTimer: NodeJS.Timeout | null = null;
+    const clearPending = () => {
+      if (pendingTimer) {
+        clearTimeout(pendingTimer);
+        pendingTimer = null;
+      }
+      pendingDigit = 0;
+    };
     const stdin = process.stdin;
     const hint = paint(
       ANSI.dim,
@@ -225,6 +239,9 @@ async function selectOption(title: string, options: string[]): Promise<number> {
       rendered = lines;
     };
     const done = (n: number) => {
+      if (finished) return;
+      finished = true;
+      clearPending();
       stdin.setRawMode(false);
       stdin.removeAllListeners("keypress");
       stdin.pause();
@@ -248,11 +265,13 @@ async function selectOption(title: string, options: string[]): Promise<number> {
         return;
       }
       if (key.name === "up" || key.name === "k") {
+        clearPending();
         index = (index - 1 + options.length) % options.length;
         draw();
         return;
       }
       if (key.name === "down" || key.name === "j") {
+        clearPending();
         index = (index + 1) % options.length;
         draw();
         return;
@@ -262,10 +281,39 @@ async function selectOption(title: string, options: string[]): Promise<number> {
         done(-1);
         return;
       }
-      const n = parseInt(key.sequence, 10);
-      if (!Number.isNaN(n) && n >= 1 && n <= options.length) {
-        process.stdout.write("\n");
-        done(n - 1);
+      // digits select immediately when unambiguous (d*10 exceeds the
+      // option count); otherwise the first digit waits 450ms for a second.
+      const d = parseInt(key.sequence, 10);
+      if (!Number.isNaN(d) && d >= 0 && d <= 9) {
+        if (pendingTimer) {
+          const first = pendingDigit;
+          clearPending();
+          const two = first * 10 + d;
+          if (two >= 1 && two <= options.length) {
+            process.stdout.write("\n");
+            done(two - 1);
+            return;
+          }
+          if (first >= 1 && first <= options.length) {
+            process.stdout.write("\n");
+            done(first - 1);
+            return;
+          }
+          return;
+        }
+        if (d >= 1 && (d * 10 > options.length || options.length < 10)) {
+          process.stdout.write("\n");
+          done(d - 1);
+          return;
+        }
+        if (d >= 1) {
+          pendingDigit = d;
+          pendingTimer = setTimeout(() => {
+            pendingTimer = null;
+            process.stdout.write("\n");
+            done(d - 1);
+          }, 450);
+        }
       }
     });
     draw();
@@ -314,6 +362,7 @@ async function showMenu(): Promise<void> {
   const options = [
     "Set up this project",
     "Check setup",
+    "Project status",
     "Run benchmark",
     "Optimize this project",
     "Manage optimizations",
@@ -333,26 +382,28 @@ async function showMenu(): Promise<void> {
   } else if (picked === 1) {
     await checkMenu();
   } else if (picked === 2) {
-    await benchMenu();
+    await runCommand("status", []);
   } else if (picked === 3) {
-    await runCommand("optimize", []);
+    await benchMenu();
   } else if (picked === 4) {
-    await showOptimizationsMenu();
+    await runCommand("optimize", []);
   } else if (picked === 5) {
-    await runCommand("map", []);
+    await showOptimizationsMenu();
   } else if (picked === 6) {
-    await skillsMenu();
+    await runCommand("map", []);
   } else if (picked === 7) {
-    await memoryMenu();
+    await skillsMenu();
   } else if (picked === 8) {
-    await instinctMenu();
+    await memoryMenu();
   } else if (picked === 9) {
-    await researchMenu();
+    await instinctMenu();
   } else if (picked === 10) {
-    await securityMenu();
+    await researchMenu();
   } else if (picked === 11) {
-    await adapterMenu();
+    await securityMenu();
   } else if (picked === 12) {
+    await adapterMenu();
+  } else if (picked === 13) {
     await runCommand("upgrade", []);
   }
   console.log(paint(ANSI.dim, "╌".repeat(termWidth())));
@@ -542,20 +593,99 @@ async function showOptimizationsMenu(): Promise<void> {
   }
 }
 
+// tab-completion for the prompt: command names, then subcommands,
+// flags, and installed skill/hook names. exported for tests.
+export function completeLine(line: string): [string[], string] {
+  const parts = line.split(/\s+/);
+  if (parts.length <= 1) {
+    const hits = SHELL_COMMANDS.filter((c) => c.startsWith(line));
+    return [hits.length ? hits : SHELL_COMMANDS, line];
+  }
+  const [cmd, ...rest] = parts;
+  const subs: Record<string, string[]> = {
+    skill: ["list", "search", "info", "add", "remove", "verify"],
+    memory: ["show", "prune", "sync", "edit"],
+    instinct: ["list", "enable", "disable"],
+    adapter: ["list", "add"],
+    security: ["audit", "scan"],
+    optimizations: ["enable", "disable"],
+  };
+  const flagSets: Record<string, string[]> = {
+    init: ["--auto", "--harness", "--migrate"],
+    doctor: ["--fix", "--strict"],
+    bench: ["--quick", "--compare"],
+    security: ["--staged"],
+  };
+  const last = rest[rest.length - 1] ?? "";
+  // `skill info <name>`: complete installed skill names.
+  if (cmd === "skill" && rest[0] === "info" && rest.length === 2) {
+    const root = selfRoot();
+    const names = root ? listSkills(root).map((s) => s.name) : [];
+    const hits = names.filter((n) => n.startsWith(last));
+    return [hits.length ? hits : names, last];
+  }
+  // `instinct enable|disable <name>`: complete hook paths (substring match).
+  if (
+    cmd === "instinct" &&
+    (rest[0] === "enable" || rest[0] === "disable") &&
+    rest.length === 2
+  ) {
+    const root = selfRoot();
+    const names = root ? listHooks(root) : [];
+    const hits = names.filter((n) => n.includes(last));
+    return [hits.length ? hits : names, last];
+  }
+  // `optimizations enable|disable <name>`: complete toggle names + all.
+  if (
+    cmd === "optimizations" &&
+    (rest[0] === "enable" || rest[0] === "disable") &&
+    rest.length === 2
+  ) {
+    const names = [...OPTIMIZATIONS.map((o) => o.name), "all"];
+    const hits = names.filter((n) => n.startsWith(last));
+    return [hits.length ? hits : names, last];
+  }
+  const words = [...(subs[cmd] ?? []), ...(flagSets[cmd] ?? [])];
+  const hits = words.filter((w) => w.startsWith(last));
+  return [hits.length ? hits : words, last];
+}
+
+// node exposes the prompt history array at runtime, but the public
+// Interface type hides it; this structural view restores it.
+interface ReadlineWithHistory extends readline.Interface {
+  history: string[];
+}
+
 async function interactive() {
   console.log(welcome());
   await showMenu();
+  // command history persists across sessions in .harness/history, but only
+  // in initialized projects: creating .harness/ here would fake init state.
+  const hDir = path.join(process.cwd(), ".harness");
+  const histFile = path.join(hDir, "history");
+  let savedHist: string[] = [];
+  if (fs.existsSync(hDir)) {
+    try {
+      savedHist = fs
+        .readFileSync(histFile, "utf8")
+        .split("\n")
+        .filter(Boolean)
+        .slice(-100);
+    } catch {
+      // no history yet
+    }
+  }
   // created after the menus: an earlier readline would auto-close on stdin
   // EOF (piped/closed input) and take prompt() down with it.
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: `${paint(ANSI.bold + ANSI.cyan, "harness>")} `,
-    completer: (line: string) => {
-      const hits = SHELL_COMMANDS.filter((c) => c.startsWith(line));
-      return [hits.length ? hits : SHELL_COMMANDS, line];
-    },
+    completer: completeLine,
+    historySize: 100,
   });
+  const rlHist = (rl as ReadlineWithHistory).history;
+  for (const h of savedHist) rlHist.unshift(h);
   rl.on("SIGINT", () => {
     rl.close();
   });
@@ -581,6 +711,16 @@ async function interactive() {
     }
     await runCommand(c, rest);
     rl.prompt();
+  }
+  if (fs.existsSync(hDir)) {
+    try {
+      const seen = new Set(savedHist);
+      const fresh = rlHist.filter((h: string) => h.trim() && !seen.has(h));
+      const merged = [...savedHist, ...fresh.reverse()].slice(-100);
+      fs.writeFileSync(histFile, merged.join("\n") + "\n");
+    } catch {
+      // history is best-effort
+    }
   }
   rl.close();
   console.log(paint(ANSI.dim, "bye."));
@@ -1563,6 +1703,85 @@ function scanStaged(): { file: string; line: number }[] {
     }
   }
   return hits;
+}
+
+function fmtAge(ts: string): string {
+  const ago = Date.now() - Date.parse(ts);
+  if (!isFinite(ago) || ago < 0) return "unknown age";
+  const min = Math.floor(ago / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const h = Math.floor(min / 60);
+  if (h < 48) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// project snapshot: init state, memory, findings, baseline, install.
+// reads only; never fails, missing pieces are reported as missing.
+function cmdStatus(): boolean {
+  const cwd = process.cwd();
+  const hDir = path.join(cwd, ".harness");
+  console.log("[harness] status");
+  console.log("Project");
+  const initState = fs.existsSync(path.join(hDir, "config.json"))
+    ? "yes"
+    : fs.existsSync(hDir)
+      ? "partial (.harness/ without config.json)"
+      : "no";
+  console.log(
+    `  initialized: ${initState}${initState === "no" ? " (run harness init)" : ""}`,
+  );
+  const mem = readText(path.join(cwd, "MEMORY.md"));
+  console.log(
+    mem === null
+      ? "  MEMORY.md: missing"
+      : `  MEMORY.md: ~${fmtTok(estTokens(mem))} tokens`,
+  );
+  let findings = 0;
+  try {
+    findings = fs
+      .readdirSync(path.join(cwd, "research", "findings"))
+      .filter((f) => f.endsWith(".md")).length;
+  } catch {
+    // no findings dir
+  }
+  console.log(`  research findings: ${findings}`);
+  const bText = readText(path.join(hDir, "bench.json"));
+  if (bText === null) {
+    console.log("  last benchmark: none yet (run harness bench)");
+  } else {
+    try {
+      const b = JSON.parse(bText);
+      const cold =
+        typeof b.coldStartMs === "number" ? `, cold-start ${b.coldStartMs}ms` : "";
+      console.log(`  last benchmark: ${fmtAge(b.ts)}${cold}`);
+    } catch {
+      console.log("  last benchmark: baseline corrupt (run harness bench)");
+    }
+  }
+  const opts = readOptimizations(cwd);
+  const on = OPTIMIZATIONS.filter((o) => opts[o.name]).length;
+  console.log(`  optimizations: ${on}/${OPTIMIZATIONS.length} on`);
+  const root = selfRoot();
+  if (root === null) {
+    console.log("[harness] status - cannot locate install");
+    return true;
+  }
+  console.log("Install");
+  console.log(`  version: ${VERSION}`);
+  const skills = listSkills(root);
+  console.log(
+    `  skills: ${skills.length} (~${fmtTok(skills.reduce((t, s) => t + s.tokens, 0))} tokens)`,
+  );
+  const hooks = listHooks(root);
+  console.log(
+    `  hooks: ${hooks.length} (${hooks.filter((h) => isExec(path.join(root, h))).length} executable)`,
+  );
+  const adapters = listAdapters(root);
+  console.log(
+    `  adapters: ${adapters.filter((a) => a.json).length}/${adapters.length} valid`,
+  );
+  return true;
 }
 
 function cmdDoctor(flags: string[]): boolean {
@@ -2568,6 +2787,9 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
     }
     case "doctor": {
       return cmdDoctor(flags);
+    }
+    case "status": {
+      return cmdStatus();
     }
     case "bench": {
       return cmdBench(flags);

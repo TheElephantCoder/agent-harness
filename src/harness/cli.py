@@ -1,5 +1,6 @@
 # harness python shim, mirrors cli.ts
 import argparse
+import atexit
 import cmd as cmdmod
 import hashlib
 import json
@@ -11,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime
 from types import SimpleNamespace
 from urllib.request import Request, urlopen
 
@@ -121,6 +123,8 @@ def pick_arrows(title, options):
     old = termios.tcgetattr(fd)
     index = 0
     rendered = 0
+    # first digit of a two-digit option number, with its timestamp.
+    pending, pending_at = 0, 0.0
     hint = paint(DIM, "↑↓ to move · enter to select · type a number")
     try:
         tty.setraw(fd)
@@ -138,6 +142,16 @@ def pick_arrows(title, options):
                 sys.stdout.write("\x1b[G\x1b[K" + l + "\n")
             sys.stdout.flush()
             rendered = len(lines)
+            if pending:
+                import select as selectmod
+                wait = 0.45 - (time.monotonic() - pending_at)
+                if wait <= 0:
+                    sys.stdout.write("\n")
+                    return pending - 1
+                r, _, _ = selectmod.select([fd], [], [], wait)
+                if not r:
+                    sys.stdout.write("\n")
+                    return pending - 1
             ch = sys.stdin.read(1)
             if ch == "\x03":
                 sys.stdout.write("\n")
@@ -146,6 +160,7 @@ def pick_arrows(title, options):
                 sys.stdout.write("\n")
                 return index
             if ch == "\x1b":
+                pending = 0
                 nxt = sys.stdin.read(2)
                 if nxt == "[A":
                     index = (index - 1) % len(options)
@@ -155,17 +170,31 @@ def pick_arrows(title, options):
                     sys.stdout.write("\n")
                     return -1
             elif ch in ("k",):
+                pending = 0
                 index = (index - 1) % len(options)
             elif ch in ("j",):
+                pending = 0
                 index = (index + 1) % len(options)
             elif ch in ("q",):
                 sys.stdout.write("\n")
                 return -1
             elif ch.isdigit():
-                n = int(ch)
-                if 1 <= n <= len(options):
+                d = int(ch)
+                if pending and time.monotonic() - pending_at < 0.45:
+                    two = pending * 10 + d
+                    first = pending
+                    pending = 0
+                    if 1 <= two <= len(options):
+                        sys.stdout.write("\n")
+                        return two - 1
+                    if 1 <= first <= len(options):
+                        sys.stdout.write("\n")
+                        return first - 1
+                elif d >= 1 and (d * 10 > len(options) or len(options) < 10):
                     sys.stdout.write("\n")
-                    return n - 1
+                    return d - 1
+                elif d >= 1:
+                    pending, pending_at = d, time.monotonic()
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
@@ -199,6 +228,7 @@ def show_menu():
     options = [
         "Set up this project",
         "Check setup",
+        "Project status",
         "Run benchmark",
         "Optimize this project",
         "Manage optimizations",
@@ -218,26 +248,28 @@ def show_menu():
     elif picked == 1:
         check_menu()
     elif picked == 2:
-        bench_menu()
+        cmd_status()
     elif picked == 3:
-        cmd_optimize()
+        bench_menu()
     elif picked == 4:
-        show_optimizations_menu()
+        cmd_optimize()
     elif picked == 5:
-        cmd_map()
+        show_optimizations_menu()
     elif picked == 6:
-        skills_menu()
+        cmd_map()
     elif picked == 7:
-        memory_menu()
+        skills_menu()
     elif picked == 8:
-        instinct_menu()
+        memory_menu()
     elif picked == 9:
-        research_menu()
+        instinct_menu()
     elif picked == 10:
-        security_menu()
+        research_menu()
     elif picked == 11:
-        adapter_menu()
+        security_menu()
     elif picked == 12:
+        adapter_menu()
+    elif picked == 13:
         cmd_upgrade()
     print(paint(DIM, "╌" * term_width()))
 
@@ -576,6 +608,77 @@ def scan_staged():
                     continue
                 hits.append((fname, line))
     return hits
+
+def fmt_age(ts):
+    try:
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        ago = time.time() - dt.timestamp()
+    except (ValueError, TypeError):
+        return "unknown age"
+    if ago < 0:
+        return "unknown age"
+    mins = int(ago // 60)
+    if mins < 1:
+        return "just now"
+    if mins < 60:
+        return f"{mins}m ago"
+    h = mins // 60
+    if h < 48:
+        return f"{h}h ago"
+    return f"{h // 24}d ago"
+
+def cmd_status():
+    """Project snapshot: init state, memory, findings, baseline, install.
+    Reads only; never fails, missing pieces are reported as missing."""
+    cwd = os.getcwd()
+    hdir = os.path.join(cwd, ".harness")
+    print("[harness] status")
+    print("Project")
+    if os.path.isfile(os.path.join(hdir, "config.json")):
+        init_state = "yes"
+    elif os.path.isdir(hdir):
+        init_state = "partial (.harness/ without config.json)"
+    else:
+        init_state = "no"
+    suffix = " (run harness init)" if init_state == "no" else ""
+    print(f"  initialized: {init_state}{suffix}")
+    mem = read_text(os.path.join(cwd, "MEMORY.md"))
+    if mem is None:
+        print("  MEMORY.md: missing")
+    else:
+        print(f"  MEMORY.md: ~{fmt_tok(est_tokens(mem))} tokens")
+    try:
+        findings = len([f for f in os.listdir(os.path.join(cwd, "research", "findings"))
+                        if f.endswith(".md")])
+    except OSError:
+        findings = 0
+    print(f"  research findings: {findings}")
+    btext = read_text(os.path.join(hdir, "bench.json"))
+    if btext is None:
+        print("  last benchmark: none yet (run harness bench)")
+    else:
+        try:
+            b = json.loads(btext)
+            cold = f", cold-start {b['coldStartMs']}ms" if isinstance(b.get("coldStartMs"), (int, float)) else ""
+            print(f"  last benchmark: {fmt_age(b.get('ts'))}{cold}")
+        except (ValueError, TypeError, AttributeError):
+            print("  last benchmark: baseline corrupt (run harness bench)")
+    opts = read_optimizations(cwd)
+    on = sum(1 for o in OPTIMIZATIONS if opts.get(o["name"]))
+    print(f"  optimizations: {on}/{len(OPTIMIZATIONS)} on")
+    root = self_root()
+    if root is None:
+        print("[harness] status - cannot locate install")
+        return True
+    print("Install")
+    print(f"  version: {VERSION}")
+    skills = list_skills(root)
+    print(f"  skills: {len(skills)} (~{fmt_tok(sum(s['tokens'] for s in skills))} tokens)")
+    hooks = list_hooks(root)
+    print(f"  hooks: {len(hooks)} ({sum(1 for h in hooks if is_exec(os.path.join(root, h)))} executable)")
+    adapters = list_adapters(root)
+    print(f"  adapters: {sum(1 for a in adapters if a['json'])}/{len(adapters)} valid")
+    return True
 
 def cmd_doctor(args=None):
     root = self_root()
@@ -1962,6 +2065,21 @@ def cmd_skill_verify(namesel):
 def launch_shell():
     print(welcome())
     show_menu()
+    # history persists across sessions in .harness/history, but only in
+    # initialized projects: creating .harness/ here would fake init state.
+    hdir = os.path.join(os.getcwd(), ".harness")
+    histfile = os.path.join(hdir, "history")
+    try:
+        import readline as rlmod
+    except ImportError:
+        rlmod = None
+    if rlmod is not None and os.path.isdir(hdir):
+        try:
+            rlmod.read_history_file(histfile)
+        except OSError:
+            pass
+        rlmod.set_history_length(100)
+        atexit.register(rlmod.write_history_file, histfile)
     sh = HarnessShell()
     sh.intro = None
     sh.cmdloop()
@@ -2114,6 +2232,68 @@ class HarnessShell(cmdmod.Cmd):
         "self-update to latest"
         cmd_upgrade()
 
+    def do_status(self, arg):
+        "project snapshot: memory, skills, hooks, last bench"
+        cmd_status()
+
+    @staticmethod
+    def _parts(line):
+        # str.split() drops trailing whitespace, but a trailing space means
+        # the user is starting a new token: keep it as an empty last part.
+        parts = line.split()
+        if line.endswith((" ", "\t")):
+            parts.append("")
+        return parts
+
+    def complete_skill(self, text, line, begidx, endidx):
+        parts = self._parts(line)
+        subs = ["list", "search", "info", "add", "remove", "verify"]
+        if len(parts) <= 2:
+            return [s for s in subs if s.startswith(text)]
+        if len(parts) == 3 and parts[1] == "info":
+            root = self_root()
+            names = [s["name"] for s in list_skills(root)] if root else []
+            return [n for n in names if n.startswith(text)]
+        return []
+
+    def complete_memory(self, text, line, begidx, endidx):
+        return [s for s in ["show", "prune", "sync", "edit"] if s.startswith(text)]
+
+    def complete_instinct(self, text, line, begidx, endidx):
+        parts = self._parts(line)
+        if len(parts) <= 2:
+            return [s for s in ["list", "enable", "disable"] if s.startswith(text)]
+        if len(parts) == 3 and parts[1] in ("enable", "disable"):
+            root = self_root()
+            names = list_hooks(root) if root else []
+            return [n for n in names if text in n]
+        return []
+
+    def complete_adapter(self, text, line, begidx, endidx):
+        return [s for s in ["list", "add"] if s.startswith(text)]
+
+    def complete_security(self, text, line, begidx, endidx):
+        words = ["audit", "scan", "--staged"]
+        return [w for w in words if w.startswith(text)]
+
+    def complete_optimizations(self, text, line, begidx, endidx):
+        parts = self._parts(line)
+        if len(parts) <= 2:
+            return [s for s in ["enable", "disable"] if s.startswith(text)]
+        if len(parts) == 3 and parts[1] in ("enable", "disable"):
+            names = [o["name"] for o in OPTIMIZATIONS] + ["all"]
+            return [n for n in names if n.startswith(text)]
+        return []
+
+    def complete_init(self, text, line, begidx, endidx):
+        return [f for f in ["--auto", "--harness", "--migrate"] if f.startswith(text)]
+
+    def complete_doctor(self, text, line, begidx, endidx):
+        return [f for f in ["--fix", "--strict"] if f.startswith(text)]
+
+    def complete_bench(self, text, line, begidx, endidx):
+        return [f for f in ["--quick", "--compare"] if f.startswith(text)]
+
     def default(self, line):
         print(f"[harness] unknown command: {line.split()[0]}")
 
@@ -2137,7 +2317,7 @@ def main():
     c.add_argument("--compare", action="store_true")
     c.add_argument("--quick", action="store_true")
 
-    for name in ["skill", "memory", "instinct", "research", "security", "upgrade", "shell", "optimize", "optimizations", "adapter", "map"]:
+    for name in ["skill", "memory", "instinct", "research", "security", "upgrade", "shell", "optimize", "optimizations", "adapter", "map", "status"]:
         s = sub.add_parser(name)
         s.add_argument("args", nargs=argparse.REMAINDER)
 
@@ -2229,6 +2409,10 @@ def main():
         return
     if args.cmd == "optimizations":
         if not cmd_optimizations(list(args.args or [])):
+            sys.exit(1)
+        return
+    if args.cmd == "status":
+        if not cmd_status():
             sys.exit(1)
         return
     rest = " ".join(getattr(args, "args", []) or [])

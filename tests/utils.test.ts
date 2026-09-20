@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+  completeLine,
   estTokens,
   fmtTok,
   mapSymbols,
@@ -14,6 +15,43 @@ import {
   slugify,
   stripFm,
 } from "../src/harness/cli.js";
+
+describe("completeLine", () => {
+  it("completes command names", () => {
+    expect(completeLine("st")).toEqual([["status"], "st"]);
+    expect(completeLine("zzz")[0]).toContain("status");
+  });
+  it("completes subcommands and flags", () => {
+    expect(completeLine("skill ")[0]).toEqual([
+      "list",
+      "search",
+      "info",
+      "add",
+      "remove",
+      "verify",
+    ]);
+    expect(completeLine("doctor --")).toEqual([["--fix", "--strict"], "--"]);
+    expect(completeLine("optimizations enable ")[0]).toEqual([
+      "slim-agents",
+      "prune-memory",
+      "map-index",
+      "fast-hooks",
+      "archive-rotate",
+      "all",
+    ]);
+  });
+  it("completes installed skill names", () => {
+    const [all] = completeLine("skill info ");
+    expect(all.length).toBeGreaterThan(0);
+    expect(all.every((n) => n && !n.includes(" "))).toBe(true);
+    expect(completeLine("skill info re")).toEqual([["research-first"], "re"]);
+  });
+  it("completes hook paths by substring", () => {
+    const [all] = completeLine("instinct enable ");
+    expect(all.length).toBeGreaterThan(0);
+    expect(all.every((h) => h.endsWith(".sh"))).toBe(true);
+  });
+});
 
 describe("parseFrontmatter", () => {
   it("parses name and description", () => {

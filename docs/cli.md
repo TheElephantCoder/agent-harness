@@ -3,6 +3,7 @@
 ```
 harness init [--harness <name>] [--auto] [--migrate]
 harness doctor [--fix] [--strict]
+harness status
 harness bench [--compare] [--quick]
 harness optimize
 harness map
@@ -16,7 +17,7 @@ harness upgrade
 harness shell
 ```
 
-Run `harness` with no args on a terminal to open the interactive prompt: a menu covering every command (with guided prompts for arguments), then a `harness>` shell where every command works the same, plus `exit` and `quit` to leave. With arguments (`harness doctor --fix`), it just runs the action directly.
+Run `harness` with no args on a terminal to open the interactive prompt: a menu covering every command (with guided prompts for arguments), then a `harness>` shell where every command works the same, plus `exit` and `quit` to leave. With arguments (`harness doctor --fix`), it just runs the action directly. The shell completes command names, subcommands, flags, and installed skill/hook names on Tab, and remembers the last 100 commands per project in `.harness/history` (initialized projects only, so the history file never fakes init state). Menu numbers with two digits work when typed quickly in sequence.
 
 Anything not listed here prints `not implemented yet`. Every number the CLI prints comes from a measurement it just took. Token counts are estimates (~4 chars each) and always shown with a `~`.
 
@@ -74,6 +75,14 @@ Checks the install and the project. Exit code is 1 when anything fails, so it wo
 
 `--strict` turns warnings into failures.
 
+## status
+
+Read-only project snapshot, one screen: init state, `MEMORY.md` size in
+`~tokens`, research finding count, last benchmark age with its cold-start,
+optimizations on/off, then the install (version, skill count with `~tokens`,
+hook count with executable count, adapter validity). Missing pieces print as
+missing, never as failures. Also a menu entry and a `harness>` shell command.
+
 ## bench
 
 Measures real costs and saves a baseline to `.harness/bench.json`:
@@ -115,8 +124,8 @@ harness optimizations enable all
 | fast-hooks | cpu | `optimize` times hooks and disables any averaging over 2s (recorded, `doctor --fix` respects it) |
 | archive-rotate | disk | `optimize` caps `MEMORY.archive.md` at 500 lines |
 
-The interactive prompt has the same controls under menu item 4 ("Manage
-optimizations"). Mechanism notes with local measurements: slim-vs-full
+The interactive prompt has the same controls under "Manage
+optimizations". Mechanism notes with local measurements: slim-vs-full
 prefill runs ~0.6s vs ~2.6s on qwen2.5-coder:1.5b/M4 (linear ~1ms/token);
 server RAM stays flat across prompt sizes at fixed `num_ctx` (KV
 pre-allocated at load), so the RAM lever is context size plus a matching

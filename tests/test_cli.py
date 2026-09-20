@@ -1,5 +1,7 @@
+import json
 import os
 import sys
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "harness"))
 
@@ -69,3 +71,65 @@ def test_prune_file(tmp_path):
     assert r["after"] <= 100
     assert (tmp_path / "BIG.archive.md").exists()
     assert cli.prune_file(str(tmp_path / "nope.md"), 100) is None
+
+
+def test_fmt_age():
+    assert cli.fmt_age(datetime.now(timezone.utc).isoformat()) == "just now"
+    assert cli.fmt_age("not-a-date") == "unknown age"
+    assert cli.fmt_age(None) == "unknown age"
+
+
+def test_complete_skill_subs():
+    sh = cli.HarnessShell()
+    assert sh.complete_skill("", "skill ", 6, 6) == ["list", "search", "info", "add", "remove", "verify"]
+    names = sh.complete_skill("", "skill info ", 11, 11)
+    assert len(names) > 0
+    assert all(n and " " not in n for n in names)
+    assert sh.complete_skill("re", "skill info re", 11, 13) == ["research-first"]
+
+
+def test_complete_instinct_hooks():
+    sh = cli.HarnessShell()
+    assert sh.complete_instinct("", "instinct ", 9, 9) == ["list", "enable", "disable"]
+    hooks = sh.complete_instinct("", "instinct enable ", 16, 16)
+    assert len(hooks) > 0
+    assert all(h.endswith(".sh") for h in hooks)
+
+
+def test_complete_flags_and_toggles():
+    sh = cli.HarnessShell()
+    assert sh.complete_doctor("--", "doctor --", 7, 9) == ["--fix", "--strict"]
+    assert sh.complete_bench("--", "bench --", 6, 8) == ["--quick", "--compare"]
+    assert sh.complete_optimizations("", "optimizations enable ", 23, 23) == [
+        "slim-agents", "prune-memory", "map-index", "fast-hooks", "archive-rotate", "all",
+    ]
+
+
+def test_cmd_status_bare_dir(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert cli.cmd_status() is True
+    out = capsys.readouterr().out
+    assert "[harness] status" in out
+    assert "initialized: no" in out
+    assert "MEMORY.md: missing" in out
+    assert "last benchmark: none yet" in out
+
+
+def test_cmd_status_initialized(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".harness").mkdir()
+    (tmp_path / ".harness" / "config.json").write_text("{}")
+    (tmp_path / "MEMORY.md").write_text("hello world")
+    fdir = tmp_path / "research" / "findings"
+    fdir.mkdir(parents=True)
+    (fdir / "a.md").write_text("# A")
+    (fdir / "b.md").write_text("# B")
+    (tmp_path / ".harness" / "bench.json").write_text(json.dumps({
+        "ts": datetime.now(timezone.utc).isoformat(), "coldStartMs": 41.2,
+    }))
+    assert cli.cmd_status() is True
+    out = capsys.readouterr().out
+    assert "initialized: yes" in out
+    assert "MEMORY.md: ~" in out
+    assert "research findings: 2" in out
+    assert "cold-start 41.2ms" in out

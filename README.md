@@ -194,6 +194,7 @@ harness security audit       # run the audit script here
 ```
 harness init [--harness <name>] [--auto] [--migrate]
 harness doctor [--fix] [--strict]
+harness status
 harness bench [--compare] [--quick]
 harness optimize
 harness optimizations [enable|disable] [name|all]
@@ -208,7 +209,7 @@ harness upgrade
 harness shell
 ```
 
-Run `harness` with no args on a terminal to open the interactive prompt (`harness>`).
+Run `harness` with no args on a terminal to open the interactive prompt (`harness>`): menu over every command, shell with Tab completion, per-project command history.
 
 `harness --help` has the rest. Also [`docs/cli.md`](docs/cli.md).
 
