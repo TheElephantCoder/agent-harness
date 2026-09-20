@@ -177,24 +177,176 @@ def pick(title, options):
             pass
     return pick_numbered(title, options)
 
+def ask_question(prompt):
+    try:
+        return input(paint(CYAN, prompt + " ")).strip()
+    except (EOFError, OSError):
+        print()
+        return ""
+
+def pick_adapter(title):
+    root = self_root()
+    if not root:
+        print("[harness] adapter - cannot locate install")
+        return None
+    names = [a["name"] for a in list_adapters(root) if a["json"]]
+    picked = pick(title, names + ["Back"])
+    if picked is None or picked < 0 or picked >= len(names):
+        return None
+    return names[picked]
+
 def show_menu():
     options = [
         "Set up this project",
         "Check setup",
         "Run benchmark",
+        "Optimize this project",
         "Manage optimizations",
+        "Map this repo",
+        "Skills",
+        "Memory",
+        "Instincts",
+        "Research",
+        "Security",
+        "Adapters",
+        "Upgrade",
         "Skip straight to the prompt",
     ]
     picked = pick("What do you want to do?", options)
     if picked == 0:
+        setup_menu()
+    elif picked == 1:
+        check_menu()
+    elif picked == 2:
+        bench_menu()
+    elif picked == 3:
+        cmd_optimize()
+    elif picked == 4:
+        show_optimizations_menu()
+    elif picked == 5:
+        cmd_map()
+    elif picked == 6:
+        skills_menu()
+    elif picked == 7:
+        memory_menu()
+    elif picked == 8:
+        instinct_menu()
+    elif picked == 9:
+        research_menu()
+    elif picked == 10:
+        security_menu()
+    elif picked == 11:
+        adapter_menu()
+    elif picked == 12:
+        cmd_upgrade()
+    print(paint(DIM, "╌" * term_width()))
+
+def setup_menu():
+    picked = pick("Set up this project", [
+        "Auto-detect + install",
+        "Install for a specific harness",
+        "Migrate (fill gaps)",
+        "Back",
+    ])
+    if picked == 0:
         cmd_init(SimpleNamespace(harness="auto", auto=True, migrate=False))
     elif picked == 1:
-        cmd_doctor(SimpleNamespace(fix=False))
+        name = pick_adapter("Install for which harness?")
+        if name:
+            initialized = os.path.exists(os.path.join(os.getcwd(), ".harness", "config.json"))
+            ns = SimpleNamespace(harness=name, auto=False, migrate=initialized)
+            cmd_init(ns)
     elif picked == 2:
-        cmd_bench(SimpleNamespace())
+        cmd_init(SimpleNamespace(harness="auto", auto=True, migrate=True))
+
+def check_menu():
+    picked = pick("Check setup", ["Check", "Check + fix", "Strict check", "Back"])
+    if picked == 0:
+        cmd_doctor(SimpleNamespace(fix=False, strict=False))
+    elif picked == 1:
+        cmd_doctor(SimpleNamespace(fix=True, strict=False))
+    elif picked == 2:
+        cmd_doctor(SimpleNamespace(fix=False, strict=True))
+
+def bench_menu():
+    picked = pick("Run benchmark", ["Quick", "Full", "Compare with baseline", "Back"])
+    if picked == 0:
+        cmd_bench(SimpleNamespace(quick=True, compare=False))
+    elif picked == 1:
+        cmd_bench(SimpleNamespace(quick=False, compare=False))
+    elif picked == 2:
+        cmd_bench(SimpleNamespace(quick=False, compare=True))
+
+def skills_menu():
+    picked = pick("Skills", ["List", "Search", "Show info", "Add", "Remove", "Verify", "Back"])
+    if picked == 0:
+        cmd_skill_list()
+    elif picked == 1:
+        q = ask_question("Search skills for?")
+        if q:
+            cmd_skill_search(q)
+    elif picked == 2:
+        n = ask_question("Which skill?")
+        if n:
+            cmd_skill_info(n)
     elif picked == 3:
-        show_optimizations_menu()
-    print(paint(DIM, "╌" * term_width()))
+        s = ask_question("Add what? (owner/repo, URL, or --path dir)")
+        if s:
+            cmd_skill_add(shlex.split(s))
+    elif picked == 4:
+        n = ask_question("Remove which added skill?")
+        if n:
+            cmd_skill_remove(n)
+    elif picked == 5:
+        cmd_skill_verify(None)
+
+def memory_menu():
+    picked = pick("Memory", ["Show", "Prune", "Sync a note", "Edit", "Back"])
+    if picked == 0:
+        text = read_text(os.path.join(os.getcwd(), "MEMORY.md"))
+        print(text if text is not None else "[harness] memory - no MEMORY.md here (run harness init)")
+    elif picked == 1:
+        cmd_optimize()
+    elif picked == 2:
+        n = ask_question("Note to append?")
+        if n:
+            cmd_memory_sync(n)
+    elif picked == 3:
+        cmd_memory_edit()
+
+def instinct_menu():
+    picked = pick("Instincts", ["List", "Enable", "Disable", "Back"])
+    if picked == 0:
+        cmd_instinct_list()
+    elif picked in (1, 2):
+        n = ask_question(f"{'Enable' if picked == 1 else 'Disable'} which hook?")
+        if n:
+            cmd_instinct_toggle("enable" if picked == 1 else "disable", n)
+
+def research_menu():
+    picked = pick("Research", ["List findings", "Capture query", "Back"])
+    if picked == 0:
+        cmd_research_list()
+    elif picked == 1:
+        q = ask_question("Query to capture?")
+        if q:
+            cmd_research(q)
+
+def security_menu():
+    picked = pick("Security", ["Audit", "Staged scan", "Back"])
+    if picked == 0:
+        cmd_security("audit", [])
+    elif picked == 1:
+        cmd_security("scan", [])
+
+def adapter_menu():
+    picked = pick("Adapters", ["List", "Add", "Back"])
+    if picked == 0:
+        cmd_adapter_list()
+    elif picked == 1:
+        n = ask_question("New adapter name? (lowercase-hyphen)")
+        if n:
+            cmd_adapter_add(n)
 
 def show_optimizations_menu():
     while True:
@@ -1608,6 +1760,205 @@ def cmd_skill_add(args):
     print(f"[harness] skill add - could not fetch {repo} (tried main, master)")
     return False
 
+def cmd_skill_list():
+    root = self_root()
+    if not root:
+        missing_data("skill")
+        return False
+    for s in list_skills(root):
+        print(f"  {s['name']} - {s['desc'] or '(no description)'} (~{fmt_tok(s['tokens'])})")
+    return True
+
+def cmd_skill_search(q):
+    q = (q or "").lower().strip()
+    if not q:
+        print("[harness] skill search - give a query")
+        return False
+    root = self_root()
+    if not root:
+        missing_data("skill")
+        return False
+    hits = [s for s in list_skills(root)
+            if q in s["name"] or q in s["desc"].lower() or q in (read_text(s["file"]) or "").lower()]
+    if not hits:
+        print(f"[harness] skill search - no skills match \"{q}\"")
+    for s in hits:
+        print(f"  {s['name']} - {s['desc'] or '(no description)'}")
+    return True
+
+def cmd_skill_info(name):
+    root = self_root()
+    if not root:
+        missing_data("skill")
+        return False
+    s = next((x for x in list_skills(root) if x["name"] == (name or "")), None)
+    if not s:
+        print("[harness] skill info - unknown skill (try: harness skill list)")
+        return False
+    text = read_text(s["file"])
+    if text is None:
+        print(f"[harness] skill info - cannot read {name}")
+        return False
+    print(text)
+    return True
+
+def cmd_memory_show():
+    text = read_text(os.path.join(os.getcwd(), "MEMORY.md"))
+    if text is None:
+        print("[harness] memory - no MEMORY.md here (run harness init)")
+    else:
+        print(text)
+    return True
+
+def cmd_memory_edit():
+    mem_file = os.path.join(os.getcwd(), "MEMORY.md")
+    if not os.path.isfile(mem_file):
+        print("[harness] memory - no MEMORY.md here (run harness init)")
+        return False
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        print(f"[harness] memory - no terminal, edit {mem_file} by hand")
+        return False
+    editor = shlex.split(os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vi")
+    try:
+        r = subprocess.run(editor + [mem_file])
+        return r.returncode == 0
+    except OSError:
+        print("[harness] memory - could not launch editor")
+        return False
+
+def cmd_instinct_list():
+    root = self_root()
+    if not root:
+        missing_data("instinct")
+        return False
+    for h in list_hooks(root):
+        print(f"  {h} {'exec' if is_exec(os.path.join(root, h)) else 'noexec'}")
+    return True
+
+def cmd_instinct_toggle(op, name):
+    root = self_root()
+    if not root:
+        missing_data("instinct")
+        return False
+    if not name:
+        print(f"[harness] instinct {op} - give a hook name")
+        return False
+    matched = [h for h in list_hooks(root) if name in h]
+    if not matched:
+        print(f"[harness] instinct - no hooks match \"{name}\"")
+        return False
+    done = 0
+    for h in matched:
+        try:
+            os.chmod(os.path.join(root, h), 0o755 if op == "enable" else 0o644)
+            done += 1
+        except OSError:
+            pass
+    print(f"[harness] ok - instinct {op}d {done}/{len(matched)}")
+    return done == len(matched)
+
+def cmd_adapter_list():
+    root = self_root()
+    if not root:
+        missing_data("adapter")
+        return False
+    packaged = list_adapters(root)
+    packaged_names = {a["name"] for a in packaged}
+    for a in packaged:
+        extra = f" - {a['json']['displayName']}" if a["json"] and a["json"].get("displayName") else ""
+        err = f" ({a['error']})" if a["error"] else ""
+        print(f"  {a['name']}{extra}{err}")
+    for a in list_adapters(os.getcwd(), os.path.join(".harness", "adapters")):
+        if a["name"] in packaged_names:
+            print(f"  {a['name']} (custom override)")
+        else:
+            err = f" ({a['error']})" if a["error"] else ""
+            print(f"  {a['name']} (custom){err}")
+    return True
+
+def cmd_adapter_add(name):
+    if not re.fullmatch(r"[a-z0-9-]+", name or ""):
+        print("[harness] adapter add - want a lowercase-hyphen name")
+        return False
+    d = os.path.join(os.getcwd(), ".harness", "adapters", name)
+    if os.path.exists(d):
+        print(f"[harness] adapter add - {d} exists already")
+        return False
+    adapter_json = json.dumps({
+        "name": name, "displayName": name, "skillPath": "",
+        "hookPath": "", "memoryPath": "MEMORY.md", "agentsPath": "AGENTS.md",
+        "transpile": "./transpile.sh",
+        "notes": f"Fill in skillPath, then run: harness init --harness {name}",
+    }, indent=2) + "\n"
+    wrapper = ("#!/usr/bin/env bash\n"
+               "# install this adapter's files into the current project.\n"
+               "# delegates to harness init so there is one real implementation.\n"
+               "set -euo pipefail\n"
+               "if ! command -v harness >/dev/null 2>&1; then\n"
+               f"  echo \"[{name}] harness not found - install it first\" >&2\n"
+               "  exit 1\n"
+               "fi\n"
+               f"exec harness init --harness {name} --migrate\n")
+    try:
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "adapter.json"), "w", encoding="utf-8") as f:
+            f.write(adapter_json)
+        with open(os.path.join(d, "transpile.sh"), "w", encoding="utf-8") as f:
+            f.write(wrapper)
+        os.chmod(os.path.join(d, "transpile.sh"), 0o755)
+    except OSError:
+        print(f"[harness] adapter add - could not scaffold {name}")
+        return False
+    print(f"[harness] ok - adapter {name} scaffolded (fill in skillPath, then: harness init --harness {name})")
+    return True
+
+def cmd_skill_remove(name):
+    name = sanitize_skill_name(name or "")
+    if not name:
+        print("[harness] skill remove - give an added skill name")
+        return False
+    d = os.path.join(os.getcwd(), ".harness", "skills", name)
+    if not os.path.isdir(d):
+        print(f"[harness] skill remove - no added skill named \"{name}\" (built-ins live in the install, not here)")
+        return False
+    try:
+        shutil.rmtree(d)
+    except OSError:
+        print(f"[harness] skill remove - could not remove {name}")
+        return False
+    man_file = os.path.join(os.getcwd(), ".harness", "config.json")
+    man_text = read_text(man_file)
+    if man_text is not None:
+        try:
+            man = json.loads(man_text)
+            man["addedSkills"] = [a for a in man.get("addedSkills", []) if a.get("name") != name]
+            with open(man_file, "w", encoding="utf-8") as f:
+                json.dump(man, f, indent=2)
+        except (ValueError, OSError):
+            print("[harness] skill remove - manifest left stale, edit it by hand")
+            return False
+    print(f"[harness] ok - skill {name} removed")
+    return True
+
+def cmd_skill_verify(namesel):
+    added, corrupt = read_added_skills(os.getcwd())
+    if corrupt:
+        print("[harness] FAIL - .harness/config.json corrupt")
+        return False
+    lst = [a for a in added if a.get("name") == namesel] if namesel else added
+    if namesel and not lst:
+        print(f"[harness] skill verify - no added skill named \"{namesel}\"")
+        return False
+    if not lst:
+        print("[harness] skill verify - no added skills (add one with: harness skill add owner/repo)")
+        return True
+    bad = [r for r in (verify_added_skill(os.getcwd(), a) for a in lst) if r]
+    if bad:
+        print(f"[harness] FAIL - skills: {', '.join(bad)}")
+        return False
+    print(f"[harness] ok - {len(lst)} added skill(s) verified")
+    return True
+
 def launch_shell():
     print(welcome())
     show_menu()
@@ -1684,57 +2035,9 @@ class HarnessShell(cmdmod.Cmd):
         "list supported harnesses"
         parts = shlex.split(arg) if arg else []
         if parts and parts[0] == "add":
-            name = parts[1] if len(parts) > 1 else ""
-            if not re.fullmatch(r"[a-z0-9-]+", name or ""):
-                print("[harness] adapter add - want a lowercase-hyphen name")
-                return
-            d = os.path.join(os.getcwd(), ".harness", "adapters", name)
-            if os.path.exists(d):
-                print(f"[harness] adapter add - {d} exists already")
-                return
-            adapter_json = json.dumps({
-                "name": name, "displayName": name, "skillPath": "",
-                "hookPath": "", "memoryPath": "MEMORY.md", "agentsPath": "AGENTS.md",
-                "transpile": "./transpile.sh",
-                "notes": f"Fill in skillPath, then run: harness init --harness {name}",
-            }, indent=2) + "\n"
-            wrapper = ("#!/usr/bin/env bash\n"
-                       "# install this adapter's files into the current project.\n"
-                       "# delegates to harness init so there is one real implementation.\n"
-                       "set -euo pipefail\n"
-                       "if ! command -v harness >/dev/null 2>&1; then\n"
-                       f"  echo \"[{name}] harness not found - install it first\" >&2\n"
-                       "  exit 1\n"
-                       "fi\n"
-                       f"exec harness init --harness {name} --migrate\n")
-            try:
-                os.makedirs(d, exist_ok=True)
-                with open(os.path.join(d, "adapter.json"), "w", encoding="utf-8") as f:
-                    f.write(adapter_json)
-                with open(os.path.join(d, "transpile.sh"), "w", encoding="utf-8") as f:
-                    f.write(wrapper)
-                os.chmod(os.path.join(d, "transpile.sh"), 0o755)
-            except OSError:
-                print(f"[harness] adapter add - could not scaffold {name}")
-                return
-            print(f"[harness] ok - adapter {name} scaffolded (fill in skillPath, then: harness init --harness {name})")
+            cmd_adapter_add(parts[1] if len(parts) > 1 else "")
             return
-        root = self_root()
-        if not root:
-            missing_data("adapter")
-            return
-        packaged = list_adapters(root)
-        packaged_names = {a["name"] for a in packaged}
-        for a in packaged:
-            extra = f" - {a['json']['displayName']}" if a["json"] and a["json"].get("displayName") else ""
-            err = f" ({a['error']})" if a["error"] else ""
-            print(f"  {a['name']}{extra}{err}")
-        for a in list_adapters(os.getcwd(), os.path.join(".harness", "adapters")):
-            if a["name"] in packaged_names:
-                print(f"  {a['name']} (custom override)")
-            else:
-                err = f" ({a['error']})" if a["error"] else ""
-                print(f"  {a['name']} (custom){err}")
+        cmd_adapter_list()
 
     def do_skill(self, arg):
         "manage skills"
@@ -1743,87 +2046,19 @@ class HarnessShell(cmdmod.Cmd):
             cmd_skill_add(parts[1:])
             return
         if parts and parts[0] == "remove":
-            name = sanitize_skill_name(parts[1] if len(parts) > 1 else "")
-            if not name:
-                print("[harness] skill remove - give an added skill name")
-                return
-            d = os.path.join(os.getcwd(), ".harness", "skills", name)
-            if not os.path.isdir(d):
-                print(f"[harness] skill remove - no added skill named \"{parts[1]}\"")
-                return
-            try:
-                shutil.rmtree(d)
-            except OSError:
-                print(f"[harness] skill remove - could not remove {name}")
-                return
-            man_file = os.path.join(os.getcwd(), ".harness", "config.json")
-            man_text = read_text(man_file)
-            if man_text is not None:
-                try:
-                    man = json.loads(man_text)
-                    man["addedSkills"] = [a for a in man.get("addedSkills", []) if a.get("name") != name]
-                    with open(man_file, "w", encoding="utf-8") as f:
-                        json.dump(man, f, indent=2)
-                except (ValueError, OSError):
-                    print("[harness] skill remove - manifest left stale, edit it by hand")
-                    return
-            print(f"[harness] ok - skill {name} removed")
+            cmd_skill_remove(parts[1] if len(parts) > 1 else "")
             return
         if parts and parts[0] == "verify":
-            added, corrupt = read_added_skills(os.getcwd())
-            if corrupt:
-                print("[harness] FAIL - .harness/config.json corrupt")
-                return
-            namesel = parts[1] if len(parts) > 1 else ""
-            lst = [a for a in added if a.get("name") == namesel] if namesel else added
-            if namesel and not lst:
-                print(f"[harness] skill verify - no added skill named \"{namesel}\"")
-                return
-            if not lst:
-                print("[harness] skill verify - no added skills (add one with: harness skill add owner/repo)")
-                return
-            bad = [r for r in (verify_added_skill(os.getcwd(), a) for a in lst) if r]
-            if bad:
-                print(f"[harness] FAIL - skills: {', '.join(bad)}")
-                return
-            print(f"[harness] ok - {len(lst)} added skill(s) verified")
+            cmd_skill_verify(parts[1] if len(parts) > 1 else "")
             return
         if not parts or parts[0] == "list":
-            root = self_root()
-            if not root:
-                missing_data("skill")
-                return
-            for s in list_skills(root):
-                print(f"  {s['name']} - {s['desc'] or '(no description)'} (~{fmt_tok(s['tokens'])})")
+            cmd_skill_list()
             return
         if parts[0] == "search":
-            q = " ".join(parts[1:]).lower().strip()
-            if not q:
-                print("[harness] skill search - give a query")
-                return
-            root = self_root()
-            if not root:
-                missing_data("skill")
-                return
-            hits = [s for s in list_skills(root)
-                    if q in s["name"] or q in s["desc"].lower() or q in (read_text(s["file"]) or "").lower()]
-            if not hits:
-                print(f"[harness] skill search - no skills match \"{q}\"")
-            for s in hits:
-                print(f"  {s['name']} - {s['desc'] or '(no description)'}")
+            cmd_skill_search(" ".join(parts[1:]))
             return
         if parts[0] == "info":
-            root = self_root()
-            if not root:
-                missing_data("skill")
-                return
-            name = parts[1] if len(parts) > 1 else ""
-            s = next((x for x in list_skills(root) if x["name"] == name), None)
-            if not s:
-                print("[harness] skill info - unknown skill (try: harness skill list)")
-                return
-            text = read_text(s["file"])
-            print(text if text is not None else f"[harness] skill info - cannot read {name}")
+            cmd_skill_info(parts[1] if len(parts) > 1 else "")
             return
         print(f"[harness] skill {arg} - not implemented yet")
 
@@ -1831,11 +2066,7 @@ class HarnessShell(cmdmod.Cmd):
         "manage memory"
         parts = shlex.split(arg) if arg else []
         if parts and parts[0] == "show":
-            text = read_text(os.path.join(os.getcwd(), "MEMORY.md"))
-            if text is None:
-                print("[harness] memory - no MEMORY.md here (run harness init)")
-            else:
-                print(text)
+            cmd_memory_show()
             return
         if parts and parts[0] == "prune":
             cmd_optimize()
@@ -1844,20 +2075,7 @@ class HarnessShell(cmdmod.Cmd):
             cmd_memory_sync(" ".join(parts[1:]).strip())
             return
         if parts and parts[0] == "edit":
-            mem_file = os.path.join(os.getcwd(), "MEMORY.md")
-            if not os.path.isfile(mem_file):
-                print("[harness] memory - no MEMORY.md here (run harness init)")
-                return
-            if not sys.stdin.isatty() or not sys.stdout.isatty():
-                print(f"[harness] memory - no terminal, edit {mem_file} by hand")
-                return
-            editor = shlex.split(os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vi")
-            try:
-                r = subprocess.run(editor + [mem_file])
-                if r.returncode != 0:
-                    print(f"[harness] memory - editor exited {r.returncode}")
-            except OSError:
-                print("[harness] memory - could not launch editor")
+            cmd_memory_edit()
             return
         print(f"[harness] memory {arg} - not implemented yet")
 
@@ -1865,34 +2083,10 @@ class HarnessShell(cmdmod.Cmd):
         "manage hooks"
         parts = shlex.split(arg) if arg else []
         if not parts or parts[0] == "list":
-            root = self_root()
-            if not root:
-                missing_data("instinct")
-                return
-            for h in list_hooks(root):
-                print(f"  {h} {'exec' if is_exec(os.path.join(root, h)) else 'noexec'}")
+            cmd_instinct_list()
             return
         if parts[0] in ("enable", "disable"):
-            root = self_root()
-            if not root:
-                missing_data("instinct")
-                return
-            name = parts[1] if len(parts) > 1 else ""
-            if not name:
-                print(f"[harness] instinct {parts[0]} - give a hook name")
-                return
-            matched = [h for h in list_hooks(root) if name in h]
-            if not matched:
-                print(f"[harness] instinct - no hooks match \"{name}\"")
-                return
-            done = 0
-            for h in matched:
-                try:
-                    os.chmod(os.path.join(root, h), 0o755 if parts[0] == "enable" else 0o644)
-                    done += 1
-                except OSError:
-                    pass
-            print(f"[harness] ok - instinct {parts[0]}d {done}/{len(matched)}")
+            cmd_instinct_toggle(parts[0], parts[1] if len(parts) > 1 else "")
             return
         print(f"[harness] instinct {arg} - not implemented yet")
 
@@ -1967,172 +2161,39 @@ def main():
             sys.exit(1)
         return
     if args.cmd == "adapter" and args.args[:1] == ["add"]:
-        name = args.args[1] if len(args.args) > 1 else ""
-        if not re.fullmatch(r"[a-z0-9-]+", name or ""):
-            print("[harness] adapter add - want a lowercase-hyphen name")
+        if not cmd_adapter_add(args.args[1] if len(args.args) > 1 else ""):
             sys.exit(1)
-            return
-        d = os.path.join(os.getcwd(), ".harness", "adapters", name)
-        if os.path.exists(d):
-            print(f"[harness] adapter add - {d} exists already")
-            sys.exit(1)
-            return
-        adapter_json = json.dumps({
-            "name": name, "displayName": name, "skillPath": "",
-            "hookPath": "", "memoryPath": "MEMORY.md", "agentsPath": "AGENTS.md",
-            "transpile": "./transpile.sh",
-            "notes": f"Fill in skillPath, then run: harness init --harness {name}",
-        }, indent=2) + "\n"
-        wrapper = ("#!/usr/bin/env bash\n"
-                   "# install this adapter's files into the current project.\n"
-                   "# delegates to harness init so there is one real implementation.\n"
-                   "set -euo pipefail\n"
-                   "if ! command -v harness >/dev/null 2>&1; then\n"
-                   f"  echo \"[{name}] harness not found - install it first\" >&2\n"
-                   "  exit 1\n"
-                   "fi\n"
-                   f"exec harness init --harness {name} --migrate\n")
-        try:
-            os.makedirs(d, exist_ok=True)
-            with open(os.path.join(d, "adapter.json"), "w", encoding="utf-8") as f:
-                f.write(adapter_json)
-            with open(os.path.join(d, "transpile.sh"), "w", encoding="utf-8") as f:
-                f.write(wrapper)
-            os.chmod(os.path.join(d, "transpile.sh"), 0o755)
-        except OSError:
-            print(f"[harness] adapter add - could not scaffold {name}")
-            sys.exit(1)
-            return
-        print(f"[harness] ok - adapter {name} scaffolded (fill in skillPath, then: harness init --harness {name})")
         return
     if args.cmd == "adapter" and (not args.args or args.args == ["list"]):
-        root = self_root()
-        if not root:
-            missing_data("adapter")
+        if not cmd_adapter_list():
             sys.exit(1)
-            return
-        packaged = list_adapters(root)
-        packaged_names = {a["name"] for a in packaged}
-        for a in packaged:
-            extra = f" - {a['json']['displayName']}" if a["json"] and a["json"].get("displayName") else ""
-            err = f" ({a['error']})" if a["error"] else ""
-            print(f"  {a['name']}{extra}{err}")
-        for a in list_adapters(os.getcwd(), os.path.join(".harness", "adapters")):
-            if a["name"] in packaged_names:
-                print(f"  {a['name']} (custom override)")
-            else:
-                err = f" ({a['error']})" if a["error"] else ""
-                print(f"  {a['name']} (custom){err}")
         return
     if args.cmd == "skill" and args.args[:1] == ["add"]:
         if not cmd_skill_add(args.args[1:]):
             sys.exit(1)
         return
     if args.cmd == "skill" and args.args[:1] == ["remove"]:
-        name = sanitize_skill_name(args.args[1] if len(args.args) > 1 else "")
-        if not name:
-            print("[harness] skill remove - give an added skill name")
+        if not cmd_skill_remove(args.args[1] if len(args.args) > 1 else ""):
             sys.exit(1)
-            return
-        d = os.path.join(os.getcwd(), ".harness", "skills", name)
-        if not os.path.isdir(d):
-            print(f"[harness] skill remove - no added skill named \"{args.args[1]}\" (built-ins live in the install, not here)")
-            sys.exit(1)
-            return
-        try:
-            shutil.rmtree(d)
-        except OSError:
-            print(f"[harness] skill remove - could not remove {name}")
-            sys.exit(1)
-            return
-        man_file = os.path.join(os.getcwd(), ".harness", "config.json")
-        man_text = read_text(man_file)
-        if man_text is not None:
-            try:
-                man = json.loads(man_text)
-                man["addedSkills"] = [a for a in man.get("addedSkills", []) if a.get("name") != name]
-                with open(man_file, "w", encoding="utf-8") as f:
-                    json.dump(man, f, indent=2)
-            except (ValueError, OSError):
-                print("[harness] skill remove - manifest left stale, edit it by hand")
-                sys.exit(1)
-                return
-        print(f"[harness] ok - skill {name} removed")
         return
     if args.cmd == "skill" and args.args[:1] == ["verify"]:
-        added, corrupt = read_added_skills(os.getcwd())
-        if corrupt:
-            print("[harness] FAIL - .harness/config.json corrupt")
+        if not cmd_skill_verify(args.args[1] if len(args.args) > 1 else ""):
             sys.exit(1)
-            return
-        namesel = args.args[1] if len(args.args) > 1 else ""
-        lst = [a for a in added if a.get("name") == namesel] if namesel else added
-        if namesel and not lst:
-            print(f"[harness] skill verify - no added skill named \"{namesel}\"")
-            sys.exit(1)
-            return
-        if not lst:
-            print("[harness] skill verify - no added skills (add one with: harness skill add owner/repo)")
-            return
-        bad = [r for r in (verify_added_skill(os.getcwd(), a) for a in lst) if r]
-        if bad:
-            print(f"[harness] FAIL - skills: {', '.join(bad)}")
-            sys.exit(1)
-            return
-        print(f"[harness] ok - {len(lst)} added skill(s) verified")
         return
     if args.cmd == "skill" and (not args.args or args.args[:1] == ["list"]):
-        root = self_root()
-        if not root:
-            missing_data("skill")
+        if not cmd_skill_list():
             sys.exit(1)
-            return
-        for s in list_skills(root):
-            print(f"  {s['name']} - {s['desc'] or '(no description)'} (~{fmt_tok(s['tokens'])})")
         return
     if args.cmd == "skill" and args.args[:1] == ["search"]:
-        q = " ".join(args.args[1:]).lower().strip()
-        if not q:
-            print("[harness] skill search - give a query")
+        if not cmd_skill_search(" ".join(args.args[1:])):
             sys.exit(1)
-            return
-        root = self_root()
-        if not root:
-            missing_data("skill")
-            sys.exit(1)
-            return
-        hits = [s for s in list_skills(root)
-                if q in s["name"] or q in s["desc"].lower() or q in (read_text(s["file"]) or "").lower()]
-        if not hits:
-            print(f"[harness] skill search - no skills match \"{q}\"")
-        for s in hits:
-            print(f"  {s['name']} - {s['desc'] or '(no description)'}")
         return
     if args.cmd == "skill" and args.args[:1] == ["info"]:
-        root = self_root()
-        if not root:
-            missing_data("skill")
+        if not cmd_skill_info(args.args[1] if len(args.args) > 1 else ""):
             sys.exit(1)
-            return
-        name = args.args[1] if len(args.args) > 1 else ""
-        s = next((x for x in list_skills(root) if x["name"] == name), None)
-        if not s:
-            print("[harness] skill info - unknown skill (try: harness skill list)")
-            sys.exit(1)
-            return
-        text = read_text(s["file"])
-        if text is None:
-            print(f"[harness] skill info - cannot read {name}")
-            sys.exit(1)
-            return
-        print(text)
         return
     if args.cmd == "memory" and args.args[:1] == ["show"]:
-        text = read_text(os.path.join(os.getcwd(), "MEMORY.md"))
-        if text is None:
-            print("[harness] memory - no MEMORY.md here (run harness init)")
-        else:
-            print(text)
+        cmd_memory_show()
         return
     if args.cmd == "memory" and args.args[:1] == ["prune"]:
         if not cmd_optimize():
@@ -2143,58 +2204,15 @@ def main():
             sys.exit(1)
         return
     if args.cmd == "memory" and args.args[:1] == ["edit"]:
-        mem_file = os.path.join(os.getcwd(), "MEMORY.md")
-        if not os.path.isfile(mem_file):
-            print("[harness] memory - no MEMORY.md here (run harness init)")
-            sys.exit(1)
-            return
-        if not sys.stdin.isatty() or not sys.stdout.isatty():
-            print(f"[harness] memory - no terminal, edit {mem_file} by hand")
-            sys.exit(1)
-            return
-        editor = shlex.split(os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vi")
-        try:
-            r = subprocess.run(editor + [mem_file])
-            if r.returncode != 0:
-                sys.exit(1)
-        except OSError:
-            print("[harness] memory - could not launch editor")
+        if not cmd_memory_edit():
             sys.exit(1)
         return
     if args.cmd == "instinct" and (not args.args or args.args[:1] == ["list"]):
-        root = self_root()
-        if not root:
-            missing_data("instinct")
+        if not cmd_instinct_list():
             sys.exit(1)
-            return
-        for h in list_hooks(root):
-            print(f"  {h} {'exec' if is_exec(os.path.join(root, h)) else 'noexec'}")
         return
     if args.cmd == "instinct" and args.args[:1] in (["enable"], ["disable"]):
-        root = self_root()
-        if not root:
-            missing_data("instinct")
-            sys.exit(1)
-            return
-        name = args.args[1] if len(args.args) > 1 else ""
-        if not name:
-            print(f"[harness] instinct {args.args[0]} - give a hook name")
-            sys.exit(1)
-            return
-        matched = [h for h in list_hooks(root) if name in h]
-        if not matched:
-            print(f"[harness] instinct - no hooks match \"{name}\"")
-            sys.exit(1)
-            return
-        done = 0
-        for h in matched:
-            try:
-                os.chmod(os.path.join(root, h), 0o755 if args.args[0] == "enable" else 0o644)
-                done += 1
-            except OSError:
-                pass
-        print(f"[harness] ok - instinct {args.args[0]}d {done}/{len(matched)}")
-        if done != len(matched):
+        if not cmd_instinct_toggle(args.args[0], args.args[1] if len(args.args) > 1 else ""):
             sys.exit(1)
         return
     if args.cmd == "security" and (not args.args or args.args[:1] in (["audit"], ["scan"])):

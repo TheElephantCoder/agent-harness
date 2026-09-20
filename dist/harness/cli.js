@@ -227,28 +227,274 @@ async function selectOption(title, options) {
         draw();
     });
 }
+async function askQuestion(prompt) {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+    });
+    try {
+        const answer = await new Promise((resolve) => {
+            rl.question(paint(ANSI.cyan, `${prompt} `), (a) => {
+                resolve(a.trim());
+            });
+            rl.on("close", () => resolve(""));
+        });
+        return answer;
+    }
+    catch {
+        return "";
+    }
+    finally {
+        try {
+            rl.close();
+        }
+        catch {
+            // ignore
+        }
+    }
+}
+async function pickAdapter(title) {
+    const root = selfRoot();
+    if (!root) {
+        console.log("[harness] adapter - cannot locate install");
+        return null;
+    }
+    const names = listAdapters(root)
+        .filter((a) => a.json)
+        .map((a) => a.name);
+    const picked = await selectOption(title, [...names, "Back"]);
+    if (picked < 0 || picked >= names.length)
+        return null;
+    return names[picked];
+}
 async function showMenu() {
     const options = [
         "Set up this project",
         "Check setup",
         "Run benchmark",
+        "Optimize this project",
         "Manage optimizations",
+        "Map this repo",
+        "Skills",
+        "Memory",
+        "Instincts",
+        "Research",
+        "Security",
+        "Adapters",
+        "Upgrade",
         "Skip straight to the prompt",
     ];
     const picked = await selectOption("What do you want to do?", options);
     if (picked === 0) {
+        await setupMenu();
+    }
+    else if (picked === 1) {
+        await checkMenu();
+    }
+    else if (picked === 2) {
+        await benchMenu();
+    }
+    else if (picked === 3) {
+        await runCommand("optimize", []);
+    }
+    else if (picked === 4) {
+        await showOptimizationsMenu();
+    }
+    else if (picked === 5) {
+        await runCommand("map", []);
+    }
+    else if (picked === 6) {
+        await skillsMenu();
+    }
+    else if (picked === 7) {
+        await memoryMenu();
+    }
+    else if (picked === 8) {
+        await instinctMenu();
+    }
+    else if (picked === 9) {
+        await researchMenu();
+    }
+    else if (picked === 10) {
+        await securityMenu();
+    }
+    else if (picked === 11) {
+        await adapterMenu();
+    }
+    else if (picked === 12) {
+        await runCommand("upgrade", []);
+    }
+    console.log(paint(ANSI.dim, "╌".repeat(termWidth())));
+}
+async function setupMenu() {
+    const picked = await selectOption("Set up this project", [
+        "Auto-detect + install",
+        "Install for a specific harness",
+        "Migrate (fill gaps)",
+        "Back",
+    ]);
+    if (picked === 0) {
         await runCommand("init", ["--auto"]);
     }
     else if (picked === 1) {
-        await runCommand("doctor", []);
+        const name = await pickAdapter("Install for which harness?");
+        if (name) {
+            const initialized = fs.existsSync(path.join(process.cwd(), ".harness", "config.json"));
+            await runCommand("init", initialized ? ["--harness", name, "--migrate"] : ["--harness", name]);
+        }
     }
     else if (picked === 2) {
+        await runCommand("init", ["--migrate"]);
+    }
+}
+async function checkMenu() {
+    const picked = await selectOption("Check setup", [
+        "Check",
+        "Check + fix",
+        "Strict check",
+        "Back",
+    ]);
+    if (picked === 0) {
+        await runCommand("doctor", []);
+    }
+    else if (picked === 1) {
+        await runCommand("doctor", ["--fix"]);
+    }
+    else if (picked === 2) {
+        await runCommand("doctor", ["--strict"]);
+    }
+}
+async function benchMenu() {
+    const picked = await selectOption("Run benchmark", [
+        "Quick",
+        "Full",
+        "Compare with baseline",
+        "Back",
+    ]);
+    if (picked === 0) {
+        await runCommand("bench", ["--quick"]);
+    }
+    else if (picked === 1) {
         await runCommand("bench", []);
     }
-    else if (picked === 3) {
-        await showOptimizationsMenu();
+    else if (picked === 2) {
+        await runCommand("bench", ["--compare"]);
     }
-    console.log(paint(ANSI.dim, "╌".repeat(termWidth())));
+}
+async function skillsMenu() {
+    const picked = await selectOption("Skills", [
+        "List",
+        "Search",
+        "Show info",
+        "Add",
+        "Remove",
+        "Verify",
+        "Back",
+    ]);
+    if (picked === 0) {
+        await runCommand("skill", ["list"]);
+    }
+    else if (picked === 1) {
+        const q = await askQuestion("Search skills for?");
+        if (q)
+            await runCommand("skill", ["search", q]);
+    }
+    else if (picked === 2) {
+        const n = await askQuestion("Which skill?");
+        if (n)
+            await runCommand("skill", ["info", n]);
+    }
+    else if (picked === 3) {
+        const s = await askQuestion("Add what? (owner/repo, URL, or --path dir)");
+        if (s)
+            await runCommand("skill", ["add", ...s.split(/\s+/)]);
+    }
+    else if (picked === 4) {
+        const n = await askQuestion("Remove which added skill?");
+        if (n)
+            await runCommand("skill", ["remove", n]);
+    }
+    else if (picked === 5) {
+        await runCommand("skill", ["verify"]);
+    }
+}
+async function memoryMenu() {
+    const picked = await selectOption("Memory", [
+        "Show",
+        "Prune",
+        "Sync a note",
+        "Edit",
+        "Back",
+    ]);
+    if (picked === 0) {
+        await runCommand("memory", ["show"]);
+    }
+    else if (picked === 1) {
+        await runCommand("memory", ["prune"]);
+    }
+    else if (picked === 2) {
+        const n = await askQuestion("Note to append?");
+        if (n)
+            await runCommand("memory", ["sync", n]);
+    }
+    else if (picked === 3) {
+        await runCommand("memory", ["edit"]);
+    }
+}
+async function instinctMenu() {
+    const picked = await selectOption("Instincts", [
+        "List",
+        "Enable",
+        "Disable",
+        "Back",
+    ]);
+    if (picked === 0) {
+        await runCommand("instinct", ["list"]);
+    }
+    else if (picked === 1 || picked === 2) {
+        const n = await askQuestion(`${picked === 1 ? "Enable" : "Disable"} which hook?`);
+        if (n)
+            await runCommand("instinct", [picked === 1 ? "enable" : "disable", n]);
+    }
+}
+async function researchMenu() {
+    const picked = await selectOption("Research", [
+        "List findings",
+        "Capture query",
+        "Back",
+    ]);
+    if (picked === 0) {
+        await runCommand("research", []);
+    }
+    else if (picked === 1) {
+        const q = await askQuestion("Query to capture?");
+        if (q)
+            await runCommand("research", [q]);
+    }
+}
+async function securityMenu() {
+    const picked = await selectOption("Security", [
+        "Audit",
+        "Staged scan",
+        "Back",
+    ]);
+    if (picked === 0) {
+        await runCommand("security", ["audit"]);
+    }
+    else if (picked === 1) {
+        await runCommand("security", ["scan"]);
+    }
+}
+async function adapterMenu() {
+    const picked = await selectOption("Adapters", ["List", "Add", "Back"]);
+    if (picked === 0) {
+        await runCommand("adapter", ["list"]);
+    }
+    else if (picked === 1) {
+        const n = await askQuestion("New adapter name? (lowercase-hyphen)");
+        if (n)
+            await runCommand("adapter", ["add", n]);
+    }
 }
 async function showOptimizationsMenu() {
     for (;;) {

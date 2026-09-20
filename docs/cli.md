@@ -16,7 +16,7 @@ harness upgrade
 harness shell
 ```
 
-Run `harness` with no args on a terminal to open the interactive prompt. Inside, every command works the same, plus `exit` and `quit` to leave.
+Run `harness` with no args on a terminal to open the interactive prompt: a menu covering every command (with guided prompts for arguments), then a `harness>` shell where every command works the same, plus `exit` and `quit` to leave. With arguments (`harness doctor --fix`), it just runs the action directly.
 
 Anything not listed here prints `not implemented yet`. Every number the CLI prints comes from a measurement it just took. Token counts are estimates (~4 chars each) and always shown with a `~`.
 
