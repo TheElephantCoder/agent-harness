@@ -1,3 +1,12 @@
+agent-harness (0.2.1-1) UNRELEASED; urgency=medium
+
+  * Interactive CLI: status snapshot, per-project shell history,
+    tab completion for subcommands and installed names, two-digit
+    menu entry, !! repeat, clear, one-line context on entry.
+  * Python CLI accepts harness version and -v like the node CLI.
+
+ -- TheElephantCoder <157982101+TheElephantCoder@users.noreply.github.com>  Sat, 20 Sep 2026 00:00:00 +0000
+
 agent-harness (0.2.0-1) UNRELEASED; urgency=medium
 
   * Real CLI: init installs per-harness native files, doctor verifies

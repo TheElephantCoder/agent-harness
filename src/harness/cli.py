@@ -16,7 +16,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from urllib.request import Request, urlopen
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 RESET = "\x1b[0m"
 BOLD = "\x1b[1m"
@@ -626,6 +626,25 @@ def fmt_age(ts):
     if h < 48:
         return f"{h}h ago"
     return f"{h // 24}d ago"
+
+def status_line(cwd=None):
+    """One-line project context for the shell opener."""
+    cwd = cwd or os.getcwd()
+    bits = []
+    bits.append("initialized" if os.path.isfile(os.path.join(cwd, ".harness", "config.json"))
+                else "not initialized")
+    mem = read_text(os.path.join(cwd, "MEMORY.md"))
+    bits.append("no MEMORY.md" if mem is None else f"MEMORY ~{fmt_tok(est_tokens(mem))}")
+    root = self_root()
+    if root is not None:
+        bits.append(f"skills {len(list_skills(root))}")
+    btext = read_text(os.path.join(cwd, ".harness", "bench.json"))
+    if btext is not None:
+        try:
+            bits.append(f"bench {fmt_age(json.loads(btext).get('ts'))}")
+        except (ValueError, TypeError, AttributeError):
+            pass
+    return "project: " + " · ".join(bits)
 
 def cmd_status():
     """Project snapshot: init state, memory, findings, baseline, install.
@@ -2082,14 +2101,35 @@ def launch_shell():
         atexit.register(rlmod.write_history_file, histfile)
     sh = HarnessShell()
     sh.intro = None
+    print(paint(DIM, status_line()))
     sh.cmdloop()
 
 class HarnessShell(cmdmod.Cmd):
     intro = None
     prompt = "harness> "
+    _last = ""
 
     def preloop(self):
         self.prompt = f"{paint(BOLD + CYAN, 'harness>')} "
+
+    def precmd(self, line):
+        if line.strip() == "!!":
+            if self._last:
+                print(self._last)
+                return self._last
+            print("[harness] !! - no previous command")
+            return ""
+        return line
+
+    def postcmd(self, stop, line):
+        if line.strip():
+            self._last = line.strip()
+        return stop
+
+    def do_clear(self, arg):
+        "clear the screen"
+        if sys.stdout.isatty():
+            print("\x1b[2J\x1b[H", end="")
 
     def emptyline(self):
         pass
@@ -2298,8 +2338,9 @@ class HarnessShell(cmdmod.Cmd):
         print(f"[harness] unknown command: {line.split()[0]}")
 
 def main():
-    p = argparse.ArgumentParser(prog="harness", description="harness - agent harness perf layer by TheElephantCoder")
-    p.add_argument("--version", action="store_true")
+    p = argparse.ArgumentParser(prog="harness", description="harness - agent harness perf layer by TheElephantCoder",
+                                epilog="shell extras: menu (picker again), clear, !! (repeat last command)")
+    p.add_argument("--version", "-v", action="store_true")
     sub = p.add_subparsers(dest="cmd")
 
     a = sub.add_parser("init")
@@ -2317,7 +2358,7 @@ def main():
     c.add_argument("--compare", action="store_true")
     c.add_argument("--quick", action="store_true")
 
-    for name in ["skill", "memory", "instinct", "research", "security", "upgrade", "shell", "optimize", "optimizations", "adapter", "map", "status"]:
+    for name in ["skill", "memory", "instinct", "research", "security", "upgrade", "shell", "optimize", "optimizations", "adapter", "map", "status", "version"]:
         s = sub.add_parser(name)
         s.add_argument("args", nargs=argparse.REMAINDER)
 
@@ -2414,6 +2455,9 @@ def main():
     if args.cmd == "status":
         if not cmd_status():
             sys.exit(1)
+        return
+    if args.cmd == "version":
+        print(f"harness {VERSION}")
         return
     rest = " ".join(getattr(args, "args", []) or [])
     print(f"[harness] {args.cmd} {rest} - not implemented yet".rstrip())

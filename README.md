@@ -120,8 +120,8 @@ echo "deb [trusted=yes] https://theelephantcoder.github.io/agent-harness/apt sta
 sudo apt update
 sudo apt install agent-harness
 # or direct .deb from Releases
-wget https://github.com/TheElephantCoder/agent-harness/releases/latest/download/agent-harness_0.2.0_all.deb
-sudo apt install ./agent-harness_0.2.0_all.deb
+wget https://github.com/TheElephantCoder/agent-harness/releases/latest/download/agent-harness_0.2.1_all.deb
+sudo apt install ./agent-harness_0.2.1_all.deb
 
 # brew (macOS + Linuxbrew): same repo is the tap, no second repo needed
 brew tap theelephantcoder/agent-harness https://github.com/TheElephantCoder/agent-harness

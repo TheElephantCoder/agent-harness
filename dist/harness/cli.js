@@ -9,7 +9,7 @@ import * as https from "node:https";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-export const VERSION = "0.2.0";
+export const VERSION = "0.2.1";
 const SHELL_COMMANDS = [
     "init",
     "doctor",
@@ -27,6 +27,7 @@ const SHELL_COMMANDS = [
     "adapter",
     "map",
     "menu",
+    "clear",
     "help",
     "version",
     "exit",
@@ -97,6 +98,7 @@ usage: harness <command> [options]
   adapter <list|add> [name]                       list, scaffold harnesses
   upgrade                                        self-update to latest
   shell                                          open interactive prompt
+  (shell-only: menu, clear, !! repeats last command)
 
 options:
   -h, --help
@@ -660,8 +662,16 @@ async function interactive() {
     rl.on("SIGINT", () => {
         rl.close();
     });
+    console.log(paint(ANSI.dim, statusLine()));
     rl.prompt();
-    for await (const line of rl) {
+    let last = "";
+    for await (const raw of rl) {
+        const line = raw.trim() === "!!" ? last : raw;
+        if (raw.trim() === "!!" && !last) {
+            console.log("[harness] !! - no previous command");
+            rl.prompt();
+            continue;
+        }
         const parts = line.trim().split(/\s+/).filter(Boolean);
         if (parts.length === 0) {
             rl.prompt();
@@ -675,12 +685,19 @@ async function interactive() {
             rl.prompt();
             continue;
         }
+        if (c === "clear") {
+            if (process.stdout.isTTY)
+                console.clear();
+            rl.prompt();
+            continue;
+        }
         if (c === "menu") {
             await showMenu();
             rl.prompt();
             continue;
         }
         await runCommand(c, rest);
+        last = line.trim();
         rl.prompt();
     }
     if (fs.existsSync(hDir)) {
@@ -1603,6 +1620,28 @@ function fmtAge(ts) {
     if (h < 48)
         return `${h}h ago`;
     return `${Math.floor(h / 24)}d ago`;
+}
+// one-line project context for the shell opener. exported for tests.
+export function statusLine(cwd = process.cwd()) {
+    const bits = [];
+    bits.push(fs.existsSync(path.join(cwd, ".harness", "config.json"))
+        ? "initialized"
+        : "not initialized");
+    const mem = readText(path.join(cwd, "MEMORY.md"));
+    bits.push(mem === null ? "no MEMORY.md" : `MEMORY ~${fmtTok(estTokens(mem))}`);
+    const root = selfRoot();
+    if (root)
+        bits.push(`skills ${listSkills(root).length}`);
+    const bText = readText(path.join(cwd, ".harness", "bench.json"));
+    if (bText !== null) {
+        try {
+            bits.push(`bench ${fmtAge(JSON.parse(bText).ts)}`);
+        }
+        catch {
+            // corrupt baseline: omit
+        }
+    }
+    return `project: ${bits.join(" · ")}`;
 }
 // project snapshot: init state, memory, findings, baseline, install.
 // reads only; never fails, missing pieces are reported as missing.

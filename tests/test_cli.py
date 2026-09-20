@@ -105,6 +105,28 @@ def test_complete_flags_and_toggles():
     ]
 
 
+def test_status_line(tmp_path):
+    assert cli.status_line(str(tmp_path)) == "project: not initialized · no MEMORY.md · skills 4"
+    (tmp_path / ".harness").mkdir()
+    (tmp_path / ".harness" / "config.json").write_text("{}")
+    (tmp_path / "MEMORY.md").write_text("12345678")
+    assert cli.status_line(str(tmp_path)) == "project: initialized · MEMORY ~2 · skills 4"
+
+
+def test_bang_repeat(capsys):
+    sh = cli.HarnessShell()
+    assert sh.precmd("!!") == ""
+    assert "[harness] !! - no previous command" in capsys.readouterr().out
+    sh.postcmd(False, "status")
+    assert sh.precmd("!!") == "status"
+    sh.postcmd(False, "status")
+    assert sh._last == "status"
+
+
+def test_do_clear():
+    cli.HarnessShell().do_clear("")
+
+
 def test_cmd_status_bare_dir(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     assert cli.cmd_status() is True

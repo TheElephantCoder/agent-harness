@@ -5,6 +5,7 @@ import * as path from "node:path";
 import {
   completeLine,
   estTokens,
+  statusLine,
   fmtTok,
   mapSymbols,
   parseFrontmatter,
@@ -50,6 +51,32 @@ describe("completeLine", () => {
     const [all] = completeLine("instinct enable ");
     expect(all.length).toBeGreaterThan(0);
     expect(all.every((h) => h.endsWith(".sh"))).toBe(true);
+  });
+});
+
+describe("statusLine", () => {
+  it("reports a bare dir honestly", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-test-"));
+    try {
+      expect(statusLine(dir)).toBe(
+        "project: not initialized · no MEMORY.md · skills 4",
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+  it("reports an initialized project", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-test-"));
+    try {
+      fs.mkdirSync(path.join(dir, ".harness"), { recursive: true });
+      fs.writeFileSync(path.join(dir, ".harness", "config.json"), "{}");
+      fs.writeFileSync(path.join(dir, "MEMORY.md"), "12345678");
+      expect(statusLine(dir)).toBe(
+        "project: initialized · MEMORY ~2 · skills 4",
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
