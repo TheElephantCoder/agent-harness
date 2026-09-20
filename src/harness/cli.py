@@ -30,37 +30,17 @@ def use_color():
 def paint(code, text):
     return f"{code}{text}{RESET}" if use_color() else text
 
-def banner():
-    inner = 40
-    title = "◆ agent-harness"
-    ver = f"v{VERSION}"
-    sub = "skills · instincts · memory · research"
-    top = "╭" + "─" * inner + "╮"
-    bottom = "╰" + "─" * inner + "╯"
-    gap1 = " " * (inner - 2 - len(title) - len(ver))
-    gap2 = " " * (inner - 2 - len(sub))
-    row1 = f"│  {paint(MAGENTA + BOLD, '◆')} {paint(BOLD, 'agent-harness')}{gap1}{paint(DIM, ver)}│"
-    row2 = f"│  {paint(DIM, sub)}{gap2}│"
-    return "\n".join([
-        top,
-        row1,
-        row2,
-        bottom,
-        paint(DIM, "type help for commands · exit to leave"),
-        paint(DIM, "tip: doctor checks your setup"),
-    ])
-
 ART = [
     "                                              *",
-    "          ·",
+    "          ·                             *",
     "                        ·          ◆",
-    "     *",
+    "     *                       ·",
     "                          ·",
     "               ·                    ·         *",
     "     ·                        ·",
     "                          *           ·     ·",
     "               *                     ·",
-    "  ·                     ·",
+    "  ·                     ·                      ◆",
     "                                           ·",
 ]
 
