@@ -528,7 +528,8 @@ async function instinctMenu(): Promise<void> {
     const n = await askQuestion(
       `${picked === 1 ? "Enable" : "Disable"} which hook?`,
     );
-    if (n) await runCommand("instinct", [picked === 1 ? "enable" : "disable", n]);
+    if (n)
+      await runCommand("instinct", [picked === 1 ? "enable" : "disable", n]);
   }
 }
 
@@ -576,7 +577,9 @@ async function showOptimizationsMenu(): Promise<void> {
     const names = OPTIMIZATIONS.map((o) => o.name);
     names.forEach((n, i) => {
       const o = OPTIMIZATIONS[i];
-      console.log(`  ${i + 1}. ${n} [${o.scope}] ${opts[n] ? "on" : "off"} - ${o.desc}`);
+      console.log(
+        `  ${i + 1}. ${n} [${o.scope}] ${opts[n] ? "on" : "off"} - ${o.desc}`,
+      );
     });
     console.log(`  ${names.length + 1}. Back`);
     const picked = await selectOption("Toggle which?", [
@@ -1186,7 +1189,10 @@ function cmdInit(flags: string[]): boolean {
   }
   const adapters = listAdapters(root).filter((a) => a.json);
   const byName = new Map(adapters.map((a) => [a.name, a]));
-  for (const c of listAdapters(process.cwd(), path.join(".harness", "adapters"))) {
+  for (const c of listAdapters(
+    process.cwd(),
+    path.join(".harness", "adapters"),
+  )) {
     if (c.json) byName.set(c.name, c);
   }
   let priorHarness: string[] = [];
@@ -1397,7 +1403,12 @@ function cmdInit(flags: string[]): boolean {
   }
   if (names.includes("kiro-cli") || names.includes("kiro-desktop")) {
     // verified: .kiro/hooks/*.json v1 schema, seconds, project-root cwd.
-    const kh = (nm: string, trigger: string, base: string, timeout: number) => ({
+    const kh = (
+      nm: string,
+      trigger: string,
+      base: string,
+      timeout: number,
+    ) => ({
       name: nm,
       trigger,
       action: {
@@ -1503,12 +1514,15 @@ function cmdInit(flags: string[]): boolean {
   ];
   // migrate re-records regenerated files (MAP.md): keep the latest entry per path.
   const seenPaths = new Set<string>();
-  const deduped = files.reverse().filter((f) => {
-    const p = typeof f === "string" ? f : f.path;
-    if (seenPaths.has(p)) return false;
-    seenPaths.add(p);
-    return true;
-  }).reverse();
+  const deduped = files
+    .reverse()
+    .filter((f) => {
+      const p = typeof f === "string" ? f : f.path;
+      if (seenPaths.has(p)) return false;
+      seenPaths.add(p);
+      return true;
+    })
+    .reverse();
   let priorOpts: Record<string, unknown> = {};
   try {
     if (prior !== null) priorOpts = JSON.parse(prior).optimizations ?? {};
@@ -1517,7 +1531,8 @@ function cmdInit(flags: string[]): boolean {
   }
   const optimizations: Record<string, boolean> = { ...defaultOptimizations() };
   for (const o of OPTIMIZATIONS) {
-    if (typeof priorOpts[o.name] === "boolean") optimizations[o.name] = priorOpts[o.name] as boolean;
+    if (typeof priorOpts[o.name] === "boolean")
+      optimizations[o.name] = priorOpts[o.name] as boolean;
   }
   try {
     fs.mkdirSync(path.dirname(manFile), { recursive: true });
@@ -1753,7 +1768,9 @@ function cmdStatus(): boolean {
     try {
       const b = JSON.parse(bText);
       const cold =
-        typeof b.coldStartMs === "number" ? `, cold-start ${b.coldStartMs}ms` : "";
+        typeof b.coldStartMs === "number"
+          ? `, cold-start ${b.coldStartMs}ms`
+          : "";
       console.log(`  last benchmark: ${fmtAge(b.ts)}${cold}`);
     } catch {
       console.log("  last benchmark: baseline corrupt (run harness bench)");
@@ -2096,13 +2113,18 @@ function cmdOptimize(): boolean {
     const times: Record<string, number> = {};
     for (const h of hooks) {
       let total = 0;
-      for (let i = 0; i < 3; i++) total += runHook(path.join(root, h), 10000).ms;
+      for (let i = 0; i < 3; i++)
+        total += runHook(path.join(root, h), 10000).ms;
       times[h] = Math.round((total / 3) * 10) / 10;
     }
     const slow = slowHooks(times, 2000);
     if (slow.length > 0) {
       const manFile = path.join(cwd, ".harness", "config.json");
-      let man: Record<string, unknown> = { version: VERSION, harness: [], files: [] };
+      let man: Record<string, unknown> = {
+        version: VERSION,
+        harness: [],
+        files: [],
+      };
       const manText = readText(manFile);
       if (manText !== null) {
         try {
@@ -2112,7 +2134,9 @@ function cmdOptimize(): boolean {
         }
       }
       const disabled = new Set<string>(
-        Array.isArray(man.disabledByPerf) ? man.disabledByPerf.filter((x) => typeof x === "string") : [],
+        Array.isArray(man.disabledByPerf)
+          ? man.disabledByPerf.filter((x) => typeof x === "string")
+          : [],
       );
       let dropped = 0;
       for (const h of slow) {
@@ -2270,9 +2294,7 @@ function fetchText(url: string, maxBytes: number): Promise<string | null> {
             }
             chunks.push(c);
           });
-          res.on("end", () =>
-            resolve(Buffer.concat(chunks).toString("utf8")),
-          );
+          res.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
         },
       );
       req.setTimeout(15000, () => {
@@ -2300,8 +2322,7 @@ function extractSkillBody(buf: Buffer): string | null {
     const cands = entries
       .filter(
         (e) =>
-          e === `${top}SKILL.md` ||
-          /^[^/]+\/skills\/[^/]+\/SKILL\.md$/.test(e),
+          e === `${top}SKILL.md` || /^[^/]+\/skills\/[^/]+\/SKILL\.md$/.test(e),
       )
       .sort((a, b) => a.length - b.length);
     return cands.length > 0 ? tarRead(tmp, cands[0]) : null;
@@ -2316,11 +2337,7 @@ function extractSkillBody(buf: Buffer): string | null {
   }
 }
 
-function finishSkillAdd(
-  body: string,
-  repoLabel: string,
-  ref: string,
-): boolean {
+function finishSkillAdd(body: string, repoLabel: string, ref: string): boolean {
   const cwd = process.cwd();
   const fm = parseFrontmatter(body);
   if (!fm) {
@@ -2376,9 +2393,7 @@ function finishSkillAdd(
     fs.mkdirSync(path.dirname(manFile), { recursive: true });
     fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
   } catch {
-    console.log(
-      "[harness] skill add - could not update .harness/config.json",
-    );
+    console.log("[harness] skill add - could not update .harness/config.json");
     return false;
   }
   console.log(
@@ -2523,7 +2538,10 @@ interface AddedSkill {
   sha256: string;
 }
 
-function readAddedSkills(cwd: string): { added: AddedSkill[]; corrupt: boolean } {
+function readAddedSkills(cwd: string): {
+  added: AddedSkill[];
+  corrupt: boolean;
+} {
   const manText = readText(path.join(cwd, ".harness", "config.json"));
   if (manText === null) return { added: [], corrupt: false };
   try {
@@ -2535,7 +2553,13 @@ function readAddedSkills(cwd: string): { added: AddedSkill[]; corrupt: boolean }
 }
 
 function verifyAddedSkill(cwd: string, a: AddedSkill): string | null {
-  const p = path.join(cwd, ".harness", "skills", String(a.name ?? ""), "SKILL.md");
+  const p = path.join(
+    cwd,
+    ".harness",
+    "skills",
+    String(a.name ?? ""),
+    "SKILL.md",
+  );
   const text = readText(p);
   if (text === null) return `${a.name} (missing)`;
   if (sha256(text) !== a.sha256) return `${a.name} (modified)`;
@@ -2543,7 +2567,13 @@ function verifyAddedSkill(cwd: string, a: AddedSkill): string | null {
 }
 
 const MAP_EXTS = new Set([".ts", ".js", ".py", ".md", ".json", ".sh"]);
-const MAP_SKIP_DIRS = new Set(["node_modules", "dist", ".git", ".harness", "coverage"]);
+const MAP_SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  ".git",
+  ".harness",
+  "coverage",
+]);
 
 export function mapSymbols(text: string): string[] {
   const out: string[] = [];
@@ -2552,10 +2582,15 @@ export function mapSymbols(text: string): string[] {
   };
   for (const line of text.split("\n")) {
     let m: RegExpExecArray | null;
-    if ((m = /^\s*export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/.exec(line))) {
+    if (
+      (m = /^\s*export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/.exec(line))
+    ) {
       push(m[1] + "()");
     } else if (
-      (m = /^\s*export\s+(?:const|let|var|class|interface|type|enum)\s+([A-Za-z0-9_]+)/.exec(line))
+      (m =
+        /^\s*export\s+(?:const|let|var|class|interface|type|enum)\s+([A-Za-z0-9_]+)/.exec(
+          line,
+        ))
     ) {
       push(m[1]);
     } else if (/^\s*export\s+default\b/.test(line)) {
@@ -2571,7 +2606,12 @@ export function mapSymbols(text: string): string[] {
   return out;
 }
 
-function buildMap(cwd: string): { lines: number; files: number; tokens: number; text: string } {
+function buildMap(cwd: string): {
+  lines: number;
+  files: number;
+  tokens: number;
+  text: string;
+} {
   const rows: Array<{ rel: string; syms: string[] }> = [];
   const walk = (dir: string) => {
     let entries: string[] = [];
@@ -2594,7 +2634,8 @@ function buildMap(cwd: string): { lines: number; files: number; tokens: number; 
         walk(abs);
       } else if (MAP_EXTS.has(path.extname(e)) && st.size <= 200000) {
         const text = readText(abs);
-        if (text !== null) rows.push({ rel: path.relative(cwd, abs), syms: mapSymbols(text) });
+        if (text !== null)
+          rows.push({ rel: path.relative(cwd, abs), syms: mapSymbols(text) });
       }
     }
   };
@@ -2616,11 +2657,18 @@ function buildMap(cwd: string): { lines: number; files: number; tokens: number; 
       .map(([d, n]) => `- ${d === "." || d === "" ? "." : d}/: ${n} files`),
     "",
     "## Files",
-    ...rows.map((r) => `- ${r.rel}${r.syms.length > 0 ? ": " + r.syms.join(", ") : ""}`),
+    ...rows.map(
+      (r) => `- ${r.rel}${r.syms.length > 0 ? ": " + r.syms.join(", ") : ""}`,
+    ),
     "",
   ];
   const text = out.join("\n");
-  return { lines: out.length, files: rows.length, tokens: estTokens(text), text };
+  return {
+    lines: out.length,
+    files: rows.length,
+    tokens: estTokens(text),
+    text,
+  };
 }
 
 function cmdMap(): boolean {
@@ -2646,11 +2694,31 @@ interface Optimization {
 }
 
 const OPTIMIZATIONS: Optimization[] = [
-  { name: "slim-agents", scope: "ram", desc: "install slim AGENTS.md (~180 tok) instead of full (~490 tok)" },
-  { name: "prune-memory", scope: "ram", desc: "keep MEMORY.md within the 2k-token budget" },
-  { name: "map-index", scope: "ram", desc: "write .harness/MAP.md file index on init" },
-  { name: "fast-hooks", scope: "cpu", desc: "disable hooks averaging over 2s, measured in optimize" },
-  { name: "archive-rotate", scope: "disk", desc: "cap MEMORY.archive.md at 500 lines in optimize" },
+  {
+    name: "slim-agents",
+    scope: "ram",
+    desc: "install slim AGENTS.md (~180 tok) instead of full (~490 tok)",
+  },
+  {
+    name: "prune-memory",
+    scope: "ram",
+    desc: "keep MEMORY.md within the 2k-token budget",
+  },
+  {
+    name: "map-index",
+    scope: "ram",
+    desc: "write .harness/MAP.md file index on init",
+  },
+  {
+    name: "fast-hooks",
+    scope: "cpu",
+    desc: "disable hooks averaging over 2s, measured in optimize",
+  },
+  {
+    name: "archive-rotate",
+    scope: "disk",
+    desc: "cap MEMORY.archive.md at 500 lines in optimize",
+  },
 ];
 
 function defaultOptimizations(): Record<string, boolean> {
@@ -2675,7 +2743,10 @@ function readOptimizations(cwd: string): Record<string, boolean> {
   return out;
 }
 
-function writeOptimizations(cwd: string, patch: Record<string, boolean>): boolean {
+function writeOptimizations(
+  cwd: string,
+  patch: Record<string, boolean>,
+): boolean {
   const manFile = path.join(cwd, ".harness", "config.json");
   let man: Record<string, unknown> = {
     version: VERSION,
@@ -2691,7 +2762,11 @@ function writeOptimizations(cwd: string, patch: Record<string, boolean>): boolea
       return false;
     }
   }
-  const merged = { ...defaultOptimizations(), ...((man.optimizations ?? {}) as Record<string, boolean>), ...patch };
+  const merged = {
+    ...defaultOptimizations(),
+    ...((man.optimizations ?? {}) as Record<string, boolean>),
+    ...patch,
+  };
   const clean: Record<string, boolean> = {};
   for (const o of OPTIMIZATIONS) clean[o.name] = merged[o.name] !== false;
   man.optimizations = clean;
@@ -2710,14 +2785,19 @@ function readDisabledByPerf(cwd: string): Set<string> {
     const text = readText(path.join(cwd, ".harness", "config.json"));
     if (text === null) return new Set();
     const list = JSON.parse(text).disabledByPerf ?? [];
-    return new Set(Array.isArray(list) ? list.filter((x) => typeof x === "string") : []);
+    return new Set(
+      Array.isArray(list) ? list.filter((x) => typeof x === "string") : [],
+    );
   } catch {
     return new Set();
   }
 }
 
 // pure: which hooks exceed budget. unit-tested.
-export function slowHooks(measurements: Record<string, number>, budgetMs: number): string[] {
+export function slowHooks(
+  measurements: Record<string, number>,
+  budgetMs: number,
+): string[] {
   return Object.entries(measurements)
     .filter(([, ms]) => ms > budgetMs)
     .map(([name]) => name)
@@ -2731,7 +2811,9 @@ function cmdOptimizations(args: string[]): boolean {
     const opts = readOptimizations(cwd);
     console.log("[harness] optimizations (all on by default):");
     for (const o of OPTIMIZATIONS) {
-      console.log(`  ${o.name} [${o.scope}] ${opts[o.name] ? "on" : "off"} - ${o.desc}`);
+      console.log(
+        `  ${o.name} [${o.scope}] ${opts[o.name] ? "on" : "off"} - ${o.desc}`,
+      );
     }
     return true;
   }
@@ -2866,9 +2948,7 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
             console.log(`  ${a.name} (custom override)`);
             continue;
           }
-          console.log(
-            `  ${a.name} (custom)${a.error ? ` (${a.error})` : ""}`,
-          );
+          console.log(`  ${a.name} (custom)${a.error ? ` (${a.error})` : ""}`);
         }
         return true;
       }
@@ -2908,7 +2988,9 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
             );
             fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
           } catch {
-            console.log("[harness] skill remove - manifest left stale, edit it by hand");
+            console.log(
+              "[harness] skill remove - manifest left stale, edit it by hand",
+            );
             return false;
           }
         }
@@ -2943,9 +3025,7 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
           console.log(`[harness] FAIL - skills: ${bad.join(", ")}`);
           return false;
         }
-        console.log(
-          `[harness] ok - ${list.length} added skill(s) verified`,
-        );
+        console.log(`[harness] ok - ${list.length} added skill(s) verified`);
         return true;
       }
       const root = selfRoot();
@@ -3029,14 +3109,20 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
       if (flags[0] === "edit") {
         const memFile = path.join(process.cwd(), "MEMORY.md");
         if (!fs.existsSync(memFile)) {
-          console.log("[harness] memory - no MEMORY.md here (run harness init)");
+          console.log(
+            "[harness] memory - no MEMORY.md here (run harness init)",
+          );
           return false;
         }
         if (!process.stdin.isTTY || !process.stdout.isTTY) {
-          console.log(`[harness] memory - no terminal, edit ${memFile} by hand`);
+          console.log(
+            `[harness] memory - no terminal, edit ${memFile} by hand`,
+          );
           return false;
         }
-        const editor = (process.env.EDITOR || process.env.VISUAL || "vi").split(" ")[0];
+        const editor = (process.env.EDITOR || process.env.VISUAL || "vi").split(
+          " ",
+        )[0];
         const r = spawnSync(editor, [memFile], { stdio: "inherit" });
         return r.status === 0;
       }
@@ -3111,10 +3197,7 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
           const text = readText(
             path.join(process.cwd(), "research", "findings", f),
           );
-          const title =
-            text
-              ?.split("\n")
-              .find((l) => l.startsWith("# ")) ?? f;
+          const title = text?.split("\n").find((l) => l.startsWith("# ")) ?? f;
           console.log(`  ${f} - ${title.replace(/^# /, "")}`);
         }
         return true;
@@ -3211,7 +3294,9 @@ const invokedAsCli = (() => {
     const a1 = process.argv[1];
     if (typeof a1 !== "string" || a1 === "") return false;
     if (/(^|[\\/])cli\.(ts|js)$/.test(a1)) return true;
-    return fs.realpathSync(a1) === fs.realpathSync(fileURLToPath(import.meta.url));
+    return (
+      fs.realpathSync(a1) === fs.realpathSync(fileURLToPath(import.meta.url))
+    );
   } catch {
     return false;
   }

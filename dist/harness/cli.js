@@ -1397,13 +1397,16 @@ function cmdInit(flags) {
     ];
     // migrate re-records regenerated files (MAP.md): keep the latest entry per path.
     const seenPaths = new Set();
-    const deduped = files.reverse().filter((f) => {
+    const deduped = files
+        .reverse()
+        .filter((f) => {
         const p = typeof f === "string" ? f : f.path;
         if (seenPaths.has(p))
             return false;
         seenPaths.add(p);
         return true;
-    }).reverse();
+    })
+        .reverse();
     let priorOpts = {};
     try {
         if (prior !== null)
@@ -1635,7 +1638,9 @@ function cmdStatus() {
     else {
         try {
             const b = JSON.parse(bText);
-            const cold = typeof b.coldStartMs === "number" ? `, cold-start ${b.coldStartMs}ms` : "";
+            const cold = typeof b.coldStartMs === "number"
+                ? `, cold-start ${b.coldStartMs}ms`
+                : "";
             console.log(`  last benchmark: ${fmtAge(b.ts)}${cold}`);
         }
         catch {
@@ -1961,7 +1966,11 @@ function cmdOptimize() {
         const slow = slowHooks(times, 2000);
         if (slow.length > 0) {
             const manFile = path.join(cwd, ".harness", "config.json");
-            let man = { version: VERSION, harness: [], files: [] };
+            let man = {
+                version: VERSION,
+                harness: [],
+                files: [],
+            };
             const manText = readText(manFile);
             if (manText !== null) {
                 try {
@@ -1971,7 +1980,9 @@ function cmdOptimize() {
                     // keep shell below
                 }
             }
-            const disabled = new Set(Array.isArray(man.disabledByPerf) ? man.disabledByPerf.filter((x) => typeof x === "string") : []);
+            const disabled = new Set(Array.isArray(man.disabledByPerf)
+                ? man.disabledByPerf.filter((x) => typeof x === "string")
+                : []);
             let dropped = 0;
             for (const h of slow) {
                 try {
@@ -2133,8 +2144,7 @@ function extractSkillBody(buf) {
         const entries = tarList(tmp);
         const top = entries.length > 0 ? entries[0].split("/")[0] + "/" : "";
         const cands = entries
-            .filter((e) => e === `${top}SKILL.md` ||
-            /^[^/]+\/skills\/[^/]+\/SKILL\.md$/.test(e))
+            .filter((e) => e === `${top}SKILL.md` || /^[^/]+\/skills\/[^/]+\/SKILL\.md$/.test(e))
             .sort((a, b) => a.length - b.length);
         return cands.length > 0 ? tarRead(tmp, cands[0]) : null;
     }
@@ -2352,7 +2362,13 @@ function verifyAddedSkill(cwd, a) {
     return null;
 }
 const MAP_EXTS = new Set([".ts", ".js", ".py", ".md", ".json", ".sh"]);
-const MAP_SKIP_DIRS = new Set(["node_modules", "dist", ".git", ".harness", "coverage"]);
+const MAP_SKIP_DIRS = new Set([
+    "node_modules",
+    "dist",
+    ".git",
+    ".harness",
+    "coverage",
+]);
 export function mapSymbols(text) {
     const out = [];
     const push = (s) => {
@@ -2364,7 +2380,8 @@ export function mapSymbols(text) {
         if ((m = /^\s*export\s+(?:async\s+)?function\s+([A-Za-z0-9_]+)/.exec(line))) {
             push(m[1] + "()");
         }
-        else if ((m = /^\s*export\s+(?:const|let|var|class|interface|type|enum)\s+([A-Za-z0-9_]+)/.exec(line))) {
+        else if ((m =
+            /^\s*export\s+(?:const|let|var|class|interface|type|enum)\s+([A-Za-z0-9_]+)/.exec(line))) {
             push(m[1]);
         }
         else if (/^\s*export\s+default\b/.test(line)) {
@@ -2437,7 +2454,12 @@ function buildMap(cwd) {
         "",
     ];
     const text = out.join("\n");
-    return { lines: out.length, files: rows.length, tokens: estTokens(text), text };
+    return {
+        lines: out.length,
+        files: rows.length,
+        tokens: estTokens(text),
+        text,
+    };
 }
 function cmdMap() {
     const cwd = process.cwd();
@@ -2454,11 +2476,31 @@ function cmdMap() {
     return true;
 }
 const OPTIMIZATIONS = [
-    { name: "slim-agents", scope: "ram", desc: "install slim AGENTS.md (~180 tok) instead of full (~490 tok)" },
-    { name: "prune-memory", scope: "ram", desc: "keep MEMORY.md within the 2k-token budget" },
-    { name: "map-index", scope: "ram", desc: "write .harness/MAP.md file index on init" },
-    { name: "fast-hooks", scope: "cpu", desc: "disable hooks averaging over 2s, measured in optimize" },
-    { name: "archive-rotate", scope: "disk", desc: "cap MEMORY.archive.md at 500 lines in optimize" },
+    {
+        name: "slim-agents",
+        scope: "ram",
+        desc: "install slim AGENTS.md (~180 tok) instead of full (~490 tok)",
+    },
+    {
+        name: "prune-memory",
+        scope: "ram",
+        desc: "keep MEMORY.md within the 2k-token budget",
+    },
+    {
+        name: "map-index",
+        scope: "ram",
+        desc: "write .harness/MAP.md file index on init",
+    },
+    {
+        name: "fast-hooks",
+        scope: "cpu",
+        desc: "disable hooks averaging over 2s, measured in optimize",
+    },
+    {
+        name: "archive-rotate",
+        scope: "disk",
+        desc: "cap MEMORY.archive.md at 500 lines in optimize",
+    },
 ];
 function defaultOptimizations() {
     const out = {};
@@ -2501,7 +2543,11 @@ function writeOptimizations(cwd, patch) {
             return false;
         }
     }
-    const merged = { ...defaultOptimizations(), ...(man.optimizations ?? {}), ...patch };
+    const merged = {
+        ...defaultOptimizations(),
+        ...(man.optimizations ?? {}),
+        ...patch,
+    };
     const clean = {};
     for (const o of OPTIMIZATIONS)
         clean[o.name] = merged[o.name] !== false;
@@ -2875,9 +2921,7 @@ async function runCommand(cmd, flags) {
                 }
                 for (const f of files) {
                     const text = readText(path.join(process.cwd(), "research", "findings", f));
-                    const title = text
-                        ?.split("\n")
-                        .find((l) => l.startsWith("# ")) ?? f;
+                    const title = text?.split("\n").find((l) => l.startsWith("# ")) ?? f;
                     console.log(`  ${f} - ${title.replace(/^# /, "")}`);
                 }
                 return true;
@@ -2967,7 +3011,7 @@ const invokedAsCli = (() => {
             return false;
         if (/(^|[\\/])cli\.(ts|js)$/.test(a1))
             return true;
-        return fs.realpathSync(a1) === fs.realpathSync(fileURLToPath(import.meta.url));
+        return (fs.realpathSync(a1) === fs.realpathSync(fileURLToPath(import.meta.url)));
     }
     catch {
         return false;
