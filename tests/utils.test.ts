@@ -3,10 +3,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-  bannerBlock,
   completeLine,
   estTokens,
-  paintRainbow,
   statusLine,
   fmtTok,
   mapSymbols,
@@ -17,6 +15,7 @@ import {
   sha256,
   slugify,
   stripFm,
+  welcome,
 } from "../src/harness/cli.js";
 
 describe("completeLine", () => {
@@ -56,18 +55,22 @@ describe("completeLine", () => {
   });
 });
 
-describe("bannerBlock", () => {
-  it("passes paintRainbow through with no tty", () => {
-    expect(paintRainbow("abc")).toBe("abc");
+describe("welcome", () => {
+  it("shows the plain title, no figlet remnants", () => {
+    for (const w of [40, 80, 160, 300]) {
+      const text = welcome(w);
+      expect(text).toContain("agent-harness");
+      expect(text).not.toContain("|___/");
+      expect(text).not.toContain("█████");
+    }
   });
-  it("renders the block-letter name on wide terminals", () => {
-    const b = bannerBlock(160);
-    expect(b).toContain("___");
-    expect(b).toContain("v");
-  });
-  it("falls back to plain text on narrow terminals", () => {
-    expect(bannerBlock(40)).toContain("agent-harness v");
-    expect(bannerBlock(70)).toContain("agent-harness v");
+  it("no welcome line ever exceeds its width", () => {
+    const strip = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
+    for (let w = 21; w <= 300; w++) {
+      for (const line of strip(welcome(w)).split("\n")) {
+        expect(line.length).toBeLessThanOrEqual(w);
+      }
+    }
   });
 });
 

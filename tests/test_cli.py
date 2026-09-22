@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 
@@ -105,12 +106,19 @@ def test_complete_flags_and_toggles():
     ]
 
 
-def test_banner_block():
-    assert cli.paint_rainbow("abc") == "abc"
-    wide = cli.banner_block(160)
-    assert "___" in wide
-    assert "agent-harness v" in cli.banner_block(40)
-    assert "agent-harness v" in cli.banner_block(70)
+def test_welcome():
+    for w in (40, 80, 160, 300):
+        text = cli.welcome(w)
+        assert "agent-harness" in text
+        assert "|___/" not in text
+        assert "█████" not in text
+
+
+def test_every_window_size():
+    ansi = re.compile(r"\x1b\[[0-9;]*m")
+    for w in range(21, 301):
+        for line in ansi.sub("", cli.welcome(w)).split("\n"):
+            assert len(line) <= w, (w, line)
 
 
 def test_status_line(tmp_path):

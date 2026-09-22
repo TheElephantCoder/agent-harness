@@ -103,6 +103,12 @@ See [`adapters/`](adapters/) for the per-tool mappings.
 ## Quick start
 
 ```bash
+# one line (macOS + Linux, needs Node >= 20)
+curl -fsSL https://theelephantcoder.github.io/agent-harness/install.sh | bash
+# pin a release instead of main, or install user-local
+curl -fsSL ... | HARNESS_REF=v0.2.1 bash
+HARNESS_PREFIX=$HOME/.local bash scripts/install-cli.sh
+
 # npm (macOS + Linux)
 npm install -g https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/refs/heads/main
 # or without install

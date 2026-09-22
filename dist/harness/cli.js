@@ -67,53 +67,22 @@ function paintArt(line) {
     })
         .join("");
 }
-// figlet "agent-harness" (figlet `standard` font), embedded so the
-// welcome banner needs no runtime dependency.
-const FIGLET = [
-    "                        _        _",
-    "  __ _  __ _  ___ _ __ | |_     | |__   __ _ _ __ _ __   ___  ___ ___",
-    " / _` |/ _` |/ _ \\ '_ \\| __|____| '_ \\ / _` | '__| '_ \\ / _ \\/ __/ __|",
-    "| (_| | (_| |  __/ | | | ||_____| | | | (_| | |  | | | |  __/\\__ \\__ \\",
-    " \\__,_|\\__, |\\___|_| |_|\\__|    |_| |_|\\__,_|_|  |_| |_|\\___||___/___/",
-    "       |___/",
-];
-const FIGLET_MIN_WIDTH = 74;
-// horizontal rainbow bands, lolcat style. plain text when color is off.
-export function paintRainbow(line) {
-    if (!useColor())
-        return line;
-    const bands = [
-        ANSI.red,
-        ANSI.yellow,
-        ANSI.green,
-        ANSI.cyan,
-        ANSI.blue,
-        ANSI.magenta,
-    ];
-    const w = Math.max(1, Math.ceil(line.length / bands.length));
-    let out = "";
-    for (let i = 0; i < line.length; i++) {
-        out += `${bands[Math.min(bands.length - 1, Math.floor(i / w))]}${line[i]}`;
-    }
-    return `${out}${ANSI.reset}`;
-}
-// big rainbow name, or the plain title when the terminal is too narrow.
-// exported for tests.
-export function bannerBlock(width) {
-    if (width < FIGLET_MIN_WIDTH) {
-        return centerLine(`agent-harness ${paint(ANSI.dim, `v${VERSION}`)}`, width);
-    }
-    const fig = FIGLET.map((l) => centerLine(paintRainbow(l), width)).join("\n");
-    return `${fig}\n${centerLine(paint(ANSI.dim, `v${VERSION}`), width)}`;
-}
-function welcome() {
-    const width = termWidth();
+// width override exists for tests; the live call reads the terminal.
+export function welcome(width = termWidth()) {
     const rule = paint(ANSI.dim, "·".repeat(width));
     const divider = paint(ANSI.dim, "╌".repeat(width));
-    const art = ART.map((l) => centerLine(paintArt(l), width)).join("\n");
+    // the starfield is 48 wide; on narrower screens it would wrap-tear,
+    // so it steps aside and the banner carries the welcome alone.
+    const art = width < 50
+        ? ""
+        : ART.map((l) => centerLine(paintArt(l), width)).join("\n");
+    const titleText = width < 31
+        ? `agent-harness ${paint(ANSI.dim, `v${VERSION}`)}`
+        : `Welcome to ${paint(ANSI.bold, "agent-harness")} ${paint(ANSI.dim, `v${VERSION}`)}`;
+    const title = centerLine(titleText, width);
     const sub = centerLine(paint(ANSI.dim, "Let's get started."), width);
     const credit = centerLine(paint(ANSI.dim, "by TheElephantCoder"), width);
-    return ([rule, "", art, "", bannerBlock(width), "", sub, credit, ""].join("\n") +
+    return ([rule, "", art, "", title, "", sub, credit, ""].join("\n") +
         "\n" +
         divider);
 }
@@ -164,11 +133,8 @@ const ANSI = {
     reset: "\x1b[0m",
     bold: "\x1b[1m",
     dim: "\x1b[2m",
-    red: "\x1b[31m",
-    yellow: "\x1b[33m",
     green: "\x1b[32m",
     cyan: "\x1b[36m",
-    blue: "\x1b[34m",
     magenta: "\x1b[35m",
 };
 function useColor() {
@@ -201,7 +167,11 @@ async function selectFallback(title, options) {
     return n - 1;
 }
 async function selectOption(title, options) {
-    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    // arrow redraw math assumes no line wraps (longest line is 44 cells),
+    // so narrow screens get the numbered fallback instead of torn redraws.
+    if (!process.stdin.isTTY ||
+        !process.stdout.isTTY ||
+        termWidth() < 45) {
         return selectFallback(title, options);
     }
     return new Promise((resolve) => {
@@ -670,7 +640,16 @@ export function completeLine(line) {
     const hits = words.filter((w) => w.startsWith(last));
     return [hits.length ? hits : words, last];
 }
+// fresh welcome sized to the current window, below whatever is on screen
+// (the old copy stays in scrollback; a clean reprint beats rewrap tears).
+function renderWelcome() {
+    console.log(`\n${welcome()}\n${paint(ANSI.dim, statusLine())}`);
+}
 async function interactive() {
+    // launch width: the welcome above is laid out for this. anything that
+    // changes it later (menu phase has no resize handler yet) is caught by
+    // comparing against this, not against shell-start width.
+    const launchWidth = termWidth();
     console.log(welcome());
     await showMenu();
     // command history persists across sessions in .harness/history, but only
@@ -707,6 +686,34 @@ async function interactive() {
     });
     console.log(paint(ANSI.dim, statusLine()));
     rl.prompt();
+    // horizontal resizes rewrap old fixed-width lines into tears, so re-lay
+    // the banner once the size settles. skipped inside menus and commands
+    // (the width check after them catches up).
+    let uiBusy = false;
+    let lastWidth = launchWidth;
+    const rlRef = { current: null };
+    rlRef.current = rl;
+    // Dragging fires a storm of SIGWINCH; rendering per-signal floods the
+    // screen with overlapping banners. So the signal is ignored entirely and
+    // the interval below renders only once the width holds still for a full
+    // tick. A drag ends in exactly one reprint, no matter how wild it was.
+    let lastSeenWidth = launchWidth;
+    const resizeTimer = setInterval(() => {
+        const rl = rlRef.current;
+        if (!rl || uiBusy)
+            return;
+        const w = termWidth();
+        if (w !== lastSeenWidth) {
+            lastSeenWidth = w;
+            return;
+        }
+        if (w === lastWidth)
+            return;
+        lastWidth = w;
+        renderWelcome();
+        rl.prompt();
+    }, 500);
+    resizeTimer.unref();
     let last = "";
     for await (const raw of rl) {
         const line = raw.trim() === "!!" ? last : raw;
@@ -735,14 +742,19 @@ async function interactive() {
             continue;
         }
         if (c === "menu") {
+            uiBusy = true;
             await showMenu();
+            uiBusy = false;
             rl.prompt();
             continue;
         }
+        uiBusy = true;
         await runCommand(c, rest);
+        uiBusy = false;
         last = line.trim();
         rl.prompt();
     }
+    clearInterval(resizeTimer);
     if (fs.existsSync(hDir)) {
         try {
             const seen = new Set(savedHist);
@@ -2097,7 +2109,8 @@ export function slugify(s) {
     return (s
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "")
         .slice(0, 40) || "note");
 }
 function cmdMemorySync(note) {
@@ -2181,7 +2194,8 @@ export function sanitizeSkillName(s) {
     return s
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "")
         .slice(0, 64);
 }
 function fetchText(url, maxBytes) {
