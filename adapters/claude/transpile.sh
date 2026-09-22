@@ -4,7 +4,7 @@
 set -euo pipefail
 if ! command -v harness >/dev/null 2>&1; then
   echo "[claude] harness not found - install it first:" >&2
-  echo "  npm install -g https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/refs/heads/main" >&2
+  echo "  curl -fsSL https://theelephantcoder.github.io/agent-harness/install.sh | bash" >&2
   exit 1
 fi
 exec harness init --harness claude --migrate

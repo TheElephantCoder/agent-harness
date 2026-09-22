@@ -1,29 +1,8 @@
 # apt (Ubuntu/Debian)
 
-I host a small apt repo on Pages so you don't need a PPA. Same `.deb` as Releases, just `apt update` friendly.
+Retired as an install method: install with the curl script (default) or from source (see README Quick start). Existing apt installs keep updating through `harness upgrade` / `sudo apt upgrade agent-harness`.
 
-## Install from repo
-
-```bash
-echo "deb [trusted=yes] https://theelephantcoder.github.io/agent-harness/apt stable main" | sudo tee /etc/apt/sources.list.d/agent-harness.list
-sudo apt update
-sudo apt install agent-harness
-
-# verify
-harness --version
-harness doctor
-```
-
-Later updates are just `sudo apt update && sudo apt upgrade agent-harness`.
-
-## Direct .deb
-
-If you don't want the repo:
-
-```bash
-wget https://github.com/TheElephantCoder/agent-harness/releases/latest/download/agent-harness_0.1.1_all.deb
-sudo apt install ./agent-harness_0.1.1_all.deb
-```
+The Pages apt repo (`apt/pool`, `Packages`) and the `.deb` on Releases are still built per release by `.github/workflows/deb.yml`, so installed systems keep resolving updates.
 
 ## What's in the .deb
 
@@ -46,10 +25,8 @@ ls -lh dist-deb/
 sudo apt install ./dist-deb/agent-harness_0.1.1_all.deb
 ```
 
-The workflow `.github/workflows/deb.yml` builds on `ubuntu-latest` on every tag and Release, uploads the `.deb` to the Release, and updates the Pages apt repo (`apt/pool`, `Packages` via `dpkg-scanpackages`).
-
 ## Notes
 
 - Arch is `all` since it's JS + shell + markdown, works on amd64 and arm64.
-- The repo is unsigned for now, hence `[trusted=yes]`. If that bothers you, use the direct `.deb` or npm instead.
-- Python shim (`agent-harness-cli`) is not in the .deb, use `pipx` if you want it.
+- The repo is unsigned for now, hence `[trusted=yes]`.
+- Python shim (`agent-harness-cli`) is not in the .deb.

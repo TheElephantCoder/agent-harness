@@ -103,43 +103,11 @@ See [`adapters/`](adapters/) for the per-tool mappings.
 ## Quick start
 
 ```bash
-# one line (macOS + Linux, needs Node >= 20)
+# one line, the default (macOS + Linux, needs Node >= 20)
 curl -fsSL https://theelephantcoder.github.io/agent-harness/install.sh | bash
 # pin a release instead of main, or install user-local
 curl -fsSL ... | HARNESS_REF=v0.2.1 bash
 HARNESS_PREFIX=$HOME/.local bash scripts/install-cli.sh
-
-# npm (macOS + Linux)
-npm install -g https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/refs/heads/main
-# or without install
-npx -y https://codeload.github.com/TheElephantCoder/agent-harness/tar.gz/refs/heads/main init
-# registry publish (@theelephantcoder/agent-harness) is pending, same package
-
-# python if you prefer: no PyPI release yet, install from git
-# (on Ubuntu 24.04 bare pip is blocked by PEP 668, use pipx or a venv)
-pip install "git+https://github.com/TheElephantCoder/agent-harness.git"
-pipx install "git+https://github.com/TheElephantCoder/agent-harness.git"
-# note: pip ships the CLI only (upgrade works); for init/doctor/bench use a source checkout or npm
-
-# apt (Ubuntu/Debian): repo hosted on Pages, no PPA needed
-echo "deb [trusted=yes] https://theelephantcoder.github.io/agent-harness/apt stable main" | sudo tee /etc/apt/sources.list.d/agent-harness.list
-sudo apt update
-sudo apt install agent-harness
-# or direct .deb from Releases
-wget https://github.com/TheElephantCoder/agent-harness/releases/latest/download/agent-harness_0.2.1_all.deb
-sudo apt install ./agent-harness_0.2.1_all.deb
-
-# brew (macOS + Linuxbrew): same repo is the tap, no second repo needed
-brew tap theelephantcoder/agent-harness https://github.com/TheElephantCoder/agent-harness
-brew trust theelephantcoder/agent-harness   # one-time, third-party taps need it
-brew install agent-harness
-# now it's just
-brew install agent-harness
-brew upgrade agent-harness
-# HEAD (latest on main)
-brew install --HEAD agent-harness
-# local, from this checkout
-brew install --build-from-source Formula/agent-harness.rb
 
 # from source (macOS + Linux, needs Node >=20)
 git clone https://github.com/TheElephantCoder/agent-harness.git
@@ -148,6 +116,8 @@ npm install
 npm run build
 npm link
 ```
+
+Those are the only two ways to install: the curl script (default), or a source checkout. npm, npx, pip, apt, and brew installs are retired; existing ones keep updating through `harness upgrade`.
 
 On Ubuntu, if `node --version` is under 20, grab a newer Node first:
 
