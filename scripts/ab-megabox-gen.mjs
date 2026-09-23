@@ -30,10 +30,36 @@ const W = (rel, content) => {
   fs.writeFileSync(f, content);
 };
 
-const ADJ = ["Pro", "Max", "Lite", "Ultra", "Prime", "Eco", "Turbo", "Nano", "Mega", "Smart"];
-const NOUN = ["Widget", "Gadget", "Sprocket", "Cog", "Bolt", "Panel", "Valve", "Gear", "Latch", "Probe", "Sensor", "Relay"];
+const ADJ = [
+  "Pro",
+  "Max",
+  "Lite",
+  "Ultra",
+  "Prime",
+  "Eco",
+  "Turbo",
+  "Nano",
+  "Mega",
+  "Smart",
+];
+const NOUN = [
+  "Widget",
+  "Gadget",
+  "Sprocket",
+  "Cog",
+  "Bolt",
+  "Panel",
+  "Valve",
+  "Gear",
+  "Latch",
+  "Probe",
+  "Sensor",
+  "Relay",
+];
 
-W("package.json", `{
+W(
+  "package.json",
+  `{
   "name": "megabox",
   "version": "1.0.0",
   "private": true,
@@ -41,17 +67,26 @@ W("package.json", `{
   "scripts": { "test": "vitest run" },
   "devDependencies": { "tsx": "^4.0.0", "typescript": "^5.5.0", "vitest": "^1.0.0" }
 }
-`);
-W("tsconfig.json", `{
+`,
+);
+W(
+  "tsconfig.json",
+  `{
   "compilerOptions": { "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true, "skipLibCheck": true },
   "include": ["shared/**/*", "core/**/*", "shop/**/*", "api/**/*", "web/**/*", "scripts/**/*", "test/**/*"]
 }
-`);
+`,
+);
 W(".gitignore", "node_modules/\ndist/\n");
-W("README.md", "# megabox\n\nDemo store monorepo for agent benchmark tasks.\n\nPackages: `shared`, `core`, `shop`, `api`, `web`. Run tests with `npm test`.\n");
+W(
+  "README.md",
+  "# megabox\n\nDemo store monorepo for agent benchmark tasks.\n\nPackages: `shared`, `core`, `shop`, `api`, `web`. Run tests with `npm test`.\n",
+);
 
 // ---------- shared ----------
-W("shared/src/money.ts", `export function formatMoney(cents: number, currency = "USD"): string {
+W(
+  "shared/src/money.ts",
+  `export function formatMoney(cents: number, currency = "USD"): string {
   const sym: Record<string, string> = { USD: "$", EUR: "\\u20AC", GBP: "\\u00A3" };
   return \`\${sym[currency] ?? "$"}\${(cents / 100).toFixed(2)}\`;
 }
@@ -66,8 +101,11 @@ export function addCents(a: number, b: number): number {
 export function pctOff(cents: number, pct: number): number {
   return Math.round((cents * (100 - pct)) / 100);
 }
-`);
-W("shared/src/result.ts", `export type Result<T, E = string> =
+`,
+);
+W(
+  "shared/src/result.ts",
+  `export type Result<T, E = string> =
   | { ok: true; value: T }
   | { ok: false; error: E };
 export function ok<T>(value: T): Result<T> {
@@ -82,8 +120,11 @@ export function isOk<T, E>(r: Result<T, E>): r is { ok: true; value: T } {
 export function unwrap<T>(r: Result<T>, fallback: T): T {
   return r.ok ? r.value : fallback;
 }
-`);
-W("shared/src/ids.ts", `let n = 0;
+`,
+);
+W(
+  "shared/src/ids.ts",
+  `let n = 0;
 export function resetIds(): void {
   n = 0;
 }
@@ -91,43 +132,61 @@ export function newId(prefix = "id"): string {
   n += 1;
   return \`\${prefix}-\${n}\`;
 }
-`);
-W("shared/src/types.ts", `export type Region = "XA" | "XB" | "XC";
+`,
+);
+W(
+  "shared/src/types.ts",
+  `export type Region = "XA" | "XB" | "XC";
 export interface Sku {
   code: string;
   name: string;
   priceCents: number;
 }
-`);
-W("shared/src/constants.ts", `import type { Region } from "./types.js";
+`,
+);
+W(
+  "shared/src/constants.ts",
+  `import type { Region } from "./types.js";
 export const TAX_RATES: Record<Region, number> = { XA: 8, XB: 0, XC: 5 };
 export const FREE_SHIP_CENTS = 10000;
 export const FLAT_SHIP_CENTS = 900;
-`);
-W("shared/src/geo.ts", `import type { Region } from "./types.js";
+`,
+);
+W(
+  "shared/src/geo.ts",
+  `import type { Region } from "./types.js";
 export function regionName(r: Region): string {
   return { XA: "Alpha", XB: "Beta", XC: "Gamma" }[r];
 }
 export function isTaxFree(r: Region): boolean {
   return r === "XB";
 }
-`);
-W("shared/src/currency.ts", `export function symbolFor(code: string): string {
+`,
+);
+W(
+  "shared/src/currency.ts",
+  `export function symbolFor(code: string): string {
   const sym: Record<string, string> = { USD: "$", EUR: "\\u20AC", GBP: "\\u00A3", JPY: "\\u00A5" };
   return sym[code] ?? "$";
 }
 export function decimalsFor(code: string): number {
   return code === "JPY" ? 0 : 2;
 }
-`);
-W("shared/src/units.ts", `export function kgToG(kg: number): number {
+`,
+);
+W(
+  "shared/src/units.ts",
+  `export function kgToG(kg: number): number {
   return Math.round(kg * 1000);
 }
 export function cmToMm(cm: number): number {
   return Math.round(cm * 10);
 }
-`);
-W("shared/test/money.test.ts", `import { describe, expect, it } from "vitest";
+`,
+);
+W(
+  "shared/test/money.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { formatMoney, parseMoney, pctOff } from "../src/money.js";
 describe("money", () => {
   it("formats and parses", () => {
@@ -136,8 +195,11 @@ describe("money", () => {
     expect(pctOff(1000, 10)).toBe(900);
   });
 });
-`);
-W("shared/test/result.test.ts", `import { describe, expect, it } from "vitest";
+`,
+);
+W(
+  "shared/test/result.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { err, isOk, ok, unwrap } from "../src/result.js";
 describe("result", () => {
   it("wraps values", () => {
@@ -146,8 +208,11 @@ describe("result", () => {
     expect(unwrap(err("x"), 7)).toBe(7);
   });
 });
-`);
-W("shared/test/ids.test.ts", `import { describe, expect, it } from "vitest";
+`,
+);
+W(
+  "shared/test/ids.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { newId, resetIds } from "../src/ids.js";
 describe("ids", () => {
   it("counts up", () => {
@@ -156,7 +221,8 @@ describe("ids", () => {
     expect(newId("o")).toBe("o-2");
   });
 });
-`);
+`,
+);
 
 // ---------- core ----------
 const coreMods = {
@@ -477,7 +543,12 @@ for (const [name, mod] of Object.entries(coreMods)) {
   W(`core/src/${name}.ts`, mod[0]);
   W(`core/test/${name}.test.ts`, mod[1]);
 }
-W("core/src/index.ts", Object.keys(coreMods).map((n) => `export * from "./${n}.js";`).join("\n") + "\n");
+W(
+  "core/src/index.ts",
+  Object.keys(coreMods)
+    .map((n) => `export * from "./${n}.js";`)
+    .join("\n") + "\n",
+);
 
 // ---------- shop catalog (generated data) ----------
 const PREFIX = ["WDG", "GDG", "SPR", "COG", "BLT", "PNL"];
@@ -490,8 +561,15 @@ for (let i = 0; i < 24; i++) {
     priceCents: rint(5, 500) * 100,
   });
 }
-const itemLines = items.map((it) => `  { code: "${it.code}", name: "${it.name}", priceCents: ${it.priceCents} },`).join("\n");
-W("shop/src/catalog.ts", `import type { Sku } from "../../shared/src/types.js";
+const itemLines = items
+  .map(
+    (it) =>
+      `  { code: "${it.code}", name: "${it.name}", priceCents: ${it.priceCents} },`,
+  )
+  .join("\n");
+W(
+  "shop/src/catalog.ts",
+  `import type { Sku } from "../../shared/src/types.js";
 export const CATALOG: Sku[] = [
 ${itemLines}
 ];
@@ -501,9 +579,12 @@ export function findBySku(code: string): Sku | undefined {
 export function listSkus(): string[] {
   return CATALOG.map((i) => i.code);
 }
-`);
+`,
+);
 const first = items[0];
-W("shop/test/catalog.test.ts", `import { describe, expect, it } from "vitest";
+W(
+  "shop/test/catalog.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { findBySku, listSkus } from "../src/catalog.js";
 describe("catalog", () => {
   it("finds skus", () => {
@@ -512,10 +593,13 @@ describe("catalog", () => {
     expect(listSkus().length).toBe(24);
   });
 });
-`);
+`,
+);
 
 // ---------- shop flow (hand-written, real) ----------
-W("shop/src/cart.ts", `import { findBySku } from "./catalog.js";
+W(
+  "shop/src/cart.ts",
+  `import { findBySku } from "./catalog.js";
 export interface CartLine { sku: string; qty: number }
 export function addLine(cart: CartLine[], sku: string, qty: number): CartLine[] {
   if (qty < 1) throw new Error("qty must be >= 1");
@@ -534,14 +618,20 @@ export function subtotal(cart: CartLine[]): number {
     return sum + item.priceCents * l.qty;
   }, 0);
 }
-`);
-W("shop/src/pricing.ts", `export interface Discount { pct?: number; fixedCents?: number }
+`,
+);
+W(
+  "shop/src/pricing.ts",
+  `export interface Discount { pct?: number; fixedCents?: number }
 export function applyDiscount(subtotalCents: number, d: Discount): number {
   const afterFixed = Math.max(0, subtotalCents - (d.fixedCents ?? 0));
   return Math.round((afterFixed * (100 - (d.pct ?? 0))) / 100);
 }
-`);
-W("shop/src/tax.ts", `import { TAX_RATES } from "../../shared/src/constants.js";
+`,
+);
+W(
+  "shop/src/tax.ts",
+  `import { TAX_RATES } from "../../shared/src/constants.js";
 import type { Region } from "../../shared/src/types.js";
 export function rateFor(region: Region): number {
   return TAX_RATES[region];
@@ -549,8 +639,11 @@ export function rateFor(region: Region): number {
 export function taxAmount(discountedCents: number, region: Region): number {
   return Math.round((discountedCents * rateFor(region)) / 100);
 }
-`);
-W("shop/src/orders.ts", `import { newId } from "../../shared/src/ids.js";
+`,
+);
+W(
+  "shop/src/orders.ts",
+  `import { newId } from "../../shared/src/ids.js";
 import type { Region } from "../../shared/src/types.js";
 import { type CartLine, subtotal } from "./cart.js";
 import { type Discount, applyDiscount } from "./pricing.js";
@@ -570,15 +663,21 @@ export function createOrder(lines: CartLine[], region: Region, discount: Discoun
   const tax = taxAmount(disc, region);
   return { id: newId("order"), lines, subtotal: sub, discount: sub - disc, tax, total: disc + tax, region };
 }
-`);
-W("shop/src/shipping.ts", `import { FLAT_SHIP_CENTS, FREE_SHIP_CENTS } from "../../shared/src/constants.js";
+`,
+);
+W(
+  "shop/src/shipping.ts",
+  `import { FLAT_SHIP_CENTS, FREE_SHIP_CENTS } from "../../shared/src/constants.js";
 export function shipCost(subtotalCents: number): number {
   if (subtotalCents >= FREE_SHIP_CENTS) return 0;
   if (subtotalCents >= 5000) return 500;
   return FLAT_SHIP_CENTS;
 }
-`);
-W("shop/src/inventory.ts", `const stock = new Map<string, number>();
+`,
+);
+W(
+  "shop/src/inventory.ts",
+  `const stock = new Map<string, number>();
 export function stockFor(sku: string): number {
   let h = 0;
   for (const c of sku) h = (h * 31 + c.charCodeAt(0)) % 400;
@@ -596,8 +695,11 @@ export function release(sku: string, qty: number): void {
 export function clearStock(): void {
   stock.clear();
 }
-`);
-W("shop/src/coupons.ts", `import type { Discount } from "./pricing.js";
+`,
+);
+W(
+  "shop/src/coupons.ts",
+  `import type { Discount } from "./pricing.js";
 export const COUPONS: Record<string, Discount> = {
   SAVE10: { pct: 10 },
   FLAT5: { fixedCents: 500 },
@@ -605,35 +707,44 @@ export const COUPONS: Record<string, Discount> = {
 export function validateCode(code: string): Discount | null {
   return COUPONS[code] ?? null;
 }
-`);
+`,
+);
 const shopSmall = {
-  returns: [`export function returnTotal(paidCents: number, restockFeePct: number): number {
+  returns: [
+    `export function returnTotal(paidCents: number, restockFeePct: number): number {
   return Math.round((paidCents * (100 - restockFeePct)) / 100);
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { returnTotal } from "../src/returns.js";
 describe("returns", () => {
   it("deducts restock fee", () => {
     expect(returnTotal(1000, 10)).toBe(900);
   });
 });
-`],
-  reviews: [`export function avgStars(ratings: number[]): number {
+`,
+  ],
+  reviews: [
+    `export function avgStars(ratings: number[]): number {
   if (ratings.length === 0) return 0;
   return Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10;
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { avgStars } from "../src/reviews.js";
 describe("reviews", () => {
   it("averages", () => {
     expect(avgStars([5, 4, 5])).toBe(4.7);
   });
 });
-`],
-  wishlist: [`export function toggle(list: string[], sku: string): string[] {
+`,
+  ],
+  wishlist: [
+    `export function toggle(list: string[], sku: string): string[] {
   return list.includes(sku) ? list.filter((s) => s !== sku) : [...list, sku];
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { toggle } from "../src/wishlist.js";
 describe("wishlist", () => {
   it("toggles", () => {
@@ -641,12 +752,15 @@ describe("wishlist", () => {
     expect(toggle(["A"], "A")).toEqual([]);
   });
 });
-`],
-  giftcards: [`export function applyGift(totalCents: number, valueCents: number): { charged: number; remaining: number } {
+`,
+  ],
+  giftcards: [
+    `export function applyGift(totalCents: number, valueCents: number): { charged: number; remaining: number } {
   const charged = Math.max(0, totalCents - valueCents);
   return { charged, remaining: Math.max(0, valueCents - totalCents) };
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { applyGift } from "../src/giftcards.js";
 describe("giftcards", () => {
   it("splits charge", () => {
@@ -654,58 +768,73 @@ describe("giftcards", () => {
     expect(applyGift(100, 400)).toEqual({ charged: 0, remaining: 300 });
   });
 });
-`],
-  loyalty: [`export function pointsFor(spentCents: number): number {
+`,
+  ],
+  loyalty: [
+    `export function pointsFor(spentCents: number): number {
   return Math.floor(spentCents / 100);
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { pointsFor } from "../src/loyalty.js";
 describe("loyalty", () => {
   it("earns a point per dollar", () => {
     expect(pointsFor(250)).toBe(2);
   });
 });
-`],
-  bundles: [`export function bundlePrice(itemsCents: number[], pctOffBund: number): number {
+`,
+  ],
+  bundles: [
+    `export function bundlePrice(itemsCents: number[], pctOffBund: number): number {
   const sub = itemsCents.reduce((a, b) => a + b, 0);
   return Math.round((sub * (100 - pctOffBund)) / 100);
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { bundlePrice } from "../src/bundles.js";
 describe("bundles", () => {
   it("discounts bundles", () => {
     expect(bundlePrice([1000, 1000], 10)).toBe(1800);
   });
 });
-`],
-  subscriptions: [`export function cyclesPerYear(freq: "monthly" | "yearly"): number {
+`,
+  ],
+  subscriptions: [
+    `export function cyclesPerYear(freq: "monthly" | "yearly"): number {
   return freq === "monthly" ? 12 : 1;
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { cyclesPerYear } from "../src/subscriptions.js";
 describe("subscriptions", () => {
   it("counts cycles", () => {
     expect(cyclesPerYear("monthly")).toBe(12);
   });
 });
-`],
-  invoices: [`export function invoiceTotal(subtotal: number, tax: number, shipping: number): number {
+`,
+  ],
+  invoices: [
+    `export function invoiceTotal(subtotal: number, tax: number, shipping: number): number {
   return subtotal + tax + shipping;
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { invoiceTotal } from "../src/invoices.js";
 describe("invoices", () => {
   it("adds up", () => {
     expect(invoiceTotal(1000, 80, 0)).toBe(1080);
   });
 });
-`],
+`,
+  ],
 };
 for (const [name, mod] of Object.entries(shopSmall)) {
   W(`shop/src/${name}.ts`, mod[0]);
   W(`shop/test/${name}.test.ts`, mod[1]);
 }
-W("shop/test/cart.test.ts", `import { describe, expect, it } from "vitest";
+W(
+  "shop/test/cart.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { addLine, removeLine, subtotal } from "../src/cart.js";
 describe("cart", () => {
   it("adds and totals", () => {
@@ -715,8 +844,11 @@ describe("cart", () => {
     expect(subtotal(cart)).toBe(0);
   });
 });
-`);
-W("shop/test/pricing.test.ts", `import { describe, expect, it } from "vitest";
+`,
+);
+W(
+  "shop/test/pricing.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { applyDiscount } from "../src/pricing.js";
 describe("pricing", () => {
   it("handles single discounts", () => {
@@ -725,8 +857,11 @@ describe("pricing", () => {
     expect(applyDiscount(10000, { fixedCents: 500 })).toBe(9500);
   });
 });
-`);
-W("shop/test/tax.test.ts", `import { describe, expect, it } from "vitest";
+`,
+);
+W(
+  "shop/test/tax.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { rateFor, taxAmount } from "../src/tax.js";
 describe("tax", () => {
   it("rates regions", () => {
@@ -735,8 +870,11 @@ describe("tax", () => {
     expect(taxAmount(10000, "XA")).toBe(800);
   });
 });
-`);
-W("shop/test/orders.test.ts", `import { describe, expect, it } from "vitest";
+`,
+);
+W(
+  "shop/test/orders.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { createOrder } from "../src/orders.js";
 describe("orders", () => {
   it("totals without discount", () => {
@@ -746,8 +884,11 @@ describe("orders", () => {
     expect(o.total).toBe(${first.priceCents});
   });
 });
-`);
-W("shop/test/coupons.test.ts", `import { describe, expect, it } from "vitest";
+`,
+);
+W(
+  "shop/test/coupons.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { validateCode } from "../src/coupons.js";
 describe("coupons", () => {
   it("validates codes", () => {
@@ -755,8 +896,11 @@ describe("coupons", () => {
     expect(validateCode("NOPE")).toBeNull();
   });
 });
-`);
-W("shop/test/inventory.test.ts", `import { describe, expect, it } from "vitest";
+`,
+);
+W(
+  "shop/test/inventory.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { clearStock, reserve, stockFor } from "../src/inventory.js";
 describe("inventory", () => {
   it("reserves stock", () => {
@@ -767,10 +911,13 @@ describe("inventory", () => {
     expect(reserve("${first.code}", 2)).toBe(true);
   });
 });
-`);
+`,
+);
 
 // ---------- api ----------
-W("api/src/receipt.ts", `import { formatMoney } from "../../shared/src/money.js";
+W(
+  "api/src/receipt.ts",
+  `import { formatMoney } from "../../shared/src/money.js";
 import type { Order } from "../../shop/src/orders.js";
 export function receiptText(o: Order): string {
   const lines = o.lines.map((l) => \`\${l.qty}x \${l.sku}\`);
@@ -783,15 +930,21 @@ export function receiptText(o: Order): string {
     \`total \${formatMoney(o.total)}\`,
   ].join("\\n");
 }
-`);
-W("api/src/formatter.ts", `export function moneyCol(cents: number, width: number): string {
+`,
+);
+W(
+  "api/src/formatter.ts",
+  `export function moneyCol(cents: number, width: number): string {
   return String(cents).padStart(width, " ");
 }
 export function row(cells: string[]): string {
   return cells.join(" | ");
 }
-`);
-W("api/test/receipt.test.ts", `import { describe, expect, it } from "vitest";
+`,
+);
+W(
+  "api/test/receipt.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { createOrder } from "../../shop/src/orders.js";
 import { receiptText } from "../src/receipt.js";
 describe("receipt", () => {
@@ -802,37 +955,163 @@ describe("receipt", () => {
     expect(t).toContain(o.id);
   });
 });
-`);
+`,
+);
 const routes = [
-  ["cart", "addToCart", "sku: string, qty: number", "findBySku(sku) ? (qty < 1 ? err(\"qty must be >= 1\") : ok(`added ${qty}x ${sku}`)) : err(`unknown sku ${sku}`)", `import { err, ok } from "../../../shared/src/result.js";\nimport { findBySku } from "../../../shop/src/catalog.js";`],
-  ["orders", "getOrder", "id: string", `id.length > 0 ? ok(\`order \${id}\`) : err("empty id")`, `import { err, ok } from "../../../shared/src/result.js";`],
-  ["products", "getProduct", "sku: string", `(() => { const p = findBySku(sku); return p ? ok(p.name) : err("unknown sku"); })()`, `import { err, ok } from "../../../shared/src/result.js";\nimport { findBySku } from "../../../shop/src/catalog.js";`],
-  ["checkout", "checkout", "lines: number", `lines > 0 ? ok(\`checkout \${lines} lines\`) : err("empty cart")`, `import { err, ok } from "../../../shared/src/result.js";`],
-  ["coupon", "applyCoupon", "code: string", `validateCode(code) ? ok(\`coupon \${code}\`) : err("bad code")`, `import { err, ok } from "../../../shared/src/result.js";\nimport { validateCode } from "../../../shop/src/coupons.js";`],
-  ["returns", "startReturn", "orderId: string", `orderId.length > 3 ? ok(\`return \${orderId}\`) : err("bad order")`, `import { err, ok } from "../../../shared/src/result.js";`],
-  ["reviews", "addReview", "stars: number", `(stars >= 1 && stars <= 5) ? ok(\`review \${stars}\`) : err("stars 1-5")`, `import { err, ok } from "../../../shared/src/result.js";`],
-  ["inventory", "checkStock", "sku: string", `ok(\`stock \${stockFor(sku)}\`)`, `import { ok } from "../../../shared/src/result.js";\nimport { stockFor } from "../../../shop/src/inventory.js";`],
-  ["shipping", "quoteShipping", "subtotal: number", `ok(\`ship \${shipCost(subtotal)}\`)`, `import { ok } from "../../../shared/src/result.js";\nimport { shipCost } from "../../../shop/src/shipping.js";`],
-  ["tax", "quoteTax", "cents: number", `ok(\`tax \${taxAmount(cents, "XA")}\`)`, `import { ok } from "../../../shared/src/result.js";\nimport { taxAmount } from "../../../shop/src/tax.js";`],
-  ["user", "getUser", "id: string", `id.length > 0 ? ok(\`user \${id}\`) : err("empty id")`, `import { err, ok } from "../../../shared/src/result.js";`],
-  ["auth", "hasRole", "headers: Record<string, string>, role: string", `headers["x-role"] === role ? ok(role) : err("forbidden")`, `import { err, ok } from "../../../shared/src/result.js";`],
-  ["search", "searchCatalog", "q: string", `ok(listSkus().filter((s) => s.includes(q.toUpperCase())).join(","))`, `import { ok } from "../../../shared/src/result.js";\nimport { listSkus } from "../../../shop/src/catalog.js";`],
-  ["wishlist", "addWish", "sku: string", `findBySku(sku) ? ok(sku) : err("unknown sku")`, `import { err, ok } from "../../../shared/src/result.js";\nimport { findBySku } from "../../../shop/src/catalog.js";`],
-  ["health", "health", "", `ok("up")`, `import { ok } from "../../../shared/src/result.js";`],
-  ["webhook", "ingest", "kind: string", `kind.length > 0 ? ok(kind) : err("empty kind")`, `import { err, ok } from "../../../shared/src/result.js";`],
-  ["adminusers", "banUser", "id: string", `id.startsWith("admin") ? err("cannot ban admin") : ok(id)`, `import { err, ok } from "../../../shared/src/result.js";`],
-  ["adminorders", "refundOrder", "id: string", `id.length > 0 ? ok(\`refund \${id}\`) : err("empty id")`, `import { err, ok } from "../../../shared/src/result.js";`],
-  ["reports", "salesReport", "days: number", `days > 0 ? ok(\`report \${days}d\`) : err("bad range")`, `import { err, ok } from "../../../shared/src/result.js";`],
-  ["settings", "getSetting", "key: string", `key.length > 0 ? ok(\`setting \${key}\`) : err("empty key")`, `import { err, ok } from "../../../shared/src/result.js";`],
+  [
+    "cart",
+    "addToCart",
+    "sku: string, qty: number",
+    'findBySku(sku) ? (qty < 1 ? err("qty must be >= 1") : ok(`added ${qty}x ${sku}`)) : err(`unknown sku ${sku}`)',
+    `import { err, ok } from "../../../shared/src/result.js";\nimport { findBySku } from "../../../shop/src/catalog.js";`,
+  ],
+  [
+    "orders",
+    "getOrder",
+    "id: string",
+    `id.length > 0 ? ok(\`order \${id}\`) : err("empty id")`,
+    `import { err, ok } from "../../../shared/src/result.js";`,
+  ],
+  [
+    "products",
+    "getProduct",
+    "sku: string",
+    `(() => { const p = findBySku(sku); return p ? ok(p.name) : err("unknown sku"); })()`,
+    `import { err, ok } from "../../../shared/src/result.js";\nimport { findBySku } from "../../../shop/src/catalog.js";`,
+  ],
+  [
+    "checkout",
+    "checkout",
+    "lines: number",
+    `lines > 0 ? ok(\`checkout \${lines} lines\`) : err("empty cart")`,
+    `import { err, ok } from "../../../shared/src/result.js";`,
+  ],
+  [
+    "coupon",
+    "applyCoupon",
+    "code: string",
+    `validateCode(code) ? ok(\`coupon \${code}\`) : err("bad code")`,
+    `import { err, ok } from "../../../shared/src/result.js";\nimport { validateCode } from "../../../shop/src/coupons.js";`,
+  ],
+  [
+    "returns",
+    "startReturn",
+    "orderId: string",
+    `orderId.length > 3 ? ok(\`return \${orderId}\`) : err("bad order")`,
+    `import { err, ok } from "../../../shared/src/result.js";`,
+  ],
+  [
+    "reviews",
+    "addReview",
+    "stars: number",
+    `(stars >= 1 && stars <= 5) ? ok(\`review \${stars}\`) : err("stars 1-5")`,
+    `import { err, ok } from "../../../shared/src/result.js";`,
+  ],
+  [
+    "inventory",
+    "checkStock",
+    "sku: string",
+    `ok(\`stock \${stockFor(sku)}\`)`,
+    `import { ok } from "../../../shared/src/result.js";\nimport { stockFor } from "../../../shop/src/inventory.js";`,
+  ],
+  [
+    "shipping",
+    "quoteShipping",
+    "subtotal: number",
+    `ok(\`ship \${shipCost(subtotal)}\`)`,
+    `import { ok } from "../../../shared/src/result.js";\nimport { shipCost } from "../../../shop/src/shipping.js";`,
+  ],
+  [
+    "tax",
+    "quoteTax",
+    "cents: number",
+    `ok(\`tax \${taxAmount(cents, "XA")}\`)`,
+    `import { ok } from "../../../shared/src/result.js";\nimport { taxAmount } from "../../../shop/src/tax.js";`,
+  ],
+  [
+    "user",
+    "getUser",
+    "id: string",
+    `id.length > 0 ? ok(\`user \${id}\`) : err("empty id")`,
+    `import { err, ok } from "../../../shared/src/result.js";`,
+  ],
+  [
+    "auth",
+    "hasRole",
+    "headers: Record<string, string>, role: string",
+    `headers["x-role"] === role ? ok(role) : err("forbidden")`,
+    `import { err, ok } from "../../../shared/src/result.js";`,
+  ],
+  [
+    "search",
+    "searchCatalog",
+    "q: string",
+    `ok(listSkus().filter((s) => s.includes(q.toUpperCase())).join(","))`,
+    `import { ok } from "../../../shared/src/result.js";\nimport { listSkus } from "../../../shop/src/catalog.js";`,
+  ],
+  [
+    "wishlist",
+    "addWish",
+    "sku: string",
+    `findBySku(sku) ? ok(sku) : err("unknown sku")`,
+    `import { err, ok } from "../../../shared/src/result.js";\nimport { findBySku } from "../../../shop/src/catalog.js";`,
+  ],
+  [
+    "health",
+    "health",
+    "",
+    `ok("up")`,
+    `import { ok } from "../../../shared/src/result.js";`,
+  ],
+  [
+    "webhook",
+    "ingest",
+    "kind: string",
+    `kind.length > 0 ? ok(kind) : err("empty kind")`,
+    `import { err, ok } from "../../../shared/src/result.js";`,
+  ],
+  [
+    "adminusers",
+    "banUser",
+    "id: string",
+    `id.startsWith("admin") ? err("cannot ban admin") : ok(id)`,
+    `import { err, ok } from "../../../shared/src/result.js";`,
+  ],
+  [
+    "adminorders",
+    "refundOrder",
+    "id: string",
+    `id.length > 0 ? ok(\`refund \${id}\`) : err("empty id")`,
+    `import { err, ok } from "../../../shared/src/result.js";`,
+  ],
+  [
+    "reports",
+    "salesReport",
+    "days: number",
+    `days > 0 ? ok(\`report \${days}d\`) : err("bad range")`,
+    `import { err, ok } from "../../../shared/src/result.js";`,
+  ],
+  [
+    "settings",
+    "getSetting",
+    "key: string",
+    `key.length > 0 ? ok(\`setting \${key}\`) : err("empty key")`,
+    `import { err, ok } from "../../../shared/src/result.js";`,
+  ],
 ];
 for (const [name, fn, sig, body, imports] of routes) {
-  W(`api/src/routes/${name}.ts`, `${imports}
+  W(
+    `api/src/routes/${name}.ts`,
+    `${imports}
 export function ${fn}(${sig}): unknown {
   return ${body};
 }
-`);
+`,
+  );
 }
-W("api/test/routes.test.ts", `import { describe, expect, it } from "vitest";
+W(
+  "api/test/routes.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { addToCart } from "../src/routes/cart.js";
 import { applyCoupon } from "../src/routes/coupon.js";
 import { health } from "../src/routes/health.js";
@@ -844,12 +1123,15 @@ describe("routes", () => {
     expect(health()).toMatchObject({ ok: true });
   });
 });
-`);
+`,
+);
 const mwares = {
-  auth: [`export function hasRole(headers: Record<string, string>, role: string): boolean {
+  auth: [
+    `export function hasRole(headers: Record<string, string>, role: string): boolean {
   return headers["x-role"] === role;
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { hasRole } from "../src/middleware/auth.js";
 describe("mware auth", () => {
   it("checks roles", () => {
@@ -857,17 +1139,23 @@ describe("mware auth", () => {
     expect(hasRole({}, "admin")).toBe(false);
   });
 });
-`],
-  logging: [`export function logLine(method: string, path: string): string {
+`,
+  ],
+  logging: [
+    `export function logLine(method: string, path: string): string {
   return \`\${method} \${path}\`;
 }
-`, ""],
-  validation: [`export function problems(body: unknown): string[] {
+`,
+    "",
+  ],
+  validation: [
+    `export function problems(body: unknown): string[] {
   const out: string[] = [];
   if (typeof body !== "object" || body === null) out.push("body must be an object");
   return out;
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { problems } from "../src/middleware/validation.js";
 describe("mware validation", () => {
   it("rejects junk", () => {
@@ -875,12 +1163,15 @@ describe("mware validation", () => {
     expect(problems({})).toEqual([]);
   });
 });
-`],
-  errors: [`export function errorToResponse(code: string): { status: number; body: string } {
+`,
+  ],
+  errors: [
+    `export function errorToResponse(code: string): { status: number; body: string } {
   const known: Record<string, number> = { NOT_FOUND: 404, VALIDATION: 400 };
   return { status: known[code] ?? 500, body: code };
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { errorToResponse } from "../src/middleware/errors.js";
 describe("mware errors", () => {
   it("maps codes", () => {
@@ -888,15 +1179,21 @@ describe("mware errors", () => {
     expect(errorToResponse("WEIRD").status).toBe(500);
   });
 });
-`],
-  cors: [`export function corsHeaders(origin: string): Record<string, string> {
+`,
+  ],
+  cors: [
+    `export function corsHeaders(origin: string): Record<string, string> {
   return { "access-control-allow-origin": origin, "access-control-allow-methods": "GET,POST" };
 }
-`, ""],
-  ratelimit: [`export function overLimit(count: number, limit: number): boolean {
+`,
+    "",
+  ],
+  ratelimit: [
+    `export function overLimit(count: number, limit: number): boolean {
   return count >= limit;
 }
-`, `import { describe, expect, it } from "vitest";
+`,
+    `import { describe, expect, it } from "vitest";
 import { overLimit } from "../src/middleware/ratelimit.js";
 describe("mware ratelimit", () => {
   it("caps", () => {
@@ -904,17 +1201,24 @@ describe("mware ratelimit", () => {
     expect(overLimit(9, 10)).toBe(false);
   });
 });
-`],
-  requestid: [`let n = 0;
+`,
+  ],
+  requestid: [
+    `let n = 0;
 export function requestId(): string {
   n += 1;
   return \`req-\${n}\`;
 }
-`, ""],
-  timeout: [`export function timeoutMs(kind: string): number {
+`,
+    "",
+  ],
+  timeout: [
+    `export function timeoutMs(kind: string): number {
   return { fast: 1000, slow: 30000 }[kind] ?? 5000;
 }
-`, ""],
+`,
+    "",
+  ],
 };
 for (const [name, mod] of Object.entries(mwares)) {
   W(`api/src/middleware/${name}.ts`, mod[0]);
@@ -924,33 +1228,89 @@ for (const [name, mod] of Object.entries(mwares)) {
 // ---------- web (pure render fns, no JSX) ----------
 const comps = [
   ["button", "renderButton", "label: string", "`<button>${label}</button>`"],
-  ["price", "renderPrice", "cents: number", "`<span class=price>${formatMoney(cents)}</span>`", `import { formatMoney } from "../../../shared/src/money.js";`],
-  ["badge", "renderBadge", "text: string, kind: string", "`<span class=badge-${kind}>${text}</span>`"],
-  ["cartline", "renderCartLine", "sku: string, qty: number", "`<li>${qty}x ${sku}</li>`"],
-  ["orderrow", "renderOrderRow", "id: string, total: number", "`<tr><td>${id}</td><td>${total}</td></tr>`"],
-  ["stars", "renderStars", "n: number", "`${\"*\".repeat(n)}`"],
+  [
+    "price",
+    "renderPrice",
+    "cents: number",
+    "`<span class=price>${formatMoney(cents)}</span>`",
+    `import { formatMoney } from "../../../shared/src/money.js";`,
+  ],
+  [
+    "badge",
+    "renderBadge",
+    "text: string, kind: string",
+    "`<span class=badge-${kind}>${text}</span>`",
+  ],
+  [
+    "cartline",
+    "renderCartLine",
+    "sku: string, qty: number",
+    "`<li>${qty}x ${sku}</li>`",
+  ],
+  [
+    "orderrow",
+    "renderOrderRow",
+    "id: string, total: number",
+    "`<tr><td>${id}</td><td>${total}</td></tr>`",
+  ],
+  ["stars", "renderStars", "n: number", '`${"*".repeat(n)}`'],
   ["header", "renderHeader", "title: string", "`<h1>${title}</h1>`"],
   ["footer", "renderFooter", "year: number", "`<footer>${year}</footer>`"],
   ["input", "renderInput", "name: string", "`<input name=${name}/>`"],
-  ["table", "renderTable", "rows: string[][]", "`rows.map((r) => r.join('|')).join('\\\\n')`"],
+  [
+    "table",
+    "renderTable",
+    "rows: string[][]",
+    "`rows.map((r) => r.join('|')).join('\\\\n')`",
+  ],
   ["alert", "renderAlert", "msg: string", "`<div class=alert>${msg}</div>`"],
-  ["link", "renderLink", "href: string, text: string", "`<a href=${href}>${text}</a>`"],
-  ["image", "renderImage", "src: string, alt: string", "`<img src=${src} alt=${alt}/>`"],
+  [
+    "link",
+    "renderLink",
+    "href: string, text: string",
+    "`<a href=${href}>${text}</a>`",
+  ],
+  [
+    "image",
+    "renderImage",
+    "src: string, alt: string",
+    "`<img src=${src} alt=${alt}/>`",
+  ],
   ["form", "renderForm", "action: string", "`<form action=${action}></form>`"],
-  ["select", "renderSelect", "opts: string[]", "\"<option>\" + opts.join('</option><option>') + '</option>'"],
-  ["nav", "renderNav", "items: string[]", "\"<a>\" + items.join('</a> <a>') + '</a>'"],
-  ["card", "renderCard", "title: string, body: string", "`<div class=card><h2>${title}</h2><p>${body}</p></div>`"],
+  [
+    "select",
+    "renderSelect",
+    "opts: string[]",
+    "\"<option>\" + opts.join('</option><option>') + '</option>'",
+  ],
+  [
+    "nav",
+    "renderNav",
+    "items: string[]",
+    "\"<a>\" + items.join('</a> <a>') + '</a>'",
+  ],
+  [
+    "card",
+    "renderCard",
+    "title: string, body: string",
+    "`<div class=card><h2>${title}</h2><p>${body}</p></div>`",
+  ],
   ["modal", "renderModal", "body: string", "`<div class=modal>${body}</div>`"],
   ["toast", "renderToast", "msg: string", "`<div class=toast>${msg}</div>`"],
   ["empty", "renderEmpty", "", "`<p class=empty>none</p>`"],
 ];
 for (const [name, fn, sig, body, imp] of comps) {
-  W(`web/src/components/${name}.ts`, `${imp ? imp + "\n" : ""}export function ${fn}(${sig}): string {
+  W(
+    `web/src/components/${name}.ts`,
+    `${imp ? imp + "\n" : ""}export function ${fn}(${sig}): string {
   return ${body};
 }
-`);
+`,
+  );
 }
-W("web/test/components.test.ts", `import { describe, expect, it } from "vitest";
+W(
+  "web/test/components.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { renderButton } from "../src/components/button.js";
 import { renderPrice } from "../src/components/price.js";
 import { renderStars } from "../src/components/stars.js";
@@ -961,30 +1321,81 @@ describe("components", () => {
     expect(renderStars(3)).toBe("***");
   });
 });
-`);
-const pages = ["home", "cart", "checkout", "product", "orders", "search", "account", "admin", "help", "status"];
+`,
+);
+const pages = [
+  "home",
+  "cart",
+  "checkout",
+  "product",
+  "orders",
+  "search",
+  "account",
+  "admin",
+  "help",
+  "status",
+];
 for (const p of pages) {
-  W(`web/src/pages/${p}.ts`, `import { renderHeader } from "../components/header.js";
+  W(
+    `web/src/pages/${p}.ts`,
+    `import { renderHeader } from "../components/header.js";
 import { renderFooter } from "../components/footer.js";
 export function page${p[0].toUpperCase() + p.slice(1)}(): string {
   return renderHeader("${p}") + renderFooter(2026);
 }
-`);
+`,
+  );
 }
-W("web/test/pages.test.ts", `import { describe, expect, it } from "vitest";
+W(
+  "web/test/pages.test.ts",
+  `import { describe, expect, it } from "vitest";
 import { pageCart } from "../src/pages/cart.js";
 describe("pages", () => {
   it("composes", () => {
     expect(pageCart()).toContain("<h1>cart</h1>");
   });
 });
-`);
+`,
+);
 
 // ---------- entities: CRUD stores + tests (volume + realism) ----------
-const entities = ["product", "customer", "coupon", "review", "ticket", "invoice", "shipment", "payment", "refund", "session", "apitoken", "webhook", "report", "board", "alert", "rule", "policy", "template", "snippet", "bookmark", "note", "tag", "category", "brand", "vendor", "depot", "batch", "job", "taskitem", "ledger"];
+const entities = [
+  "product",
+  "customer",
+  "coupon",
+  "review",
+  "ticket",
+  "invoice",
+  "shipment",
+  "payment",
+  "refund",
+  "session",
+  "apitoken",
+  "webhook",
+  "report",
+  "board",
+  "alert",
+  "rule",
+  "policy",
+  "template",
+  "snippet",
+  "bookmark",
+  "note",
+  "tag",
+  "category",
+  "brand",
+  "vendor",
+  "depot",
+  "batch",
+  "job",
+  "taskitem",
+  "ledger",
+];
 for (const e of entities) {
   const Name = e[0].toUpperCase() + e.slice(1);
-  W(`shop/src/entities/${e}.ts`, `import { newId } from "../../../shared/src/ids.js";
+  W(
+    `shop/src/entities/${e}.ts`,
+    `import { newId } from "../../../shared/src/ids.js";
 export interface ${Name} { id: string; name: string; meta: string }
 const store = new Map<string, ${Name}>();
 export function create${Name}(name: string, meta = ""): ${Name} {
@@ -1007,8 +1418,11 @@ export function clear${Name}s(): void {
 export function summarize${Name}(e: ${Name}): string {
   return \`\${e.name} (\${e.id})\`;
 }
-`);
-  W(`shop/test/ent-${e}.test.ts`, `import { describe, expect, it } from "vitest";
+`,
+  );
+  W(
+    `shop/test/ent-${e}.test.ts`,
+    `import { describe, expect, it } from "vitest";
 import { clear${Name}s, create${Name}, get${Name}, list${Name}s, remove${Name}, summarize${Name} } from "../src/entities/${e}.js";
 describe("${e}", () => {
   it("cruds", () => {
@@ -1021,17 +1435,21 @@ describe("${e}", () => {
     expect(list${Name}s()).toHaveLength(0);
   });
 });
-`);
+`,
+  );
 }
 
 // ---------- scripts/order-total.ts (T1 fixture, deterministic) ----------
-W("scripts/order-total.ts", `import { createOrder } from "../shop/src/orders.js";
+W(
+  "scripts/order-total.ts",
+  `import { createOrder } from "../shop/src/orders.js";
 const order = createOrder([{ sku: "${first.code}", qty: 2 }], "XA", { pct: 10 });
 console.log(\`lines: \${order.lines.length}\`);
 console.log(\`subtotal: \${order.subtotal}\`);
 console.log(\`discount: \${order.discount}\`);
 console.log(\`tax: \${order.tax}\`);
 console.log(\`total: \${order.total}\`);
-`);
+`,
+);
 
 console.log("megabox generated");

@@ -156,7 +156,9 @@ describe("stripFm", () => {
 describe("mapSymbols", () => {
   it("extracts exports", () => {
     expect(
-      mapSymbols("export function foo() {}\nexport const bar = 1;\nexport default x;"),
+      mapSymbols(
+        "export function foo() {}\nexport const bar = 1;\nexport default x;",
+      ),
     ).toEqual(["foo()", "bar", "default"]);
   });
   it("reads python defs and markdown titles", () => {
@@ -164,7 +166,10 @@ describe("mapSymbols", () => {
     expect(mapSymbols("# Title\n\ntext")).toEqual(["Title"]);
   });
   it("caps at twelve", () => {
-    const src = Array.from({ length: 20 }, (_, i) => `export const v${i} = ${i};`).join("\n");
+    const src = Array.from(
+      { length: 20 },
+      (_, i) => `export const v${i} = ${i};`,
+    ).join("\n");
     expect(mapSymbols(src)).toHaveLength(12);
   });
 });

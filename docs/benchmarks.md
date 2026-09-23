@@ -48,6 +48,7 @@ T1/harness/kimi showed zero web search: 6 steps, inputs growing 7313 to 9221,
 i.e. thoroughness behavior (extra exploration resending history), not payload.
 
 kimi-k3 (free tier, $0):
+
 - T1 bare: 539 [527-549], 34787 [30866-39691], 5.3, 3/3
 - T1 harness: 573 [475-675], 49168 [41954-62201], 6.3, 3/3
 - T2 bare: 499 [439-564], 44172 [41273-49113], 7.3, 3/3
@@ -56,6 +57,7 @@ kimi-k3 (free tier, $0):
 - T3 harness: 466 [415-519], 48419 [42847-52345], 7.3, 3/3
 
 nemotron-3-super-120b:
+
 - T1 bare: 26 [24-28], 68873 [64100-77411], 8.3, 1/3
 - T1 harness: 20 [14-28], 65364 [56174-78516], 8.3, 2/3
 - T2 bare: 85 [61-120], 143352 [106958-207905], 17.0, 3/3
@@ -77,6 +79,7 @@ Full fresh 18-cell nemotron rerun under v2. T2/T3 graders unchanged.
 Raw rows: `research/evidence/ab-results-run3.jsonl`.
 
 nemotron-3-super-120b:
+
 - T1 bare: 49 [34-59], 69113 [65245-76630], 8.3, 2/3
 - T1 harness: 61 [50-78], 88054 [56586-129215], 10.3, 1/3
 - T2 bare: 71 [35-110], 115029 [76063-134900], 14.0, 3/3
@@ -98,6 +101,7 @@ thinly ~1/3 of the time no matter the arm, grader, or wording, across three
 datasets now. Raw rows: `research/evidence/ab-results-run4.jsonl`.
 
 nemotron-3-super-120b ($0.38):
+
 - T1 bare: 35 [24-41], 72886 [68098-75544], 8.7, 2/3
 - T1 harness: 58 [32-82], 78547 [56577-92996], 9.3, 2/3
 - T2 bare: 95 [56-134], 121468 [88579-150372], 14.0, 3/3
@@ -141,6 +145,7 @@ harness+curated-memory, fresh worktree per cell.
 Raw rows: `research/evidence/ab-results-mega1.jsonl`.
 
 kimi-k3 (free tier, $0):
+
 - T1 bare: 0/3, wall 647 [561-780], tok 69535
 - T1 harness: 0/3, wall 539 [420-664], tok 57182
 - T2 bare: 2/3 (one 780s cap-kill), wall 671, tok 57399
@@ -162,6 +167,7 @@ research trigger. Kimi cells were abandoned after provider throttling killed
 3 straight runs at the cap (rows kept out of analysis, disclosed here).
 
 nemotron-3-super-120b ($0.56):
+
 - T1 bare: 0/3, wall 39 [29-56], tok 107295
 - T1 harness: 0/3, wall 62 [48-83], tok 117571
 - T2 bare: 3/3, wall 119 [75-147], tok 192958, tools 23.0
@@ -181,7 +187,7 @@ micro-costs, not behavior:
 
 - Orientation compression (megabox bed): 204 source files, 148,267 bytes
   (~37.1k tokens) exhaustive-read ceiling vs `.harness/MAP.md` at 228 lines,
-  10,979 bytes (~2.7k tokens). **13.5x.** Framing: locating *where* things
+  10,979 bytes (~2.7k tokens). **13.5x.** Framing: locating _where_ things
   live costs one index read instead of up to a full read-through. Comprehension
   still costs reading the files themselves.
 - Memory prune scaling (`optimize`, budget 2k tokens, overflow archived,
@@ -200,6 +206,7 @@ map. Raw rows: `research/evidence/ab-results-mega-nemotron-enriched.jsonl`
 only in memory/trigger content, same bed, same driver).
 
 nemotron-3-super-120b:
+
 - T1 bare: 0/3, wall 63 [47-81], tok 147598
 - T1 harness: 0/3, wall 106 [83-151], tok 138348
 - T2 bare: 2/3, wall 130 [55-264], tok 142248, tools 15.3

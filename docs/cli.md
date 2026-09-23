@@ -124,13 +124,13 @@ harness optimizations disable map-index
 harness optimizations enable all
 ```
 
-| name | scope | what it does when on |
-|---|---|---|
-| slim-agents | ram | `init` installs slim AGENTS.md (~180 tok) instead of full (~490 tok) |
-| prune-memory | ram | `optimize`/`sync` keep MEMORY.md within the 2k budget |
-| map-index | ram | `init` writes `.harness/MAP.md` file index |
-| fast-hooks | cpu | `optimize` times hooks and disables any averaging over 2s (recorded, `doctor --fix` respects it) |
-| archive-rotate | disk | `optimize` caps `MEMORY.archive.md` at 500 lines |
+| name           | scope | what it does when on                                                                             |
+| -------------- | ----- | ------------------------------------------------------------------------------------------------ |
+| slim-agents    | ram   | `init` installs slim AGENTS.md (~180 tok) instead of full (~490 tok)                             |
+| prune-memory   | ram   | `optimize`/`sync` keep MEMORY.md within the 2k budget                                            |
+| map-index      | ram   | `init` writes `.harness/MAP.md` file index                                                       |
+| fast-hooks     | cpu   | `optimize` times hooks and disables any averaging over 2s (recorded, `doctor --fix` respects it) |
+| archive-rotate | disk  | `optimize` caps `MEMORY.archive.md` at 500 lines                                                 |
 
 The interactive prompt has the same controls under "Manage
 optimizations". Mechanism notes with local measurements: slim-vs-full
@@ -250,9 +250,15 @@ When those config files already exist, `init` leaves them alone. Merge by hand:
 {
   "version": 1,
   "hooks": {
-    "sessionStart": [{ "command": ".harness/hooks/session-start--hydrate.sh", "timeout": 15 }],
-    "preToolUse": [{ "command": ".harness/hooks/pre-tool--guard.sh", "timeout": 5 }],
-    "afterFileEdit": [{ "command": ".harness/hooks/post-edit--check.sh", "timeout": 5 }]
+    "sessionStart": [
+      { "command": ".harness/hooks/session-start--hydrate.sh", "timeout": 15 }
+    ],
+    "preToolUse": [
+      { "command": ".harness/hooks/pre-tool--guard.sh", "timeout": 5 }
+    ],
+    "afterFileEdit": [
+      { "command": ".harness/hooks/post-edit--check.sh", "timeout": 5 }
+    ]
   }
 }
 ```
@@ -261,15 +267,42 @@ When those config files already exist, `init` leaves them alone. Merge by hand:
 // .codex/hooks.json (review with /hooks on first run)
 {
   "hooks": {
-    "SessionStart": [{ "matcher": "startup|resume", "hooks": [
-      { "type": "command", "command": "bash \"$(git rev-parse --show-toplevel)/.harness/hooks/session-start--hydrate.sh\"", "timeout": 15 }
-    ] }],
-    "PreToolUse": [{ "matcher": "Bash", "hooks": [
-      { "type": "command", "command": "bash \"$(git rev-parse --show-toplevel)/.harness/hooks/pre-tool--guard.sh\"", "timeout": 5 }
-    ] }],
-    "PostToolUse": [{ "matcher": "Bash", "hooks": [
-      { "type": "command", "command": "bash \"$(git rev-parse --show-toplevel)/.harness/hooks/post-edit--check.sh\"", "timeout": 5 }
-    ] }]
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.harness/hooks/session-start--hydrate.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.harness/hooks/pre-tool--guard.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.harness/hooks/post-edit--check.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -279,10 +312,24 @@ When those config files already exist, `init` leaves them alone. Merge by hand:
 {
   "version": "v1",
   "hooks": [
-    { "name": "harness hydrate on session start", "trigger": "SessionStart",
-      "action": { "type": "command", "command": "./.harness/hooks/session-start--hydrate.sh" }, "timeout": 15 },
-    { "name": "harness hydrate on agent spawn", "trigger": "Agent Spawn",
-      "action": { "type": "command", "command": "./.harness/hooks/session-start--hydrate.sh" }, "timeout": 15 }
+    {
+      "name": "harness hydrate on session start",
+      "trigger": "SessionStart",
+      "action": {
+        "type": "command",
+        "command": "./.harness/hooks/session-start--hydrate.sh"
+      },
+      "timeout": 15
+    },
+    {
+      "name": "harness hydrate on agent spawn",
+      "trigger": "Agent Spawn",
+      "action": {
+        "type": "command",
+        "command": "./.harness/hooks/session-start--hydrate.sh"
+      },
+      "timeout": 15
+    }
   ]
 }
 ```

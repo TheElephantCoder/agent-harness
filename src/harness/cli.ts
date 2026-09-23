@@ -98,9 +98,7 @@ export function welcome(width: number = termWidth()): string {
   // the starfield is 48 wide; on narrower screens it would wrap-tear,
   // so it steps aside and the banner carries the welcome alone.
   const art =
-    width < 50
-      ? ""
-      : ART.map((l) => centerLine(paintArt(l), width)).join("\n");
+    width < 50 ? "" : ART.map((l) => centerLine(paintArt(l), width)).join("\n");
   const titleText =
     width < 31
       ? `agent-harness ${paint(ANSI.dim, `v${VERSION}`)}`
@@ -109,9 +107,7 @@ export function welcome(width: number = termWidth()): string {
   const sub = centerLine(paint(ANSI.dim, "Let's get started."), width);
   const credit = centerLine(paint(ANSI.dim, "by TheElephantCoder"), width);
   return (
-    [rule, "", art, "", title, "", sub, credit, ""].join("\n") +
-    "\n" +
-    divider
+    [rule, "", art, "", title, "", sub, credit, ""].join("\n") + "\n" + divider
   );
 }
 function help() {
@@ -208,11 +204,7 @@ async function selectFallback(
 async function selectOption(title: string, options: string[]): Promise<number> {
   // arrow redraw math assumes no line wraps (longest line is 44 cells),
   // so narrow screens get the numbered fallback instead of torn redraws.
-  if (
-    !process.stdin.isTTY ||
-    !process.stdout.isTTY ||
-    termWidth() < 45
-  ) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY || termWidth() < 45) {
     return selectFallback(title, options);
   }
   return new Promise<number>((resolve) => {
@@ -1168,10 +1160,13 @@ export interface OllamaState {
 }
 
 // installed-size table from /api/ps. exported for tests.
-export function parseOllamaPs(text: string): { name: string; sizeKb: number }[] {
+export function parseOllamaPs(
+  text: string,
+): { name: string; sizeKb: number }[] {
   try {
-    const d: { models?: { name?: unknown; size_vram?: unknown; size?: unknown }[] } =
-      JSON.parse(text);
+    const d: {
+      models?: { name?: unknown; size_vram?: unknown; size?: unknown }[];
+    } = JSON.parse(text);
     if (!Array.isArray(d.models)) return [];
     return d.models.map((m) => ({
       name: String(m.name ?? "?"),
@@ -1184,9 +1179,13 @@ export function parseOllamaPs(text: string): { name: string; sizeKb: number }[] 
 
 function ollamaApi(pathname: string): string | null {
   try {
-    const r = spawnSync("curl", ["-s", "-m", "5", `http://localhost:11434${pathname}`], {
-      encoding: "utf8",
-    });
+    const r = spawnSync(
+      "curl",
+      ["-s", "-m", "5", `http://localhost:11434${pathname}`],
+      {
+        encoding: "utf8",
+      },
+    );
     if (r.status !== 0) return null;
     const body = typeof r.stdout === "string" ? r.stdout : "";
     return body ? body : null;
@@ -1248,7 +1247,8 @@ export function ollamaState(): OllamaState | null {
   if (runners.length === 0 && psText === null) return null;
   // /api/ps keeps listing models after their runners die externally, so
   // names are only shown when every listed model has a live runner.
-  const listed = runners.length > 0 && psText !== null ? parseOllamaPs(psText) : [];
+  const listed =
+    runners.length > 0 && psText !== null ? parseOllamaPs(psText) : [];
   const models = listed.length === runners.length ? listed : [];
   return {
     runners,
@@ -1849,13 +1849,14 @@ function cmdBench(flags: string[]): boolean {
   );
   const r1 = (n: number) => Math.round(n * 10) / 10;
   const ol = ollamaState();
-  const ollama = ol === null
-    ? null
-    : {
-        runners: ol.runners.length,
-        rssKb: ol.totalKb,
-        models: ol.models.map((m) => m.name),
-      };
+  const ollama =
+    ol === null
+      ? null
+      : {
+          runners: ol.runners.length,
+          rssKb: ol.totalKb,
+          models: ol.models.map((m) => m.name),
+        };
   if (ol === null) {
     console.log("  ollama: no local server detected");
   } else {
