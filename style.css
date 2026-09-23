@@ -58,7 +58,7 @@ a{color:inherit}
 .nav-links a:hover{color:var(--fg)}
 .btn-small{border:1px solid var(--line);padding:6px 10px;border-radius:999px;background:var(--card);white-space:nowrap}
 @media (max-width:560px){
-  .nav-inner{height:auto;padding:10px 0}
+  .nav-inner{height:auto;padding-top:10px;padding-bottom:10px}
   .nav-links a{margin-left:12px;font-size:13px}
   .nav-links .btn-small{display:none}
   .theme-toggle{width:32px;height:32px;margin-left:10px}
@@ -160,4 +160,20 @@ pre code{font-family:ui-monospace, SFMono-Regular, Menlo, monospace;font-size:13
 .perf-note p{margin:0}
 @media (prefers-reduced-motion: no-preference){
   html{scroll-behavior:smooth}
+}
+
+/* ---- phones ---- */
+/* long links and ids wrap instead of pushing the page sideways */
+.docs-content p,.lead,.muted,.card p{overflow-wrap:break-word}
+/* benchmark rows become labeled blocks instead of squeezed columns */
+@media (max-width:520px){
+  .row{grid-template-columns:1fr;gap:4px}
+  .row.head{display:none}
+  .row span:first-child{font-weight:700}
+  .theme-toggle{width:40px;height:40px;margin-left:8px}
+}
+/* docs sidebar is a top block under 980px; cap it so the link
+   list scrolls instead of burying the content */
+@media (max-width:980px){
+  .docs-sidebar{max-height:38vh;overflow:auto}
 }
