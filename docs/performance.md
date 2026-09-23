@@ -33,3 +33,36 @@ npm run bench             # same as harness bench --quick, via the built CLI
 ```
 
 Bench measures cold start (CLI spawn), each hook script executed and timed, per-skill `~tokens`, and adapter validation. CI runs `bench --quick` and fails on budget misses. Token counts are estimates (~4 chars each).
+
+## Local-model RAM (Ollama)
+
+Measured on Apple M4 Mac mini, 16 GB: inference RAM is weights plus KV
+cache, set by model and context window, never by prompt content. Across
+30 A/B generations (3 models, bare full-file context vs harness curated
+context, fixed `num_ctx` 4096, raw rows in
+`research/evidence/ram-cpu-2026-09-23.jsonl`), peak RSS was identical
+between arms to 0.1%: 1.2GB (qwen2.5-coder:1.5b), 2.7GB (llama3.2:1b),
+4.5GB (starcoder2:3b). Prefill cost per token was identical too
+(0.2/0.3/0.6ms); wall-time gaps came from answer length (decode runs
+12-22ms/token), not from the harness.
+
+What actually moves RAM, measured:
+
+- Unload idle runners. Switching models leaves every runner resident
+  (two models held 4.7GB here). `harness optimize` unloads ollama-managed
+  runners (server untouched, next inference reloads transparently);
+  `harness doctor` reports residents and warns past one. Measured:
+  2 runners, ~2.6GB freed in one command. `keepalive: 0` per request
+  does not unload; killing runners is safe and verified.
+- Smaller quant. `qwen2.5-coder:1.5b-instruct-q3_K_M` (824MB) vs Q4
+  (986MB): resident 954MB vs 1120MB (~15% less), coherent output on a
+  code probe, slightly slower wall (3.0s vs 2.2s). Your call on the
+  quality tradeoff; doctor does not push it.
+- Right-sized context. Per-request `num_ctx` below the server default
+  barely moves RSS (server preallocates): 4096 to 1024 saved ~84MB on
+  the 1.5B model. To shrink KV for real, set it where the runner is
+  born: a Modelfile `PARAMETER num_ctx 2048` on a lean model copy.
+
+Harness overhead itself: hooks peak ~2.3MB (plain bash, 0.00s CPU),
+a CLI cold start peaks ~48MB transient. Against GB-scale inference
+that is rounding error, and the layer never claimed otherwise.

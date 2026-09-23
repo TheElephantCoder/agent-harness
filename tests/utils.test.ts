@@ -5,6 +5,8 @@ import * as path from "node:path";
 import {
   completeLine,
   estTokens,
+  fmtMem,
+  parseOllamaPs,
   statusLine,
   fmtTok,
   mapSymbols,
@@ -71,6 +73,25 @@ describe("welcome", () => {
         expect(line.length).toBeLessThanOrEqual(w);
       }
     }
+  });
+});
+
+describe("ollama helpers", () => {
+  it("formats megabytes and gigabytes", () => {
+    expect(fmtMem(1024)).toBe("1MB");
+    expect(fmtMem(1135821)).toBe("1.1GB");
+    expect(fmtMem(Math.round(2.6 * 1024 * 1024))).toBe("2.6GB");
+  });
+  it("parses /api/ps, preferring vram size", () => {
+    const rows = parseOllamaPs(
+      '{"models": [{"name": "qwen2.5-coder:1.5b", "size_vram": 1163080498}, {"name": "x", "size": 1000}]}',
+    );
+    expect(rows).toEqual([
+      { name: "qwen2.5-coder:1.5b", sizeKb: 1135821 },
+      { name: "x", sizeKb: 1 },
+    ]);
+    expect(parseOllamaPs("nope")).toEqual([]);
+    expect(parseOllamaPs('{"models": {}}')).toEqual([]);
   });
 });
 

@@ -9,6 +9,7 @@ import platform
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -470,6 +471,117 @@ def list_adapters(root, sub="adapters"):
 def is_exec(p):
     return os.path.isfile(p) and os.access(p, os.X_OK)
 
+def fmt_mem(kb):
+    mb = kb / 1024
+    return f"{mb / 1024:.1f}GB" if mb >= 1024 else f"{round(mb)}MB"
+
+def parse_ollama_ps(text):
+    try:
+        d = json.loads(text)
+    except ValueError:
+        return []
+    if not isinstance(d.get("models"), list):
+        return []
+    out = []
+    for m in d["models"]:
+        size = m.get("size_vram", m.get("size", 0)) or 0
+        out.append({"name": str(m.get("name", "?")), "sizeKb": round(size / 1024)})
+    return out
+
+def ollama_api(pathname):
+    try:
+        r = subprocess.run(["curl", "-s", "-m", "5", f"http://localhost:11434{pathname}"],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode != 0 or not r.stdout:
+            return None
+        return r.stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+def rss_of(pid):
+    try:
+        r = subprocess.run(["ps", "-o", "rss=", "-p", str(pid)],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode != 0:
+            return None
+        n = int(r.stdout.strip())
+        return n
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return None
+
+def ollama_runner_pids():
+    """Resident ollama-managed runners only: the cmdline must point at the
+    ollama blob store, so other tools' llama-servers are never touched."""
+    try:
+        r = subprocess.run(["pgrep", "-f", "llama-server"],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode != 0:
+            return []
+        pids = [int(p) for p in r.stdout.split() if p.strip().isdigit()]
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return []
+    out = []
+    for pid in pids:
+        try:
+            r = subprocess.run(["ps", "-o", "args=", "-p", str(pid)],
+                               capture_output=True, text=True, timeout=10)
+            if r.returncode == 0 and ".ollama/models" in (r.stdout or ""):
+                out.append(pid)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    return out
+
+def ollama_state():
+    runners = []
+    for pid in ollama_runner_pids():
+        rss = rss_of(pid)
+        if rss is not None:
+            runners.append({"pid": pid, "rssKb": rss})
+    ps_text = ollama_api("/api/ps")
+    if not runners and ps_text is None:
+        return None
+    # /api/ps keeps listing models after their runners die externally, so
+    # names are only shown when every listed model has a live runner.
+    listed = parse_ollama_ps(ps_text) if runners and ps_text else []
+    models = listed if len(listed) == len(runners) else []
+    return {"runners": runners,
+            "totalKb": sum(r["rssKb"] for r in runners),
+            "models": models}
+
+def unload_ollama_runners():
+    """SIGTERM, short grace, SIGKILL survivors. Only ollama-managed runners
+    (see ollama_runner_pids); the server itself is never touched. The next
+    inference reloads transparently."""
+    targets = ollama_runner_pids()
+    if not targets:
+        return {"freedKb": 0, "count": 0}
+    freed, count = 0, 0
+    for pid in targets:
+        rss = rss_of(pid) or 0
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            continue
+        freed += rss
+        count += 1
+    deadline = time.monotonic() + 3
+    def alive(pid):
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+    pending = [p for p in targets if alive(p)]
+    while pending and time.monotonic() < deadline:
+        time.sleep(0.1)
+        pending = [p for p in pending if alive(p)]
+    for pid in pending:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    return {"freedKb": freed, "count": count}
+
 def run_hook(abs_path, timeout_s=10):
     t0 = time.perf_counter()
     try:
@@ -535,11 +647,21 @@ def cmd_bench(args=None):
         if not a["json"]:
             print(f"  adapter {a['name']}: {a['error']} FAIL")
     print(f"  adapters {valid}/{len(adapters)} valid in {adapter_ms:.0f}ms {'ok' if ad_ok else 'FAIL'}")
+    ol = ollama_state()
+    ollama = None
+    if ol is None:
+        print("  ollama: no local server detected")
+    else:
+        names = ", ".join(m["name"] for m in ol["models"])
+        print(f"  ollama {len(ol['runners'])} resident ~{fmt_mem(ol['totalKb'])}{f' ({names})' if names else ''}")
+        ollama = {"runners": len(ol["runners"]), "rssKb": ol["totalKb"],
+                  "models": [m["name"] for m in ol["models"]]}
     baseline = {"version": VERSION, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "platform": platform.system(), "arch": platform.machine(),
                 "runtime": "python " + sys.version.split()[0],
                 "coldStartMs": round(cold, 1), "hooks": hook_ms,
-                "skillTokens": total_tok, "adapterMs": round(adapter_ms, 1)}
+                "skillTokens": total_tok, "adapterMs": round(adapter_ms, 1),
+                "ollama": ollama}
     bfile = os.path.join(os.getcwd(), ".harness", "bench.json")
     if compare:
         prev = read_text(bfile)
@@ -670,6 +792,12 @@ def cmd_status():
     opts = read_optimizations(cwd)
     on = sum(1 for o in OPTIMIZATIONS if opts.get(o["name"]))
     print(f"  optimizations: {on}/{len(OPTIMIZATIONS)} on")
+    ol = ollama_state()
+    if ol is None:
+        print("  local models: ollama not detected")
+    else:
+        names = ", ".join(m["name"] for m in ol["models"])
+        print(f"  local models: {len(ol['runners'])} resident ~{fmt_mem(ol['totalKb'])}{f' ({names})' if names else ''}")
     root = self_root()
     if root is None:
         print("[harness] status - cannot locate install")
@@ -808,6 +936,12 @@ def cmd_doctor(args=None):
             warn(f"[harness] warn - MEMORY.md ~{fmt_tok(t)} tokens (run harness optimize)")
         else:
             print(f"[harness] ok - memory: MEMORY.md ~{fmt_tok(t)} tokens")
+    ol = ollama_state()
+    if ol is not None:
+        names = ", ".join(m["name"] for m in ol["models"])
+        print(f"[harness] info - local models: {len(ol['runners'])} resident ~{fmt_mem(ol['totalKb'])}{f' ({names})' if names else ''}")
+        if len(ol["runners"]) > 1:
+            warn(f"[harness] warn - {len(ol['runners'])} local models resident (switching residue?) - harness optimize unloads them")
     try:
         in_repo = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
@@ -941,6 +1075,13 @@ def cmd_optimize(args=None):
     top = max(skills, key=lambda s: s["tokens"]) if skills else None
     extra = f", largest {top['name']} ~{fmt_tok(top['tokens'])}" if top else ""
     print(f"[harness] ok - skills {len(skills)} files ~{fmt_tok(total)} total{extra}")
+    freed = unload_ollama_runners()
+    if freed["count"] == 0:
+        print("[harness] ok - local models: no resident ollama runners")
+    else:
+        alive = ollama_api("/api/tags") is not None
+        tail = " (server healthy, reloads on next use)" if alive else " (ollama api unreachable after unload - restart ollama if needed)"
+        print(f"[harness] ok - local models: unloaded {freed['count']} resident runner(s), ~{fmt_mem(freed['freedKb'])} freed{tail}")
     return True
 
 def sha256(text):

@@ -1079,6 +1079,151 @@ function isExec(p) {
         return false;
     }
 }
+export function fmtMem(kb) {
+    const mb = kb / 1024;
+    return mb >= 1024 ? `${(mb / 1024).toFixed(1)}GB` : `${Math.round(mb)}MB`;
+}
+// installed-size table from /api/ps. exported for tests.
+export function parseOllamaPs(text) {
+    try {
+        const d = JSON.parse(text);
+        if (!Array.isArray(d.models))
+            return [];
+        return d.models.map((m) => ({
+            name: String(m.name ?? "?"),
+            sizeKb: Math.round(Number(m.size_vram ?? m.size ?? 0) / 1024),
+        }));
+    }
+    catch {
+        return [];
+    }
+}
+function ollamaApi(pathname) {
+    try {
+        const r = spawnSync("curl", ["-s", "-m", "5", `http://localhost:11434${pathname}`], {
+            encoding: "utf8",
+        });
+        if (r.status !== 0)
+            return null;
+        const body = typeof r.stdout === "string" ? r.stdout : "";
+        return body ? body : null;
+    }
+    catch {
+        return null;
+    }
+}
+function rssOf(pid) {
+    try {
+        const r = spawnSync("ps", ["-o", "rss=", "-p", String(pid)], {
+            encoding: "utf8",
+        });
+        if (r.status !== 0)
+            return null;
+        const n = parseInt(String(r.stdout ?? "").trim(), 10);
+        return Number.isFinite(n) ? n : null;
+    }
+    catch {
+        return null;
+    }
+}
+// resident ollama-managed runners only: the cmdline must point at the
+// ollama blob store, so other tools' llama-servers are never touched.
+function ollamaRunnerPids() {
+    let pids = [];
+    try {
+        const r = spawnSync("pgrep", ["-f", "llama-server"], { encoding: "utf8" });
+        if (r.status !== 0)
+            return [];
+        pids = String(r.stdout ?? "")
+            .split(/\s+/)
+            .map(Number)
+            .filter((n) => n > 0);
+    }
+    catch {
+        return [];
+    }
+    const out = [];
+    for (const pid of pids) {
+        try {
+            const r = spawnSync("ps", ["-o", "args=", "-p", String(pid)], {
+                encoding: "utf8",
+            });
+            if (r.status === 0 && String(r.stdout ?? "").includes(".ollama/models")) {
+                out.push(pid);
+            }
+        }
+        catch {
+            // keep going
+        }
+    }
+    return out;
+}
+export function ollamaState() {
+    const runners = [];
+    for (const pid of ollamaRunnerPids()) {
+        const rss = rssOf(pid);
+        if (rss !== null)
+            runners.push({ pid, rssKb: rss });
+    }
+    const psText = ollamaApi("/api/ps");
+    if (runners.length === 0 && psText === null)
+        return null;
+    // /api/ps keeps listing models after their runners die externally, so
+    // names are only shown when every listed model has a live runner.
+    const listed = runners.length > 0 && psText !== null ? parseOllamaPs(psText) : [];
+    const models = listed.length === runners.length ? listed : [];
+    return {
+        runners,
+        totalKb: runners.reduce((t, r) => t + r.rssKb, 0),
+        models,
+    };
+}
+// SIGTERM, short grace, SIGKILL survivors. only ollama-managed runners
+// (see ollamaRunnerPids); the server itself is never touched. returns what
+// was freed; the next inference reloads transparently.
+export function unloadOllamaRunners() {
+    const targets = ollamaRunnerPids();
+    if (targets.length === 0)
+        return { freedKb: 0, count: 0 };
+    let freed = 0;
+    let count = 0;
+    for (const pid of targets) {
+        const rss = rssOf(pid) ?? 0;
+        try {
+            process.kill(pid, "SIGTERM");
+        }
+        catch {
+            continue;
+        }
+        freed += rss;
+        count += 1;
+    }
+    const wait = new Int32Array(new SharedArrayBuffer(4));
+    const deadline = Date.now() + 3000;
+    const alive = (pid) => {
+        try {
+            process.kill(pid, 0);
+            return true;
+        }
+        catch {
+            return false;
+        }
+    };
+    let pending = targets.filter(alive);
+    while (pending.length > 0 && Date.now() < deadline) {
+        Atomics.wait(wait, 0, 0, 100);
+        pending = pending.filter(alive);
+    }
+    for (const pid of pending) {
+        try {
+            process.kill(pid, "SIGKILL");
+        }
+        catch {
+            // already gone
+        }
+    }
+    return { freedKb: freed, count };
+}
 function timeMs(fn) {
     const t0 = process.hrtime.bigint();
     fn();
@@ -1576,6 +1721,20 @@ function cmdBench(flags) {
     }
     console.log(`  adapters ${valid}/${adapters.length} valid in ${adapterMs.toFixed(0)}ms ${adOk ? "ok" : "FAIL"}`);
     const r1 = (n) => Math.round(n * 10) / 10;
+    const ol = ollamaState();
+    const ollama = ol === null
+        ? null
+        : {
+            runners: ol.runners.length,
+            rssKb: ol.totalKb,
+            models: ol.models.map((m) => m.name),
+        };
+    if (ol === null) {
+        console.log("  ollama: no local server detected");
+    }
+    else {
+        console.log(`  ollama ${ol.runners.length} resident ~${fmtMem(ol.totalKb)}${ol.models.length > 0 ? ` (${ol.models.map((m) => m.name).join(", ")})` : ""}`);
+    }
     const baseline = {
         version: VERSION,
         ts: new Date().toISOString(),
@@ -1586,6 +1745,7 @@ function cmdBench(flags) {
         hooks: hookMs,
         skillTokens: totalTok,
         adapterMs: r1(adapterMs),
+        ollama,
     };
     const bFile = path.join(process.cwd(), ".harness", "bench.json");
     if (compare) {
@@ -1744,6 +1904,14 @@ function cmdStatus() {
     const opts = readOptimizations(cwd);
     const on = OPTIMIZATIONS.filter((o) => opts[o.name]).length;
     console.log(`  optimizations: ${on}/${OPTIMIZATIONS.length} on`);
+    const ol = ollamaState();
+    if (ol === null) {
+        console.log("  local models: ollama not detected");
+    }
+    else {
+        const names = ol.models.map((m) => m.name).join(", ");
+        console.log(`  local models: ${ol.runners.length} resident ~${fmtMem(ol.totalKb)}${names ? ` (${names})` : ""}`);
+    }
     const root = selfRoot();
     if (root === null) {
         console.log("[harness] status - cannot locate install");
@@ -1926,6 +2094,14 @@ function cmdDoctor(flags) {
         else
             console.log(`[harness] ok - memory: MEMORY.md ~${fmtTok(t)} tokens`);
     }
+    const ol = ollamaState();
+    if (ol !== null) {
+        const names = ol.models.map((m) => m.name).join(", ");
+        console.log(`[harness] info - local models: ${ol.runners.length} resident ~${fmtMem(ol.totalKb)}${names ? ` (${names})` : ""}`);
+        if (ol.runners.length > 1) {
+            warn(`[harness] warn - ${ol.runners.length} local models resident (switching residue?) - harness optimize unloads them`);
+        }
+    }
     const inRepo = (() => {
         try {
             return (spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
@@ -2103,6 +2279,14 @@ function cmdOptimize() {
     const total = skills.reduce((a, s) => a + s.tokens, 0);
     const top = [...skills].sort((a, b) => b.tokens - a.tokens)[0];
     console.log(`[harness] ok - skills ${skills.length} files ~${fmtTok(total)} total${top ? `, largest ${top.name} ~${fmtTok(top.tokens)}` : ""}`);
+    const freed = unloadOllamaRunners();
+    if (freed.count === 0) {
+        console.log("[harness] ok - local models: no resident ollama runners");
+    }
+    else {
+        const alive = ollamaApi("/api/tags") !== null;
+        console.log(`[harness] ok - local models: unloaded ${freed.count} resident runner(s), ~${fmtMem(freed.freedKb)} freed${alive ? " (server healthy, reloads on next use)" : " (ollama api unreachable after unload - restart ollama if needed)"}`);
+    }
     return true;
 }
 export function slugify(s) {

@@ -72,6 +72,8 @@ Checks the install and the project. Exit code is 1 when anything fails, so it wo
 - project: every file in `.harness/config.json` still present (only when initialized)
 - memory: warns when `MEMORY.md` passes ~4k tokens
 - security: scans staged git changes for secret patterns (keys, tokens)
+- local models: reports resident ollama runners with RSS; warns when more
+  than one model is resident (switching residue) and points at optimize
 
 `--strict` turns warnings into failures.
 
@@ -80,7 +82,8 @@ Checks the install and the project. Exit code is 1 when anything fails, so it wo
 Read-only project snapshot, one screen: init state, `MEMORY.md` size in
 `~tokens`, research finding count, last benchmark age with its cold-start,
 optimizations on/off, then the install (version, skill count with `~tokens`,
-hook count with executable count, adapter validity). Missing pieces print as
+hook count with executable count, adapter validity, resident ollama runners
+with RSS). Missing pieces print as
 missing, never as failures. Also a menu entry and a `harness>` shell command.
 
 ## bench
@@ -91,6 +94,8 @@ Measures real costs and saves a baseline to `.harness/bench.json`:
 - hooks: each hook script executed (3 runs, 1 with `--quick`), mean ms plus exit code
 - skills: per-skill and total `~tokens` (`want <50k`)
 - adapters: parse plus validate all `adapter.json`
+- ollama: resident runners with RSS and model names, recorded into the
+  baseline (record-only; model switches make runs incomparable, so no diff)
 
 `bench --compare` diffs the fresh run against the saved baseline. First run just saves it.
 
@@ -101,6 +106,9 @@ The part that actually cuts cost:
 - prunes `MEMORY.md` to a 2k token budget, appending overflow to `MEMORY.archive.md` (nothing is deleted, the archive keeps growing)
 - repairs hook executables
 - prints the skill cost table with the largest skill
+- unloads resident ollama runners (SIGTERM, SIGKILL stragglers), reporting
+  freed RAM; only ollama-managed runners are touched, the server stays up,
+  next inference reloads transparently
 
 `harness memory prune` does the same prune. Exits 1 only when the prune itself fails.
 

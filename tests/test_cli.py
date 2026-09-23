@@ -121,6 +121,19 @@ def test_every_window_size():
             assert len(line) <= w, (w, line)
 
 
+def test_ollama_helpers():
+    assert cli.fmt_mem(1024) == "1MB"
+    assert cli.fmt_mem(1135821) == "1.1GB"
+    assert cli.fmt_mem(round(2.6 * 1024 * 1024)) == "2.6GB"
+    rows = cli.parse_ollama_ps(
+        '{"models": [{"name": "qwen2.5-coder:1.5b", "size_vram": 1163080498}, {"name": "x", "size": 1000}]}'
+    )
+    assert rows == [{"name": "qwen2.5-coder:1.5b", "sizeKb": 1135821},
+                    {"name": "x", "sizeKb": 1}]
+    assert cli.parse_ollama_ps("nope") == []
+    assert cli.parse_ollama_ps('{"models": {}}') == []
+
+
 def test_status_line(tmp_path):
     assert cli.status_line(str(tmp_path)) == "project: not initialized · no MEMORY.md · skills 4"
     (tmp_path / ".harness").mkdir()
