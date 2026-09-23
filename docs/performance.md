@@ -66,3 +66,28 @@ What actually moves RAM, measured:
 Harness overhead itself: hooks peak ~2.3MB (plain bash, 0.00s CPU),
 a CLI cold start peaks ~48MB transient. Against GB-scale inference
 that is rounding error, and the layer never claimed otherwise.
+
+## Session CPU (multi-step tasks, local models)
+
+Same rig, scripted agent sessions (reasoning steps are inferences, file
+reads are free tools). Raw rows in
+`research/evidence/ram-cpu-2026-09-23.jsonl` (E3/E4/E5).
+
+- Read-everything baseline vs harness (MAP + memory): harness halves
+  session CPU, 49-51% on both models and both bed sizes (12 and 24
+  files), reps within 2%. Mechanism is structural: 4 reasoning calls
+  vs 2, and ~4x fewer input tokens per session. Decode dominates, so
+  the ratio tracks turn count more than anything.
+- Grep-disciplined baseline vs harness (same task, real grep output in
+  context): dead heat, within 1-3% on both models. When grep answers
+  the search question, the index adds nothing measurable. That control
+  also validates the rig: equal contexts, equal CPU.
+- Capability boundary, not just speed: at 24 files the 1B model fails
+  read-everything outright (0/2, confabulates the file list) while
+  completing with harness or grep guidance (4/4). Past a model's
+  working capacity the comparison isn't 50% — it's completes vs not.
+
+No 60% claim: the measured range is 0-51% depending on baseline
+discipline, and the mechanisms already shipped explain all of it, so
+no product change came out of this. Claim "halves session CPU on
+multi-file search tasks", not more.
