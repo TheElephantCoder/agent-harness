@@ -80,32 +80,6 @@ def test_fmt_age():
     assert cli.fmt_age(None) == "unknown age"
 
 
-def test_complete_skill_subs():
-    sh = cli.HarnessShell()
-    assert sh.complete_skill("", "skill ", 6, 6) == ["list", "search", "info", "add", "remove", "verify"]
-    names = sh.complete_skill("", "skill info ", 11, 11)
-    assert len(names) > 0
-    assert all(n and " " not in n for n in names)
-    assert sh.complete_skill("re", "skill info re", 11, 13) == ["research-first"]
-
-
-def test_complete_instinct_hooks():
-    sh = cli.HarnessShell()
-    assert sh.complete_instinct("", "instinct ", 9, 9) == ["list", "enable", "disable"]
-    hooks = sh.complete_instinct("", "instinct enable ", 16, 16)
-    assert len(hooks) > 0
-    assert all(h.endswith(".sh") for h in hooks)
-
-
-def test_complete_flags_and_toggles():
-    sh = cli.HarnessShell()
-    assert sh.complete_doctor("--", "doctor --", 7, 9) == ["--fix", "--strict"]
-    assert sh.complete_bench("--", "bench --", 6, 8) == ["--quick", "--compare"]
-    assert sh.complete_optimizations("", "optimizations enable ", 23, 23) == [
-        "slim-agents", "prune-memory", "map-index", "fast-hooks", "archive-rotate", "all",
-    ]
-
-
 def test_welcome():
     for w in (40, 80, 160, 300):
         text = cli.welcome(w)
@@ -172,28 +146,6 @@ def test_build_map_caps_and_cycles(tmp_path):
         signal.signal(signal.SIGALRM, old)
     assert r2["files"] == cli.MAP_MAX_FILES
     assert r2["omitted"] == 50
-
-
-def test_status_line(tmp_path):
-    assert cli.status_line(str(tmp_path)) == "project: not initialized · no MEMORY.md · skills 4"
-    (tmp_path / ".harness").mkdir()
-    (tmp_path / ".harness" / "config.json").write_text("{}")
-    (tmp_path / "MEMORY.md").write_text("12345678")
-    assert cli.status_line(str(tmp_path)) == "project: initialized · MEMORY ~2 · skills 4"
-
-
-def test_bang_repeat(capsys):
-    sh = cli.HarnessShell()
-    assert sh.precmd("!!") == ""
-    assert "[harness] !! - no previous command" in capsys.readouterr().out
-    sh.postcmd(False, "status")
-    assert sh.precmd("!!") == "status"
-    sh.postcmd(False, "status")
-    assert sh._last == "status"
-
-
-def test_do_clear():
-    cli.HarnessShell().do_clear("")
 
 
 def test_cmd_status_bare_dir(tmp_path, monkeypatch, capsys):

@@ -17,7 +17,7 @@ harness upgrade
 harness shell
 ```
 
-Run `harness` with no args on a terminal to open the interactive prompt: a menu covering every command (with guided prompts for arguments), then a `harness>` shell where every command works the same, plus `exit` and `quit` to leave. With arguments (`harness doctor --fix`), it just runs the action directly. The shell completes command names, subcommands, flags, and installed skill/hook names on Tab, and remembers the last 100 commands per project in `.harness/history` (initialized projects only, so the history file never fakes init state). Menu numbers with two digits work when typed quickly in sequence. The shell prints a one-line project context on entry, repeats the last command on `!!`, and clears on `clear`. The welcome screen centers itself to the terminal width. The node shell re-lays it when the window width changes; python picks the change up on the next command.
+Run `harness` with no args on a terminal to open the interactive menu: every command as a picker entry (with guided prompts for arguments), looping until you pick Quit. With arguments (`harness doctor --fix`), it just runs the action directly. Menu numbers with two digits work when typed quickly in sequence. The welcome screen centers itself to the terminal width.
 
 Anything not listed here prints `not implemented yet`. Every number the CLI prints comes from a measurement it just took. Token counts are estimates (~4 chars each) and always shown with a `~`.
 
@@ -84,7 +84,7 @@ Read-only project snapshot, one screen: init state, `MEMORY.md` size in
 optimizations on/off, then the install (version, skill count with `~tokens`,
 hook count with executable count, adapter validity, resident ollama runners
 with RSS). Missing pieces print as
-missing, never as failures. Also a menu entry and a `harness>` shell command.
+missing, never as failures. Also a menu entry.
 
 ## bench
 
@@ -132,7 +132,7 @@ harness optimizations enable all
 | fast-hooks     | cpu   | `optimize` times hooks and disables any averaging over 2s (recorded, `doctor --fix` respects it) |
 | archive-rotate | disk  | `optimize` caps `MEMORY.archive.md` at 500 lines                                                 |
 
-The interactive prompt has the same controls under "Manage
+The interactive menu has the same controls under "Manage
 optimizations". Mechanism notes with local measurements: slim-vs-full
 prefill runs ~0.6s vs ~2.6s on qwen2.5-coder:1.5b/M4 (linear ~1ms/token);
 server RAM stays flat across prompt sizes at fixed `num_ctx` (KV

@@ -185,7 +185,7 @@ harness upgrade
 harness shell
 ```
 
-Run `harness` with no args on a terminal to open the interactive prompt (`harness>`): menu over every command, shell with Tab completion, per-project command history.
+Run `harness` with no args on a terminal to open the interactive menu over every command (Quit or Ctrl-C to leave).
 
 `harness --help` has the rest. Also [`docs/cli.md`](docs/cli.md).
 

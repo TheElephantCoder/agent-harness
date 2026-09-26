@@ -5,11 +5,9 @@ import * as path from "node:path";
 import {
   MAP_MAX_FILES,
   buildMap,
-  completeLine,
   estTokens,
   fmtMem,
   parseOllamaPs,
-  statusLine,
   fmtTok,
   mapSymbols,
   parseFrontmatter,
@@ -21,43 +19,6 @@ import {
   stripFm,
   welcome,
 } from "../src/harness/cli.js";
-
-describe("completeLine", () => {
-  it("completes command names", () => {
-    expect(completeLine("st")).toEqual([["status"], "st"]);
-    expect(completeLine("zzz")[0]).toContain("status");
-  });
-  it("completes subcommands and flags", () => {
-    expect(completeLine("skill ")[0]).toEqual([
-      "list",
-      "search",
-      "info",
-      "add",
-      "remove",
-      "verify",
-    ]);
-    expect(completeLine("doctor --")).toEqual([["--fix", "--strict"], "--"]);
-    expect(completeLine("optimizations enable ")[0]).toEqual([
-      "slim-agents",
-      "prune-memory",
-      "map-index",
-      "fast-hooks",
-      "archive-rotate",
-      "all",
-    ]);
-  });
-  it("completes installed skill names", () => {
-    const [all] = completeLine("skill info ");
-    expect(all.length).toBeGreaterThan(0);
-    expect(all.every((n) => n && !n.includes(" "))).toBe(true);
-    expect(completeLine("skill info re")).toEqual([["research-first"], "re"]);
-  });
-  it("completes hook paths by substring", () => {
-    const [all] = completeLine("instinct enable ");
-    expect(all.length).toBeGreaterThan(0);
-    expect(all.every((h) => h.endsWith(".sh"))).toBe(true);
-  });
-});
 
 describe("welcome", () => {
   it("shows the plain title, no figlet remnants", () => {
@@ -120,32 +81,6 @@ describe("buildMap", () => {
       fs.writeFileSync(path.join(dir, "a.ts"), "export const x = 1;\n");
       const r = buildMap(dir);
       expect(r.files).toBe(1);
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  });
-});
-
-describe("statusLine", () => {
-  it("reports a bare dir honestly", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-test-"));
-    try {
-      expect(statusLine(dir)).toBe(
-        "project: not initialized · no MEMORY.md · skills 4",
-      );
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  });
-  it("reports an initialized project", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-test-"));
-    try {
-      fs.mkdirSync(path.join(dir, ".harness"), { recursive: true });
-      fs.writeFileSync(path.join(dir, ".harness", "config.json"), "{}");
-      fs.writeFileSync(path.join(dir, "MEMORY.md"), "12345678");
-      expect(statusLine(dir)).toBe(
-        "project: initialized · MEMORY ~2 · skills 4",
-      );
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

@@ -24,37 +24,12 @@ type Command =
   | "research"
   | "security"
   | "upgrade"
-  | "shell"
   | "optimize"
   | "optimizations"
   | "adapter"
   | "map"
   | "help"
   | "version";
-
-const SHELL_COMMANDS = [
-  "init",
-  "doctor",
-  "status",
-  "bench",
-  "skill",
-  "memory",
-  "instinct",
-  "research",
-  "security",
-  "upgrade",
-  "shell",
-  "optimize",
-  "optimizations",
-  "adapter",
-  "map",
-  "menu",
-  "clear",
-  "help",
-  "version",
-  "exit",
-  "quit",
-];
 
 const ART = [
   "                                              *",
@@ -130,14 +105,12 @@ usage: harness <command> [options]
   security <audit|scan> [--staged]               run the audit script
   adapter <list|add> [name]                       list, scaffold harnesses
   upgrade                                        self-update to latest
-  shell                                          open interactive prompt
-  (shell-only: menu, clear, !! repeats last command)
 
 options:
   -h, --help
   -v, --version
 
-run with no args on a terminal to open the interactive prompt.
+run with no args on a terminal to open the interactive menu.
 
 examples:
   harness init --auto
@@ -289,6 +262,7 @@ async function selectOption(title: string, options: string[]): Promise<number> {
       }
       // digits select immediately when unambiguous (d*10 exceeds the
       // option count); otherwise the first digit waits 450ms for a second.
+      // out-of-range digits are ignored so a typo cannot escape a submenu.
       const d = parseInt(key.sequence, 10);
       if (!Number.isNaN(d) && d >= 0 && d <= 9) {
         if (pendingTimer) {
@@ -307,12 +281,12 @@ async function selectOption(title: string, options: string[]): Promise<number> {
           }
           return;
         }
-        if (d >= 1 && (d * 10 > options.length || options.length < 10)) {
+        if (d >= 1 && d <= options.length && (d * 10 > options.length || options.length < 10)) {
           process.stdout.write("\n");
           done(d - 1);
           return;
         }
-        if (d >= 1) {
+        if (d >= 1 && d * 10 <= options.length) {
           pendingDigit = d;
           pendingTimer = setTimeout(() => {
             pendingTimer = null;
@@ -364,7 +338,7 @@ async function pickAdapter(title: string): Promise<string | null> {
   return names[picked];
 }
 
-async function showMenu(): Promise<void> {
+async function showMenu(): Promise<boolean> {
   const options = [
     "Set up this project",
     "Check setup",
@@ -380,9 +354,11 @@ async function showMenu(): Promise<void> {
     "Security",
     "Adapters",
     "Upgrade",
-    "Skip straight to the prompt",
+    "Local models",
+    "Quit",
   ];
   const picked = await selectOption("What do you want to do?", options);
+  if (picked < 0 || picked === 15) return true;
   if (picked === 0) {
     await setupMenu();
   } else if (picked === 1) {
@@ -411,8 +387,54 @@ async function showMenu(): Promise<void> {
     await adapterMenu();
   } else if (picked === 13) {
     await runCommand("upgrade", []);
+  } else if (picked === 14) {
+    await localModelsMenu();
   }
   console.log(paint(ANSI.dim, "╌".repeat(termWidth())));
+  return false;
+}
+
+function reportUnload(freed: {
+  freedKb: number;
+  count: number;
+  stuck: number;
+}): void {
+  if (freed.count === 0 && freed.stuck === 0) {
+    console.log("[harness] ok - local models: no resident ollama runners");
+    return;
+  }
+  const alive = ollamaApi("/api/tags") !== null;
+  if (freed.count > 0) {
+    console.log(
+      `[harness] ok - local models: unloaded ${freed.count} resident runner(s), ~${fmtMem(freed.freedKb)} freed${alive ? " (server healthy, reloads on next use)" : " (ollama api unreachable after unload - restart ollama if needed)"}`,
+    );
+  }
+  if (freed.stuck > 0) {
+    console.log(
+      `[harness] warn - ${freed.stuck} runner(s) would not die (still resident, excluded from the freed total)`,
+    );
+  }
+}
+
+async function localModelsMenu(): Promise<void> {
+  const picked = await selectOption("Local models", [
+    "Show resident models",
+    "Unload idle runners",
+    "Back",
+  ]);
+  if (picked === 0) {
+    const ol = ollamaState();
+    if (ol === null) {
+      console.log("[harness] local models: ollama not detected");
+    } else {
+      const names = ol.models.map((m) => m.name).join(", ");
+      console.log(
+        `[harness] local models: ${ol.runners.length} resident ~${fmtMem(ol.totalKb)}${names ? ` (${names})` : ""}`,
+      );
+    }
+  } else if (picked === 1) {
+    reportUnload(unloadOllamaRunners());
+  }
 }
 
 async function setupMenu(): Promise<void> {
@@ -602,191 +624,12 @@ async function showOptimizationsMenu(): Promise<void> {
   }
 }
 
-// tab-completion for the prompt: command names, then subcommands,
-// flags, and installed skill/hook names. exported for tests.
-export function completeLine(line: string): [string[], string] {
-  const parts = line.split(/\s+/);
-  if (parts.length <= 1) {
-    const hits = SHELL_COMMANDS.filter((c) => c.startsWith(line));
-    return [hits.length ? hits : SHELL_COMMANDS, line];
-  }
-  const [cmd, ...rest] = parts;
-  const subs: Record<string, string[]> = {
-    skill: ["list", "search", "info", "add", "remove", "verify"],
-    memory: ["show", "prune", "sync", "edit"],
-    instinct: ["list", "enable", "disable"],
-    adapter: ["list", "add"],
-    security: ["audit", "scan"],
-    optimizations: ["enable", "disable"],
-  };
-  const flagSets: Record<string, string[]> = {
-    init: ["--auto", "--harness", "--migrate"],
-    doctor: ["--fix", "--strict"],
-    bench: ["--quick", "--compare"],
-    security: ["--staged"],
-  };
-  const last = rest[rest.length - 1] ?? "";
-  // `skill info <name>`: complete installed skill names.
-  if (cmd === "skill" && rest[0] === "info" && rest.length === 2) {
-    const root = selfRoot();
-    const names = root ? listSkills(root).map((s) => s.name) : [];
-    const hits = names.filter((n) => n.startsWith(last));
-    return [hits.length ? hits : names, last];
-  }
-  // `instinct enable|disable <name>`: complete hook paths (substring match).
-  if (
-    cmd === "instinct" &&
-    (rest[0] === "enable" || rest[0] === "disable") &&
-    rest.length === 2
-  ) {
-    const root = selfRoot();
-    const names = root ? listHooks(root) : [];
-    const hits = names.filter((n) => n.includes(last));
-    return [hits.length ? hits : names, last];
-  }
-  // `optimizations enable|disable <name>`: complete toggle names + all.
-  if (
-    cmd === "optimizations" &&
-    (rest[0] === "enable" || rest[0] === "disable") &&
-    rest.length === 2
-  ) {
-    const names = [...OPTIMIZATIONS.map((o) => o.name), "all"];
-    const hits = names.filter((n) => n.startsWith(last));
-    return [hits.length ? hits : names, last];
-  }
-  const words = [...(subs[cmd] ?? []), ...(flagSets[cmd] ?? [])];
-  const hits = words.filter((w) => w.startsWith(last));
-  return [hits.length ? hits : words, last];
-}
-
-// node exposes the prompt history array at runtime, but the public
-// Interface type hides it; this structural view restores it.
-interface ReadlineWithHistory extends readline.Interface {
-  history: string[];
-}
-
-// fresh welcome sized to the current window, below whatever is on screen
-// (the old copy stays in scrollback; a clean reprint beats rewrap tears).
-function renderWelcome(): void {
-  console.log(`\n${welcome()}\n${paint(ANSI.dim, statusLine())}`);
-}
-
 async function interactive() {
-  // launch width: the welcome above is laid out for this. anything that
-  // changes it later (menu phase has no resize handler yet) is caught by
-  // comparing against this, not against shell-start width.
-  const launchWidth = termWidth();
   console.log(welcome());
-  await showMenu();
-  // command history persists across sessions in .harness/history, but only
-  // in initialized projects: creating .harness/ here would fake init state.
-  const hDir = path.join(process.cwd(), ".harness");
-  const histFile = path.join(hDir, "history");
-  let savedHist: string[] = [];
-  if (fs.existsSync(hDir)) {
-    try {
-      savedHist = fs
-        .readFileSync(histFile, "utf8")
-        .split("\n")
-        .filter(Boolean)
-        .slice(-100);
-    } catch {
-      // no history yet
-    }
+  for (;;) {
+    const quit = await showMenu();
+    if (quit) break;
   }
-  // created after the menus: an earlier readline would auto-close on stdin
-  // EOF (piped/closed input) and take prompt() down with it.
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: `${paint(ANSI.bold + ANSI.cyan, "harness>")} `,
-    completer: completeLine,
-    historySize: 100,
-  });
-  const rlHist = (rl as ReadlineWithHistory).history;
-  for (const h of savedHist) rlHist.unshift(h);
-  rl.on("SIGINT", () => {
-    rl.close();
-  });
-  console.log(paint(ANSI.dim, statusLine()));
-  rl.prompt();
-  // horizontal resizes rewrap old fixed-width lines into tears, so re-lay
-  // the banner once the size settles. skipped inside menus and commands
-  // (the width check after them catches up).
-  let uiBusy = false;
-  let lastWidth = launchWidth;
-  const rlRef: { current: ReadlineWithHistory | null } = { current: null };
-  rlRef.current = rl as ReadlineWithHistory;
-  // Dragging fires a storm of SIGWINCH; rendering per-signal floods the
-  // screen with overlapping banners. So the signal is ignored entirely and
-  // the interval below renders only once the width holds still for a full
-  // tick. A drag ends in exactly one reprint, no matter how wild it was.
-  let lastSeenWidth = launchWidth;
-  const resizeTimer = setInterval(() => {
-    const rl = rlRef.current;
-    if (!rl || uiBusy) return;
-    const w = termWidth();
-    if (w !== lastSeenWidth) {
-      lastSeenWidth = w;
-      return;
-    }
-    if (w === lastWidth) return;
-    lastWidth = w;
-    renderWelcome();
-    rl.prompt();
-  }, 500);
-  resizeTimer.unref();
-  let last = "";
-  for await (const raw of rl) {
-    const line = raw.trim() === "!!" ? last : raw;
-    if (raw.trim() === "!!" && !last) {
-      console.log("[harness] !! - no previous command");
-      rl.prompt();
-      continue;
-    }
-    const parts = line.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) {
-      rl.prompt();
-      continue;
-    }
-    const [c, ...rest] = parts;
-    if (c === "exit" || c === "quit") {
-      break;
-    }
-    if (c === "shell") {
-      rl.prompt();
-      continue;
-    }
-    if (c === "clear") {
-      if (process.stdout.isTTY) console.clear();
-      rl.prompt();
-      continue;
-    }
-    if (c === "menu") {
-      uiBusy = true;
-      await showMenu();
-      uiBusy = false;
-      rl.prompt();
-      continue;
-    }
-    uiBusy = true;
-    await runCommand(c, rest);
-    uiBusy = false;
-    last = line.trim();
-    rl.prompt();
-  }
-  clearInterval(resizeTimer);
-  if (fs.existsSync(hDir)) {
-    try {
-      const seen = new Set(savedHist);
-      const fresh = rlHist.filter((h: string) => h.trim() && !seen.has(h));
-      const merged = [...savedHist, ...fresh.reverse()].slice(-100);
-      fs.writeFileSync(histFile, merged.join("\n") + "\n");
-    } catch {
-      // history is best-effort
-    }
-  }
-  rl.close();
   console.log(paint(ANSI.dim, "bye."));
 }
 
@@ -1996,31 +1839,6 @@ function fmtAge(ts: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-// one-line project context for the shell opener. exported for tests.
-export function statusLine(cwd: string = process.cwd()): string {
-  const bits: string[] = [];
-  bits.push(
-    fs.existsSync(path.join(cwd, ".harness", "config.json"))
-      ? "initialized"
-      : "not initialized",
-  );
-  const mem = readText(path.join(cwd, "MEMORY.md"));
-  bits.push(
-    mem === null ? "no MEMORY.md" : `MEMORY ~${fmtTok(estTokens(mem))}`,
-  );
-  const root = selfRoot();
-  if (root) bits.push(`skills ${listSkills(root).length}`);
-  const bText = readText(path.join(cwd, ".harness", "bench.json"));
-  if (bText !== null) {
-    try {
-      bits.push(`bench ${fmtAge(JSON.parse(bText).ts)}`);
-    } catch {
-      // corrupt baseline: omit
-    }
-  }
-  return `project: ${bits.join(" · ")}`;
-}
-
 // project snapshot: init state, memory, findings, baseline, install.
 // reads only; never fails, missing pieces are reported as missing.
 function cmdStatus(): boolean {
@@ -2477,22 +2295,7 @@ function cmdOptimize(): boolean {
   console.log(
     `[harness] ok - skills ${skills.length} files ~${fmtTok(total)} total${top ? `, largest ${top.name} ~${fmtTok(top.tokens)}` : ""}`,
   );
-  const freed = unloadOllamaRunners();
-  if (freed.count === 0 && freed.stuck === 0) {
-    console.log("[harness] ok - local models: no resident ollama runners");
-  } else {
-    const alive = ollamaApi("/api/tags") !== null;
-    if (freed.count > 0) {
-      console.log(
-        `[harness] ok - local models: unloaded ${freed.count} resident runner(s), ~${fmtMem(freed.freedKb)} freed${alive ? " (server healthy, reloads on next use)" : " (ollama api unreachable after unload - restart ollama if needed)"}`,
-      );
-    }
-    if (freed.stuck > 0) {
-      console.log(
-        `[harness] warn - ${freed.stuck} runner(s) would not die (still resident, excluded from the freed total)`,
-      );
-    }
-  }
+  reportUnload(unloadOllamaRunners());
   return true;
 }
 
@@ -3605,9 +3408,6 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
     }
     case "upgrade":
       return selfUpgrade();
-    case "shell":
-      await interactive();
-      return true;
     default:
       console.error(`[harness] unknown command: ${cmd}`);
       return false;

@@ -1,7 +1,5 @@
 # harness python shim, mirrors cli.ts
 import argparse
-import atexit
-import cmd as cmdmod
 import hashlib
 import json
 import os
@@ -101,6 +99,7 @@ def pick_numbered(title, options):
     return n - 1
 
 def pick_arrows(title, options):
+    import select as selectmod
     import termios
     import tty
     fd = sys.stdin.fileno()
@@ -127,7 +126,6 @@ def pick_arrows(title, options):
             sys.stdout.flush()
             rendered = len(lines)
             if pending:
-                import select as selectmod
                 wait = 0.45 - (time.monotonic() - pending_at)
                 if wait <= 0:
                     sys.stdout.write("\n")
@@ -136,7 +134,18 @@ def pick_arrows(title, options):
                 if not r:
                     sys.stdout.write("\n")
                     return pending - 1
-            ch = sys.stdin.read(1)
+            # unbuffered reads: sys.stdin.read() may prefetch bytes into a
+            # userspace buffer that select() cannot see, which desyncs the
+            # pending-digit window (first digit eaten, second invisible).
+            # os.read takes exactly what is there, keeping both in sync.
+            try:
+                raw = os.read(fd, 1)
+            except OSError:
+                raw = b""
+            ch = raw.decode("utf-8", "replace") if raw else ""
+            if not ch:
+                sys.stdout.write("\n")
+                return -1
             if ch == "\x03":
                 sys.stdout.write("\n")
                 return -1
@@ -145,7 +154,21 @@ def pick_arrows(title, options):
                 return index
             if ch == "\x1b":
                 pending = 0
-                nxt = sys.stdin.read(2)
+                # lone Escape must not hang waiting for bytes that never
+                # come; arrow bytes arrive together, well inside the window.
+                # os.read may split them, so gather up to 2 with a budget.
+                nxt = b""
+                while len(nxt) < 2:
+                    if not selectmod.select([fd], [], [], 0.05)[0]:
+                        break
+                    try:
+                        chunk = os.read(fd, 2 - len(nxt))
+                    except OSError:
+                        break
+                    if not chunk:
+                        break
+                    nxt += chunk
+                nxt = nxt.decode("utf-8", "replace")
                 if nxt == "[A":
                     index = (index - 1) % len(options)
                 elif nxt == "[B":
@@ -174,10 +197,10 @@ def pick_arrows(title, options):
                     if 1 <= first <= len(options):
                         sys.stdout.write("\n")
                         return first - 1
-                elif d >= 1 and (d * 10 > len(options) or len(options) < 10):
+                elif d >= 1 and d <= len(options) and (d * 10 > len(options) or len(options) < 10):
                     sys.stdout.write("\n")
                     return d - 1
-                elif d >= 1:
+                elif d >= 1 and d * 10 <= len(options):
                     pending, pending_at = d, time.monotonic()
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
@@ -226,9 +249,12 @@ def show_menu():
         "Security",
         "Adapters",
         "Upgrade",
-        "Skip straight to the prompt",
+        "Local models",
+        "Quit",
     ]
     picked = pick("What do you want to do?", options)
+    if picked is None or picked < 0 or picked == 15:
+        return True
     if picked == 0:
         setup_menu()
     elif picked == 1:
@@ -257,7 +283,39 @@ def show_menu():
         adapter_menu()
     elif picked == 13:
         cmd_upgrade()
+    elif picked == 14:
+        local_models_menu()
     print(paint(DIM, "╌" * term_width()))
+    return False
+
+
+def report_unload(freed):
+    if freed["count"] == 0 and freed["stuck"] == 0:
+        print("[harness] ok - local models: no resident ollama runners")
+        return
+    alive = ollama_api("/api/tags") is not None
+    if freed["count"] > 0:
+        tail = " (server healthy, reloads on next use)" if alive else " (ollama api unreachable after unload - restart ollama if needed)"
+        print(f"[harness] ok - local models: unloaded {freed['count']} resident runner(s), ~{fmt_mem(freed['freedKb'])} freed{tail}")
+    if freed["stuck"] > 0:
+        print(f"[harness] warn - {freed['stuck']} runner(s) would not die (still resident, excluded from the freed total)")
+
+
+def local_models_menu():
+    picked = pick("Local models", [
+        "Show resident models",
+        "Unload idle runners",
+        "Back",
+    ])
+    if picked == 0:
+        ol = ollama_state()
+        if ol is None:
+            print("[harness] local models: ollama not detected")
+        else:
+            names = ", ".join(m["name"] for m in ol["models"])
+            print(f"[harness] local models: {len(ol['runners'])} resident ~{fmt_mem(ol['totalKb'])}{f' ({names})' if names else ''}")
+    elif picked == 1:
+        report_unload(unload_ollama_runners())
 
 def setup_menu():
     picked = pick("Set up this project", [
@@ -754,25 +812,6 @@ def fmt_age(ts):
         return f"{h}h ago"
     return f"{h // 24}d ago"
 
-def status_line(cwd=None):
-    """One-line project context for the shell opener."""
-    cwd = cwd or os.getcwd()
-    bits = []
-    bits.append("initialized" if os.path.isfile(os.path.join(cwd, ".harness", "config.json"))
-                else "not initialized")
-    mem = read_text(os.path.join(cwd, "MEMORY.md"))
-    bits.append("no MEMORY.md" if mem is None else f"MEMORY ~{fmt_tok(est_tokens(mem))}")
-    root = self_root()
-    if root is not None:
-        bits.append(f"skills {len(list_skills(root))}")
-    btext = read_text(os.path.join(cwd, ".harness", "bench.json"))
-    if btext is not None:
-        try:
-            bits.append(f"bench {fmt_age(json.loads(btext).get('ts'))}")
-        except (ValueError, TypeError, AttributeError):
-            pass
-    return "project: " + " · ".join(bits)
-
 def cmd_status():
     """Project snapshot: init state, memory, findings, baseline, install.
     Reads only; never fails, missing pieces are reported as missing."""
@@ -1096,15 +1135,7 @@ def cmd_optimize(args=None):
     extra = f", largest {top['name']} ~{fmt_tok(top['tokens'])}" if top else ""
     print(f"[harness] ok - skills {len(skills)} files ~{fmt_tok(total)} total{extra}")
     freed = unload_ollama_runners()
-    if freed["count"] == 0 and freed["stuck"] == 0:
-        print("[harness] ok - local models: no resident ollama runners")
-    else:
-        alive = ollama_api("/api/tags") is not None
-        if freed["count"] > 0:
-            tail = " (server healthy, reloads on next use)" if alive else " (ollama api unreachable after unload - restart ollama if needed)"
-            print(f"[harness] ok - local models: unloaded {freed['count']} resident runner(s), ~{fmt_mem(freed['freedKb'])} freed{tail}")
-        if freed["stuck"] > 0:
-            print(f"[harness] warn - {freed['stuck']} runner(s) would not die (still resident, excluded from the freed total)")
+    report_unload(freed)
     return True
 
 def sha256(text):
@@ -2247,263 +2278,13 @@ def cmd_skill_verify(namesel):
 
 def launch_shell():
     print(welcome())
-    show_menu()
-    # history persists across sessions in .harness/history, but only in
-    # initialized projects: creating .harness/ here would fake init state.
-    hdir = os.path.join(os.getcwd(), ".harness")
-    histfile = os.path.join(hdir, "history")
-    try:
-        import readline as rlmod
-    except ImportError:
-        rlmod = None
-    if rlmod is not None and os.path.isdir(hdir):
-        try:
-            rlmod.read_history_file(histfile)
-        except OSError:
-            pass
-        rlmod.set_history_length(100)
-        atexit.register(rlmod.write_history_file, histfile)
-    sh = HarnessShell()
-    sh.intro = None
-    print(paint(DIM, status_line()))
-    sh.cmdloop()
-
-class HarnessShell(cmdmod.Cmd):
-    intro = None
-    prompt = "harness> "
-    _last = ""
-
-    def preloop(self):
-        self.prompt = f"{paint(BOLD + CYAN, 'harness>')} "
-
-    def precmd(self, line):
-        if line.strip() == "!!":
-            if self._last:
-                print(self._last)
-                return self._last
-            print("[harness] !! - no previous command")
-            return ""
-        return line
-
-    def postcmd(self, stop, line):
-        if line.strip():
-            self._last = line.strip()
-        return stop
-
-    def do_clear(self, arg):
-        "clear the screen"
-        if sys.stdout.isatty():
-            print("\x1b[2J\x1b[H", end="")
-
-    def emptyline(self):
-        pass
-
-    def do_exit(self, arg):
-        "leave the interactive prompt"
-        print(paint(DIM, "bye."))
-        return True
-
-    def do_quit(self, arg):
-        "leave the interactive prompt"
-        print(paint(DIM, "bye."))
-        return True
-
-    def do_EOF(self, arg):
-        print()
-        return True
-
-    def do_shell(self, arg):
-        "already here, does nothing"
-        pass
-
-    def do_menu(self, arg):
-        "show the starting picker again"
-        show_menu()
-
-    def do_version(self, arg):
-        "show version"
-        print(f"harness {VERSION}")
-
-    def do_init(self, arg):
-        "set up harness in current project"
-        parts = shlex.split(arg) if arg else []
-        ns = SimpleNamespace(harness="auto", auto=False, migrate=False)
-        if "--harness" in parts:
-            ns.harness = parts[parts.index("--harness") + 1]
-        ns.auto = "--auto" in parts
-        ns.migrate = "--migrate" in parts
-        cmd_init(ns)
-
-    def do_doctor(self, arg):
-        "check adapters, skills, security"
-        parts = shlex.split(arg) if arg else []
-        cmd_doctor(SimpleNamespace(fix="--fix" in parts, strict="--strict" in parts))
-
-    def do_bench(self, arg):
-        "run perf checks"
-        parts = shlex.split(arg) if arg else []
-        cmd_bench(SimpleNamespace(quick="--quick" in parts, compare="--compare" in parts))
-
-    def do_optimize(self, arg):
-        "prune memory, repair, report savings"
-        cmd_optimize()
-
-    def do_optimizations(self, arg):
-        "list and toggle optimizations"
-        parts = shlex.split(arg) if arg else []
-        cmd_optimizations(parts)
-
-    def do_adapter(self, arg):
-        "list supported harnesses"
-        parts = shlex.split(arg) if arg else []
-        if parts and parts[0] == "add":
-            cmd_adapter_add(parts[1] if len(parts) > 1 else "")
-            return
-        cmd_adapter_list()
-
-    def do_skill(self, arg):
-        "manage skills"
-        parts = shlex.split(arg) if arg else []
-        if parts and parts[0] == "add":
-            cmd_skill_add(parts[1:])
-            return
-        if parts and parts[0] == "remove":
-            cmd_skill_remove(parts[1] if len(parts) > 1 else "")
-            return
-        if parts and parts[0] == "verify":
-            cmd_skill_verify(parts[1] if len(parts) > 1 else "")
-            return
-        if not parts or parts[0] == "list":
-            cmd_skill_list()
-            return
-        if parts[0] == "search":
-            cmd_skill_search(" ".join(parts[1:]))
-            return
-        if parts[0] == "info":
-            cmd_skill_info(parts[1] if len(parts) > 1 else "")
-            return
-        print(f"[harness] skill {arg} - not implemented yet")
-
-    def do_memory(self, arg):
-        "manage memory"
-        parts = shlex.split(arg) if arg else []
-        if parts and parts[0] == "show":
-            cmd_memory_show()
-            return
-        if parts and parts[0] == "prune":
-            cmd_optimize()
-            return
-        if parts and parts[0] == "sync":
-            cmd_memory_sync(" ".join(parts[1:]).strip())
-            return
-        if parts and parts[0] == "edit":
-            cmd_memory_edit()
-            return
-        print(f"[harness] memory {arg} - not implemented yet")
-
-    def do_instinct(self, arg):
-        "manage hooks"
-        parts = shlex.split(arg) if arg else []
-        if not parts or parts[0] == "list":
-            cmd_instinct_list()
-            return
-        if parts[0] in ("enable", "disable"):
-            cmd_instinct_toggle(parts[0], parts[1] if len(parts) > 1 else "")
-            return
-        print(f"[harness] instinct {arg} - not implemented yet")
-
-    def do_research(self, arg):
-        "research-first capture"
-        if not (arg or "").strip():
-            cmd_research_list()
-            return
-        cmd_research(arg)
-
-    def do_security(self, arg):
-        "security checks"
-        parts = shlex.split(arg) if arg else []
-        sub = parts[0] if parts else "audit"
-        if sub in ("audit", "scan"):
-            cmd_security(sub, parts[1:])
-        else:
-            print(f"[harness] security {arg} - not implemented yet")
-
-    def do_map(self, arg):
-        "index repo to .harness/MAP.md"
-        cmd_map()
-
-    def do_upgrade(self, arg):
-        "self-update to latest"
-        cmd_upgrade()
-
-    def do_status(self, arg):
-        "project snapshot: memory, skills, hooks, last bench"
-        cmd_status()
-
-    @staticmethod
-    def _parts(line):
-        # str.split() drops trailing whitespace, but a trailing space means
-        # the user is starting a new token: keep it as an empty last part.
-        parts = line.split()
-        if line.endswith((" ", "\t")):
-            parts.append("")
-        return parts
-
-    def complete_skill(self, text, line, begidx, endidx):
-        parts = self._parts(line)
-        subs = ["list", "search", "info", "add", "remove", "verify"]
-        if len(parts) <= 2:
-            return [s for s in subs if s.startswith(text)]
-        if len(parts) == 3 and parts[1] == "info":
-            root = self_root()
-            names = [s["name"] for s in list_skills(root)] if root else []
-            return [n for n in names if n.startswith(text)]
-        return []
-
-    def complete_memory(self, text, line, begidx, endidx):
-        return [s for s in ["show", "prune", "sync", "edit"] if s.startswith(text)]
-
-    def complete_instinct(self, text, line, begidx, endidx):
-        parts = self._parts(line)
-        if len(parts) <= 2:
-            return [s for s in ["list", "enable", "disable"] if s.startswith(text)]
-        if len(parts) == 3 and parts[1] in ("enable", "disable"):
-            root = self_root()
-            names = list_hooks(root) if root else []
-            return [n for n in names if text in n]
-        return []
-
-    def complete_adapter(self, text, line, begidx, endidx):
-        return [s for s in ["list", "add"] if s.startswith(text)]
-
-    def complete_security(self, text, line, begidx, endidx):
-        words = ["audit", "scan", "--staged"]
-        return [w for w in words if w.startswith(text)]
-
-    def complete_optimizations(self, text, line, begidx, endidx):
-        parts = self._parts(line)
-        if len(parts) <= 2:
-            return [s for s in ["enable", "disable"] if s.startswith(text)]
-        if len(parts) == 3 and parts[1] in ("enable", "disable"):
-            names = [o["name"] for o in OPTIMIZATIONS] + ["all"]
-            return [n for n in names if n.startswith(text)]
-        return []
-
-    def complete_init(self, text, line, begidx, endidx):
-        return [f for f in ["--auto", "--harness", "--migrate"] if f.startswith(text)]
-
-    def complete_doctor(self, text, line, begidx, endidx):
-        return [f for f in ["--fix", "--strict"] if f.startswith(text)]
-
-    def complete_bench(self, text, line, begidx, endidx):
-        return [f for f in ["--quick", "--compare"] if f.startswith(text)]
-
-    def default(self, line):
-        print(f"[harness] unknown command: {line.split()[0]}")
+    while True:
+        if show_menu():
+            break
+    print(paint(DIM, "bye."))
 
 def main():
-    p = argparse.ArgumentParser(prog="harness", description="harness - agent harness perf layer by TheElephantCoder",
-                                epilog="shell extras: menu (picker again), clear, !! (repeat last command)")
+    p = argparse.ArgumentParser(prog="harness", description="harness - agent harness perf layer by TheElephantCoder")
     p.add_argument("--version", "-v", action="store_true")
     sub = p.add_subparsers(dest="cmd")
 
@@ -2522,7 +2303,7 @@ def main():
     c.add_argument("--compare", action="store_true")
     c.add_argument("--quick", action="store_true")
 
-    for name in ["skill", "memory", "instinct", "research", "security", "upgrade", "shell", "optimize", "optimizations", "adapter", "map", "status", "version"]:
+    for name in ["skill", "memory", "instinct", "research", "security", "upgrade", "optimize", "optimizations", "adapter", "map", "status", "version"]:
         s = sub.add_parser(name)
         s.add_argument("args", nargs=argparse.REMAINDER)
 
@@ -2535,9 +2316,6 @@ def main():
             launch_shell()
         else:
             p.print_help()
-        return
-    if args.cmd == "shell":
-        launch_shell()
         return
     dispatch = {"init": cmd_init, "doctor": cmd_doctor, "bench": cmd_bench, "upgrade": cmd_upgrade,
                 "optimize": cmd_optimize, "map": cmd_map}
