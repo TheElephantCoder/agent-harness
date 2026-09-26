@@ -91,3 +91,23 @@ No 60% claim: the measured range is 0-51% depending on baseline
 discipline, and the mechanisms already shipped explain all of it, so
 no product change came out of this. Claim "halves session CPU on
 multi-file search tasks", not more.
+
+## Map index budget
+
+`harness map` caps file rows at 200 (~3k tokens) with a trailer
+pointing at grep; the directory layout stays complete. Without the
+cap a monorepo writes a 25k-token MAP and the index stops being an
+index. Symlinked dirs/files are skipped (a cycle used to recurse).
+`init` and `map` report omitted counts.
+
+## Local inference tuning (measured, M4)
+
+Thread count does nothing: `num_thread` 0/2/4/6/8/10 decode within
+12.6-13.4ms/token on qwen2.5-coder:1.5b. Inference is Metal-bound,
+so CPU knobs don't move it. What matters is total tokens, which is
+why the session structure above dominates.
+
+Under CPU saturation (8x `yes` alongside): session CPU rises ~15% in
+absolute terms for both arms, ratio unchanged (50.1% clean vs 50.3%
+loaded, raw rows `ram-cpu-2026-09-24.jsonl` MINI2). The advantage is
+structural (less total compute), not situational.

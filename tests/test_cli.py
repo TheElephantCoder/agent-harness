@@ -148,6 +148,32 @@ def test_optimize_smoke(tmp_path, monkeypatch):
     assert cli.cmd_optimize() is True
 
 
+def test_build_map_caps_and_cycles(tmp_path):
+    import signal
+    for i in range(cli.MAP_MAX_FILES + 50):
+        (tmp_path / f"m{i}.ts").write_text("export const x = 1;\n")
+    r = cli.build_map(str(tmp_path))
+    assert r["files"] == cli.MAP_MAX_FILES
+    assert r["omitted"] == 50
+    assert "more files omitted (grep the repo)" in r["text"]
+    cyc = tmp_path / "cyc"
+    cyc.mkdir()
+    os.symlink(str(tmp_path), str(cyc / "up"))
+
+    def _timeout(_signum, _frame):
+        raise TimeoutError("build_map hung on symlink cycle")
+
+    old = signal.signal(signal.SIGALRM, _timeout)
+    signal.alarm(20)
+    try:
+        r2 = cli.build_map(str(tmp_path))
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
+    assert r2["files"] == cli.MAP_MAX_FILES
+    assert r2["omitted"] == 50
+
+
 def test_status_line(tmp_path):
     assert cli.status_line(str(tmp_path)) == "project: not initialized · no MEMORY.md · skills 4"
     (tmp_path / ".harness").mkdir()

@@ -1753,7 +1753,7 @@ function cmdInit(flags: string[]): boolean {
     const m = buildMap(cwd);
     put(".harness/MAP.md", m.text, false, true);
     console.log(
-      `[harness] init - map: ${m.files} files, ~${fmtTok(m.tokens)} tokens`,
+      `[harness] init - map: ${m.files} files, ~${fmtTok(m.tokens)} tokens${m.omitted > 0 ? ` (${m.omitted} omitted, capped at ${MAP_MAX_FILES})` : ""}`,
     );
   }
   const files = [
@@ -2904,6 +2904,9 @@ const MAP_SKIP_DIRS = new Set([
   "coverage",
 ]);
 
+// file rows cap: ~15 tokens each, so 200 files ≈ 3k tokens max.
+export const MAP_MAX_FILES = 200;
+
 export function mapSymbols(text: string): string[] {
   const out: string[] = [];
   const push = (s: string) => {
@@ -2935,9 +2938,10 @@ export function mapSymbols(text: string): string[] {
   return out;
 }
 
-function buildMap(cwd: string): {
+export function buildMap(cwd: string): {
   lines: number;
   files: number;
+  omitted: number;
   tokens: number;
   text: string;
 } {
@@ -2954,10 +2958,13 @@ function buildMap(cwd: string): {
       const abs = path.join(dir, e);
       let st: fs.Stats | null = null;
       try {
-        st = fs.statSync(abs);
+        // lstat, not stat: a symlink cycle would recurse forever, and a
+        // symlinked file would index twice. linked content stays out.
+        st = fs.lstatSync(abs);
       } catch {
         continue;
       }
+      if (st.isSymbolicLink()) continue;
       if (st.isDirectory()) {
         if (MAP_SKIP_DIRS.has(e)) continue;
         walk(abs);
@@ -2969,6 +2976,11 @@ function buildMap(cwd: string): {
     }
   };
   walk(cwd);
+  // the index must stay a snack, not a meal: directory layout stays
+  // complete, file rows cap at MAP_MAX_FILES with a trailer pointing
+  // at grep. without this a monorepo writes a 25k-token MAP.
+  const omitted = Math.max(0, rows.length - MAP_MAX_FILES);
+  const shown = rows.slice(0, MAP_MAX_FILES);
   const dirs = new Map<string, number>();
   for (const r of rows) {
     const d = path.dirname(r.rel);
@@ -2986,15 +2998,19 @@ function buildMap(cwd: string): {
       .map(([d, n]) => `- ${d === "." || d === "" ? "." : d}/: ${n} files`),
     "",
     "## Files",
-    ...rows.map(
+    ...shown.map(
       (r) => `- ${r.rel}${r.syms.length > 0 ? ": " + r.syms.join(", ") : ""}`,
     ),
+    ...(omitted > 0
+      ? [`- ... +${omitted} more files omitted (grep the repo)`]
+      : []),
     "",
   ];
   const text = out.join("\n");
   return {
     lines: out.length,
-    files: rows.length,
+    files: shown.length,
+    omitted,
     tokens: estTokens(text),
     text,
   };
@@ -3011,7 +3027,7 @@ function cmdMap(): boolean {
     return false;
   }
   console.log(
-    `[harness] ok - map: ${r.files} files, ${r.lines} lines, ~${fmtTok(r.tokens)} tokens -> .harness/MAP.md`,
+    `[harness] ok - map: ${r.files} files, ${r.lines} lines, ~${fmtTok(r.tokens)} tokens -> .harness/MAP.md${r.omitted > 0 ? ` (${r.omitted} omitted, capped at ${MAP_MAX_FILES})` : ""}`,
   );
   return true;
 }

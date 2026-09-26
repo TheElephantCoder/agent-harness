@@ -3,6 +3,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+  MAP_MAX_FILES,
+  buildMap,
   completeLine,
   estTokens,
   fmtMem,
@@ -92,6 +94,35 @@ describe("ollama helpers", () => {
     ]);
     expect(parseOllamaPs("nope")).toEqual([]);
     expect(parseOllamaPs('{"models": {}}')).toEqual([]);
+  });
+});
+
+describe("buildMap", () => {
+  it("caps file rows with a trailer", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-test-"));
+    try {
+      for (let i = 0; i < MAP_MAX_FILES + 50; i++) {
+        fs.writeFileSync(path.join(dir, `m${i}.ts`), "export const x = 1;\n");
+      }
+      const r = buildMap(dir);
+      expect(r.files).toBe(MAP_MAX_FILES);
+      expect(r.omitted).toBe(50);
+      expect(r.text).toContain("more files omitted (grep the repo)");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+  it("does not follow symlink cycles", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-test-"));
+    try {
+      fs.mkdirSync(path.join(dir, "cyc"));
+      fs.symlinkSync(dir, path.join(dir, "cyc", "up"));
+      fs.writeFileSync(path.join(dir, "a.ts"), "export const x = 1;\n");
+      const r = buildMap(dir);
+      expect(r.files).toBe(1);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

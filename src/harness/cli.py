@@ -1384,7 +1384,8 @@ def cmd_init(args=None):
     if read_optimizations(cwd).get("map-index", True) is not False:
         m = build_map(cwd)
         put(os.path.join(".harness", "MAP.md"), m["text"], False, True)
-        print(f"[harness] init - map: {m['files']} files, ~{fmt_tok(m['tokens'])} tokens")
+        extra = f" ({m['omitted']} omitted, capped at {MAP_MAX_FILES})" if m['omitted'] else ""
+        print(f"[harness] init - map: {m['files']} files, ~{fmt_tok(m['tokens'])} tokens{extra}")
     files = list(prior_files) + written
     seen_paths = set()
     deduped = []
@@ -1527,6 +1528,8 @@ def map_symbols(text):
             push(m.group(1)[:60])
     return out
 
+MAP_MAX_FILES = 200
+
 def build_map(cwd):
     rows = []
     def walk(d):
@@ -1539,6 +1542,10 @@ def build_map(cwd):
                 continue
             abs_path = os.path.join(d, e)
             try:
+                # lstat, not stat: a symlink cycle would recurse forever, and
+                # a symlinked file would index twice. linked content stays out.
+                if os.path.islink(abs_path):
+                    continue
                 is_dir = os.path.isdir(abs_path)
                 size = os.path.getsize(abs_path)
             except OSError:
@@ -1552,6 +1559,11 @@ def build_map(cwd):
                 if text is not None:
                     rows.append({"rel": os.path.relpath(abs_path, cwd), "syms": map_symbols(text)})
     walk(cwd)
+    # the index must stay a snack, not a meal: directory layout stays
+    # complete, file rows cap at MAP_MAX_FILES with a trailer pointing
+    # at grep. without this a monorepo writes a 25k-token MAP.
+    omitted = max(0, len(rows) - MAP_MAX_FILES)
+    shown = rows[:MAP_MAX_FILES]
     dirs = {}
     for r in rows:
         d = os.path.dirname(r["rel"])
@@ -1562,10 +1574,13 @@ def build_map(cwd):
            "", "## Layout"]
     out += [f"- {(d if d not in ('', '.') else '.')}/: {n} files" for d, n in sorted(dirs.items())]
     out += ["", "## Files"]
-    out += [f"- {r['rel']}" + (": " + ", ".join(r["syms"]) if r["syms"] else "") for r in rows]
+    out += [f"- {r['rel']}" + (": " + ", ".join(r['syms']) if r['syms'] else "") for r in shown]
+    if omitted:
+        out += [f"- ... +{omitted} more files omitted (grep the repo)"]
     out += [""]
     text = "\n".join(out)
-    return {"lines": len(out), "files": len(rows), "tokens": est_tokens(text), "text": text}
+    return {"lines": len(out), "files": len(shown), "omitted": omitted,
+            "tokens": est_tokens(text), "text": text}
 
 def cmd_map(args=None):
     cwd = os.getcwd()
@@ -1577,7 +1592,7 @@ def cmd_map(args=None):
     except OSError:
         print("[harness] FAIL - map: could not write .harness/MAP.md")
         return False
-    print(f"[harness] ok - map: {r['files']} files, {r['lines']} lines, ~{fmt_tok(r['tokens'])} tokens -> .harness/MAP.md")
+    print(f"[harness] ok - map: {r['files']} files, {r['lines']} lines, ~{fmt_tok(r['tokens'])} tokens -> .harness/MAP.md" + (f" ({r['omitted']} omitted, capped at {MAP_MAX_FILES})" if r['omitted'] else ""))
     return True
 
 OPTIMIZATIONS = [
