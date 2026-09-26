@@ -92,6 +92,25 @@ discipline, and the mechanisms already shipped explain all of it, so
 no product change came out of this. Claim "halves session CPU on
 multi-file search tasks", not more.
 
+## Reproducing on another machine (M5, Linux, etc.)
+
+`research/bench-local.py` is the portable version of the session A/B:
+stdlib only, bed embedded, JSONL evidence out. Nothing here substitutes
+for running it — do not project these numbers onto other hardware.
+
+```bash
+ollama pull qwen2.5-coder:1.5b   # 986MB; add ,llama3.2:1b for a 2nd model
+python3 research/bench-local.py --dry-run   # no ollama needed, sanity only
+python3 research/bench-local.py --models qwen2.5-coder:1.5b --reps 2
+```
+
+Compare per-task CPU (sum `cpu_s` over each model's rep) bare vs
+harness. Expect the *ratio* (~half) to hold across machines while
+absolute times fall with memory bandwidth; re-run the thread sweep
+(`num_thread` 0/2/4/6/8/10, fixed prompt, compare `eval` ms/token) if
+the new chip has meaningfully different core counts, since the
+GPU-bound finding that made threads irrelevant here may not transfer.
+
 ## Map index budget
 
 `harness map` caps file rows at 200 (~3k tokens) with a trailer
