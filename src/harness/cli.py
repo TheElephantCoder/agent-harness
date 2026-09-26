@@ -510,8 +510,8 @@ def rss_of(pid):
         return None
 
 def ollama_runner_pids():
-    """Resident ollama-managed runners only: the cmdline must point at the
-    ollama blob store, so other tools' llama-servers are never touched."""
+    """Resident ollama-managed runners only: other tools' llama-servers
+    are never touched (see is_ollama_runner)."""
     try:
         r = subprocess.run(["pgrep", "-f", "llama-server"],
                            capture_output=True, text=True, timeout=10)
@@ -520,16 +520,7 @@ def ollama_runner_pids():
         pids = [int(p) for p in r.stdout.split() if p.strip().isdigit()]
     except (OSError, ValueError, subprocess.TimeoutExpired):
         return []
-    out = []
-    for pid in pids:
-        try:
-            r = subprocess.run(["ps", "-o", "args=", "-p", str(pid)],
-                               capture_output=True, text=True, timeout=10)
-            if r.returncode == 0 and ".ollama/models" in (r.stdout or ""):
-                out.append(pid)
-        except (OSError, subprocess.TimeoutExpired):
-            pass
-    return out
+    return [pid for pid in pids if is_ollama_runner(pid)]
 
 def ollama_state():
     runners = []
@@ -549,21 +540,22 @@ def ollama_state():
             "models": models}
 
 def unload_ollama_runners():
-    """SIGTERM, short grace, SIGKILL survivors. Only ollama-managed runners
-    (see ollama_runner_pids); the server itself is never touched. The next
-    inference reloads transparently."""
-    targets = ollama_runner_pids()
-    if not targets:
-        return {"freedKb": 0, "count": 0}
-    freed, count = 0, 0
-    for pid in targets:
+    """SIGTERM, short grace, SIGKILL survivors. Only ollama-managed runners;
+    the server itself is never touched. Every kill re-verifies identity
+    first, and runners that survive everything are excluded from the freed
+    total (reported as stuck). The next inference reloads transparently."""
+    held = {}
+    for pid in ollama_runner_pids():
+        if not is_ollama_runner(pid):
+            continue
         rss = rss_of(pid) or 0
         try:
             os.kill(pid, signal.SIGTERM)
         except OSError:
             continue
-        freed += rss
-        count += 1
+        held[pid] = rss
+    if not held:
+        return {"freedKb": 0, "count": 0, "stuck": 0}
     deadline = time.monotonic() + 3
     def alive(pid):
         try:
@@ -571,16 +563,44 @@ def unload_ollama_runners():
             return True
         except OSError:
             return False
-    pending = [p for p in targets if alive(p)]
+    pending = [p for p in held if alive(p)]
     while pending and time.monotonic() < deadline:
         time.sleep(0.1)
         pending = [p for p in pending if alive(p)]
     for pid in pending:
+        if not is_ollama_runner(pid):
+            del held[pid]
+            continue
         try:
             os.kill(pid, signal.SIGKILL)
         except OSError:
-            pass
-    return {"freedKb": freed, "count": count}
+            del held[pid]
+    time.sleep(0.5)
+    freed, count, stuck = 0, 0, 0
+    for pid, rss in held.items():
+        if alive(pid) and is_ollama_runner(pid):
+            stuck += 1
+            continue
+        freed += rss
+        count += 1
+    return {"freedKb": freed, "count": count, "stuck": stuck}
+
+def runner_cmdline(pid):
+    try:
+        r = subprocess.run(["ps", "-o", "args=", "-p", str(pid)],
+                           capture_output=True, text=True, timeout=10)
+        if r.returncode != 0:
+            return None
+        return r.stdout or ""
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+def is_ollama_runner(pid):
+    """Identity check, re-run immediately before every kill: pids can be
+    recycled, so 'matched a minute ago' is not proof enough to signal.
+    Strictly safer than pkill -f, which never rechecks."""
+    args = runner_cmdline(pid)
+    return args is not None and "llama-server" in args and ".ollama/models" in args
 
 def run_hook(abs_path, timeout_s=10):
     t0 = time.perf_counter()
@@ -1076,12 +1096,15 @@ def cmd_optimize(args=None):
     extra = f", largest {top['name']} ~{fmt_tok(top['tokens'])}" if top else ""
     print(f"[harness] ok - skills {len(skills)} files ~{fmt_tok(total)} total{extra}")
     freed = unload_ollama_runners()
-    if freed["count"] == 0:
+    if freed["count"] == 0 and freed["stuck"] == 0:
         print("[harness] ok - local models: no resident ollama runners")
     else:
         alive = ollama_api("/api/tags") is not None
-        tail = " (server healthy, reloads on next use)" if alive else " (ollama api unreachable after unload - restart ollama if needed)"
-        print(f"[harness] ok - local models: unloaded {freed['count']} resident runner(s), ~{fmt_mem(freed['freedKb'])} freed{tail}")
+        if freed["count"] > 0:
+            tail = " (server healthy, reloads on next use)" if alive else " (ollama api unreachable after unload - restart ollama if needed)"
+            print(f"[harness] ok - local models: unloaded {freed['count']} resident runner(s), ~{fmt_mem(freed['freedKb'])} freed{tail}")
+        if freed["stuck"] > 0:
+            print(f"[harness] warn - {freed['stuck']} runner(s) would not die (still resident, excluded from the freed total)")
     return True
 
 def sha256(text):

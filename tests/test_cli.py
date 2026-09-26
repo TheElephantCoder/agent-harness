@@ -134,6 +134,20 @@ def test_ollama_helpers():
     assert cli.parse_ollama_ps('{"models": {}}') == []
 
 
+def test_bench_quick_smoke(tmp_path, monkeypatch):
+    # exercises the full bench path incl. run_hook (regression: NameError)
+    import types
+    monkeypatch.chdir(tmp_path)
+    assert cli.cmd_bench(types.SimpleNamespace(quick=True, compare=False)) is True
+    assert (tmp_path / ".harness" / "bench.json").exists()
+
+
+def test_optimize_smoke(tmp_path, monkeypatch):
+    # exercises the full optimize path incl. unload (no runners: no-op)
+    monkeypatch.chdir(tmp_path)
+    assert cli.cmd_optimize() is True
+
+
 def test_status_line(tmp_path):
     assert cli.status_line(str(tmp_path)) == "project: not initialized · no MEMORY.md · skills 4"
     (tmp_path / ".harness").mkdir()

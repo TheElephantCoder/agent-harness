@@ -1120,8 +1120,30 @@ function rssOf(pid) {
         return null;
     }
 }
-// resident ollama-managed runners only: the cmdline must point at the
-// ollama blob store, so other tools' llama-servers are never touched.
+function runnerCmdline(pid) {
+    try {
+        const r = spawnSync("ps", ["-o", "args=", "-p", String(pid)], {
+            encoding: "utf8",
+        });
+        if (r.status !== 0)
+            return null;
+        return String(r.stdout ?? "");
+    }
+    catch {
+        return null;
+    }
+}
+// identity check, re-run immediately before every kill: pids can be
+// recycled, so "matched a minute ago" is not proof enough to signal.
+// strictly safer than pkill -f, which never rechecks.
+function isOllamaRunner(pid) {
+    const args = runnerCmdline(pid);
+    return (args !== null &&
+        args.includes("llama-server") &&
+        args.includes(".ollama/models"));
+}
+// resident ollama-managed runners only: other tools' llama-servers are
+// never touched.
 function ollamaRunnerPids() {
     let pids = [];
     try {
@@ -1136,21 +1158,7 @@ function ollamaRunnerPids() {
     catch {
         return [];
     }
-    const out = [];
-    for (const pid of pids) {
-        try {
-            const r = spawnSync("ps", ["-o", "args=", "-p", String(pid)], {
-                encoding: "utf8",
-            });
-            if (r.status === 0 && String(r.stdout ?? "").includes(".ollama/models")) {
-                out.push(pid);
-            }
-        }
-        catch {
-            // keep going
-        }
-    }
-    return out;
+    return pids.filter(isOllamaRunner);
 }
 export function ollamaState() {
     const runners = [];
@@ -1172,16 +1180,15 @@ export function ollamaState() {
         models,
     };
 }
-// SIGTERM, short grace, SIGKILL survivors. only ollama-managed runners
-// (see ollamaRunnerPids); the server itself is never touched. returns what
-// was freed; the next inference reloads transparently.
+// SIGTERM, short grace, SIGKILL survivors. only ollama-managed runners;
+// the server itself is never touched. every kill re-verifies identity
+// first, and runners that survive everything are excluded from the freed
+// total (reported as stuck). the next inference reloads transparently.
 export function unloadOllamaRunners() {
-    const targets = ollamaRunnerPids();
-    if (targets.length === 0)
-        return { freedKb: 0, count: 0 };
-    let freed = 0;
-    let count = 0;
-    for (const pid of targets) {
+    const held = new Map();
+    for (const pid of ollamaRunnerPids()) {
+        if (!isOllamaRunner(pid))
+            continue;
         const rss = rssOf(pid) ?? 0;
         try {
             process.kill(pid, "SIGTERM");
@@ -1189,9 +1196,10 @@ export function unloadOllamaRunners() {
         catch {
             continue;
         }
-        freed += rss;
-        count += 1;
+        held.set(pid, rss);
     }
+    if (held.size === 0)
+        return { freedKb: 0, count: 0, stuck: 0 };
     const wait = new Int32Array(new SharedArrayBuffer(4));
     const deadline = Date.now() + 3000;
     const alive = (pid) => {
@@ -1203,20 +1211,36 @@ export function unloadOllamaRunners() {
             return false;
         }
     };
-    let pending = targets.filter(alive);
+    let pending = [...held.keys()].filter(alive);
     while (pending.length > 0 && Date.now() < deadline) {
         Atomics.wait(wait, 0, 0, 100);
         pending = pending.filter(alive);
     }
     for (const pid of pending) {
+        if (!isOllamaRunner(pid)) {
+            held.delete(pid);
+            continue;
+        }
         try {
             process.kill(pid, "SIGKILL");
         }
         catch {
-            // already gone
+            held.delete(pid);
         }
     }
-    return { freedKb: freed, count };
+    Atomics.wait(wait, 0, 0, 500);
+    let freed = 0;
+    let count = 0;
+    let stuck = 0;
+    for (const [pid, rss] of held) {
+        if (alive(pid) && isOllamaRunner(pid)) {
+            stuck += 1;
+            continue;
+        }
+        freed += rss;
+        count += 1;
+    }
+    return { freedKb: freed, count, stuck };
 }
 function timeMs(fn) {
     const t0 = process.hrtime.bigint();
@@ -2274,12 +2298,17 @@ function cmdOptimize() {
     const top = [...skills].sort((a, b) => b.tokens - a.tokens)[0];
     console.log(`[harness] ok - skills ${skills.length} files ~${fmtTok(total)} total${top ? `, largest ${top.name} ~${fmtTok(top.tokens)}` : ""}`);
     const freed = unloadOllamaRunners();
-    if (freed.count === 0) {
+    if (freed.count === 0 && freed.stuck === 0) {
         console.log("[harness] ok - local models: no resident ollama runners");
     }
     else {
         const alive = ollamaApi("/api/tags") !== null;
-        console.log(`[harness] ok - local models: unloaded ${freed.count} resident runner(s), ~${fmtMem(freed.freedKb)} freed${alive ? " (server healthy, reloads on next use)" : " (ollama api unreachable after unload - restart ollama if needed)"}`);
+        if (freed.count > 0) {
+            console.log(`[harness] ok - local models: unloaded ${freed.count} resident runner(s), ~${fmtMem(freed.freedKb)} freed${alive ? " (server healthy, reloads on next use)" : " (ollama api unreachable after unload - restart ollama if needed)"}`);
+        }
+        if (freed.stuck > 0) {
+            console.log(`[harness] warn - ${freed.stuck} runner(s) would not die (still resident, excluded from the freed total)`);
+        }
     }
     return true;
 }
