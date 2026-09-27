@@ -168,21 +168,20 @@ harness security audit       # run the audit script here
 ## CLI
 
 ```
-harness init [--harness <name>] [--auto] [--migrate]
-harness doctor [--fix] [--strict]
+harness init [--harness <name>] [--auto] [--migrate] [--dry-run] [--force]
+harness doctor [--fix] [--strict] [--json]
 harness status
 harness bench [--compare] [--quick]
 harness optimize
 harness optimizations [enable|disable] [name|all]
 harness map
-harness skill <list|search|info|add|remove|verify> ...
-harness memory <show|prune|sync|edit> [note]
-harness instinct <list|enable|disable> [name]
-harness research [query]
+harness skill <list|search|info|add|remove|verify|lint|update> ...
+harness memory <show|prune|sync|edit|stats|search|backup> [note]
+harness instinct <list|enable|disable|test> [name]
+harness research [query|search|remove] ...
 harness security <audit|scan> [--staged]
-harness adapter <list|add> [name]
-harness upgrade
-harness shell
+harness adapter <list|add|remove> [name]
+harness upgrade [--check]
 ```
 
 Run `harness` with no args on a terminal to open the interactive menu over every command (Quit or Ctrl-C to leave).

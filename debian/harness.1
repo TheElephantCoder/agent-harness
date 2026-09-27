@@ -11,10 +11,10 @@ in Claude Code, Codex, Opencode, Cursor, Kiro CLI and Kiro.
 Run \fBharness init\fR in your project, then \fBharness doctor\fR to verify.
 .SH COMMANDS
 .TP
-.B init [--harness <name>] [--auto] [--migrate]
-Set up harness in current project.
+.B init [--harness <name>] [--auto] [--migrate] [--dry-run] [--force]
+Set up harness in current project (preview or overwrite with the last two).
 .TP
-.B doctor [--fix] [--strict]
+.B doctor [--fix] [--strict] [--json]
 Check adapters, skills, security.
 .TP
 .B status
@@ -32,29 +32,29 @@ List, toggle optimizations.
 .B map
 Index repo to .harness/MAP.md.
 .TP
-.B skill <list|search|info|add|remove|verify> ...
-List, search, show, fetch skills.
+.B skill <list|search|info|add|remove|verify|lint|update> ...
+List, search, show, fetch, check, refresh skills.
 .TP
-.B memory <show|prune|sync|edit> [note]
-Show, prune, append, edit MEMORY.md.
+.B memory <show|prune|sync|edit|stats|search|backup> [note]
+Show, prune, append, edit, inspect MEMORY.md.
 .TP
-.B instinct <list|enable|disable> [name]
-List, toggle hooks.
+.B instinct <list|enable|disable|test> [name]
+List, toggle, run hooks.
 .TP
-.B research [query]
-List findings or capture a stub.
+.B research [query|search|remove] ...
+List findings, capture a stub, find or drop findings.
 .TP
 .B security <audit|scan> [--staged]
 Run the audit script.
 .TP
-.B adapter <list|add> [name]
-List, scaffold harnesses.
+.B adapter <list|add|remove> [name]
+List, scaffold, drop harnesses.
 .TP
 .B adapter list
 List supported harnesses.
 .TP
-.B upgrade
-Self-update to latest.
+.B upgrade [--check]
+Self-update to latest (check only with --check).
 .SH SEE ALSO
 .BR https://github.com/TheElephantCoder/agent-harness
 .SH AUTHOR

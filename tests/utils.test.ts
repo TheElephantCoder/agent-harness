@@ -5,6 +5,7 @@ import * as path from "node:path";
 import {
   MAP_MAX_FILES,
   buildMap,
+  cmpVersions,
   estTokens,
   fmtMem,
   parseOllamaPs,
@@ -19,6 +20,15 @@ import {
   stripFm,
   welcome,
 } from "../src/harness/cli.js";
+
+describe("cmpVersions", () => {
+  it("compares dotted versions numerically", () => {
+    expect(cmpVersions("0.2.1", "0.2.1")).toBe(0);
+    expect(cmpVersions("0.2.0", "0.2.1")).toBe(-1);
+    expect(cmpVersions("0.10.0", "0.2.1")).toBe(1);
+    expect(cmpVersions("1.0", "1.0.1")).toBe(-1);
+  });
+});
 
 describe("welcome", () => {
   it("shows the plain title, no figlet remnants", () => {

@@ -9,6 +9,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "harness
 import cli
 
 
+def test_cmp_versions():
+    assert cli.cmp_versions("0.2.1", "0.2.1") == 0
+    assert cli.cmp_versions("0.2.0", "0.2.1") == -1
+    assert cli.cmp_versions("0.10.0", "0.2.1") == 1
+    assert cli.cmp_versions("1.0", "1.0.1") == -1
+
+
 def test_parse_frontmatter_ok():
     assert cli.parse_frontmatter("---\nname: x\ndescription: y\n---\nbody") == {
         "name": "x",

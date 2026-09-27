@@ -1,6 +1,7 @@
 # harness python shim, mirrors cli.ts
 import argparse
 import hashlib
+import io
 import json
 import os
 import platform
@@ -322,6 +323,7 @@ def setup_menu():
         "Auto-detect + install",
         "Install for a specific harness",
         "Migrate (fill gaps)",
+        "Preview only",
         "Back",
     ])
     if picked == 0:
@@ -334,6 +336,8 @@ def setup_menu():
             cmd_init(ns)
     elif picked == 2:
         cmd_init(SimpleNamespace(harness="auto", auto=True, migrate=True))
+    elif picked == 3:
+        cmd_init(SimpleNamespace(harness="auto", auto=True, migrate=False, dry_run=True))
 
 def check_menu():
     picked = pick("Check setup", ["Check", "Check + fix", "Strict check", "Back"])
@@ -354,7 +358,7 @@ def bench_menu():
         cmd_bench(SimpleNamespace(quick=False, compare=True))
 
 def skills_menu():
-    picked = pick("Skills", ["List", "Search", "Show info", "Add", "Remove", "Verify", "Back"])
+    picked = pick("Skills", ["List", "Search", "Show info", "Add", "Remove", "Verify", "Lint", "Update", "Back"])
     if picked == 0:
         cmd_skill_list()
     elif picked == 1:
@@ -375,9 +379,15 @@ def skills_menu():
             cmd_skill_remove(n)
     elif picked == 5:
         cmd_skill_verify(None)
+    elif picked == 6:
+        cmd_skill_lint("")
+    elif picked == 7:
+        n = ask_question("Update which added skill?")
+        if n:
+            cmd_skill_update(n)
 
 def memory_menu():
-    picked = pick("Memory", ["Show", "Prune", "Sync a note", "Edit", "Back"])
+    picked = pick("Memory", ["Show", "Prune", "Sync a note", "Edit", "Stats", "Search", "Backup", "Back"])
     if picked == 0:
         text = read_text(os.path.join(os.getcwd(), "MEMORY.md"))
         print(text if text is not None else "[harness] memory - no MEMORY.md here (run harness init)")
@@ -389,24 +399,44 @@ def memory_menu():
             cmd_memory_sync(n)
     elif picked == 3:
         cmd_memory_edit()
+    elif picked == 4:
+        cmd_memory_stats()
+    elif picked == 5:
+        n = ask_question("Search memory for?")
+        if n:
+            cmd_memory_search(n)
+    elif picked == 6:
+        cmd_memory_backup()
 
 def instinct_menu():
-    picked = pick("Instincts", ["List", "Enable", "Disable", "Back"])
+    picked = pick("Instincts", ["List", "Enable", "Disable", "Test hook", "Back"])
     if picked == 0:
         cmd_instinct_list()
     elif picked in (1, 2):
         n = ask_question(f"{'Enable' if picked == 1 else 'Disable'} which hook?")
         if n:
             cmd_instinct_toggle("enable" if picked == 1 else "disable", n)
+    elif picked == 3:
+        n = ask_question("Test which hook?")
+        if n:
+            cmd_instinct_test(n)
 
 def research_menu():
-    picked = pick("Research", ["List findings", "Capture query", "Back"])
+    picked = pick("Research", ["List findings", "Capture query", "Search findings", "Remove", "Back"])
     if picked == 0:
         cmd_research_list()
     elif picked == 1:
         q = ask_question("Query to capture?")
         if q:
             cmd_research(q)
+    elif picked == 2:
+        q = ask_question("Search findings for?")
+        if q:
+            cmd_research_search(q)
+    elif picked == 3:
+        n = ask_question("Remove which finding?")
+        if n:
+            cmd_research_remove(n)
 
 def security_menu():
     picked = pick("Security", ["Audit", "Staged scan", "Back"])
@@ -416,13 +446,17 @@ def security_menu():
         cmd_security("scan", [])
 
 def adapter_menu():
-    picked = pick("Adapters", ["List", "Add", "Back"])
+    picked = pick("Adapters", ["List", "Add", "Remove", "Back"])
     if picked == 0:
         cmd_adapter_list()
     elif picked == 1:
         n = ask_question("New adapter name? (lowercase-hyphen)")
         if n:
             cmd_adapter_add(n)
+    elif picked == 2:
+        n = ask_question("Remove which custom adapter?")
+        if n:
+            cmd_adapter_remove(n)
 
 def show_optimizations_menu():
     while True:
@@ -878,14 +912,30 @@ def cmd_doctor(args=None):
         return False
     fix = bool(getattr(args, "fix", False))
     strict = bool(getattr(args, "strict", False))
+    as_json = bool(getattr(args, "json", False))
     state = {"ok": True}
+    jFails, jWarns = [], []
     def fail(s):
-        print(s)
         state["ok"] = False
+        if as_json:
+            jFails.append(s)
+            return
+        print(s)
     def warn(s):
+        if as_json:
+            jWarns.append(s)
+            if strict:
+                state["ok"] = False
+            return
         print(s)
         if strict:
             state["ok"] = False
+    # machine-readable mode: info lines would corrupt the JSON, so they go
+    # to a buffer while fail/warn capture above; only the final object
+    # reaches real stdout (crash paths exit the process, so no restore needed).
+    _real_stdout = sys.stdout
+    if as_json:
+        sys.stdout = io.StringIO()
     skills = list_skills(root)
     bad_fm = [s["name"] for s in skills if not s["fm_ok"]]
     if not skills:
@@ -1015,6 +1065,10 @@ def cmd_doctor(args=None):
             fail(f"[harness] FAIL - security: possible secrets in staged ({len(hits)}): {shown} - unstage and remove them")
         else:
             print("[harness] ok - security: no secrets in staged")
+    if as_json:
+        sys.stdout = _real_stdout
+        print(json.dumps({"ok": state["ok"], "failures": jFails,
+                          "warnings": jWarns, "version": VERSION}, indent=2))
     return state["ok"]
 
 def prune_file(abs_path, budget):
@@ -1194,6 +1248,8 @@ def cmd_init(args=None):
         missing_data("init")
         return False
     migrate = bool(getattr(args, "migrate", False))
+    dry = bool(getattr(args, "dry_run", False))
+    force_all = bool(getattr(args, "force", False))
     raw = getattr(args, "harness", "auto") or "auto"
     explicit = [s.strip() for s in raw.split(",") if s.strip()] if raw != "auto" else []
     adapters = [a for a in list_adapters(root) if a["json"]]
@@ -1204,7 +1260,7 @@ def cmd_init(args=None):
     cwd = os.getcwd()
     man_file = os.path.join(cwd, ".harness", "config.json")
     prior = read_text(man_file)
-    if prior is not None and not migrate:
+    if prior is not None and not migrate and not dry and not force_all:
         print("[harness] init - already initialized here (use --migrate to fill gaps)")
         return False
     prior_harness = []
@@ -1233,12 +1289,36 @@ def cmd_init(args=None):
                 tracked.add(f if isinstance(f, str) else f.get("path", ""))
         except (ValueError, AttributeError):
             pass
-    written, skipped = [], []
+    written, skipped, planned = [], [], []
+    recorded = {}
+    for f in prior_files:
+        if not isinstance(f, str) and f.get("sha"):
+            recorded[f.get("path", "")] = f["sha"]
     def put(rel, content, exec=False, force=False):
         abs_path = os.path.join(cwd, rel)
-        if not force and os.path.exists(abs_path):
+        exists = os.path.exists(abs_path)
+        overwriting = force or force_all
+        if dry:
+            action = "write" if not exists else ("overwrite" if overwriting else "skip")
+            planned.append({"rel": rel, "action": action})
+            if action == "skip":
+                skipped.append(rel)
+            else:
+                written.append({"path": rel, "sha": sha256(content)})
+            return
+        if not overwriting and exists:
             skipped.append(rel)
             return
+        if overwriting and exists and not force:
+            # --force reinstalls what init owns, never your edits: a tracked
+            # file whose content drifted from its recorded hash is left alone.
+            want = recorded.get(rel)
+            if want is not None:
+                cur = read_text(abs_path)
+                if cur is not None and sha256(cur) != want:
+                    print(f"[harness] init - {rel} edited by you, keeping (delete it to force overwrite)")
+                    skipped.append(rel)
+                    return
         try:
             os.makedirs(os.path.dirname(abs_path) or ".", exist_ok=True)
             with open(abs_path, "w", encoding="utf-8") as f:
@@ -1437,6 +1517,14 @@ def cmd_init(args=None):
     for o in OPTIMIZATIONS:
         if isinstance(prior_opts.get(o["name"]), bool):
             optimizations[o["name"]] = prior_opts[o["name"]]
+    scope = ",".join(names) if names else "core only"
+    if dry:
+        mark = {"write": "+", "overwrite": "!", "skip": "="}
+        print(f"[harness] init {scope} - dry run: nothing written")
+        for p in planned:
+            print(f"  {mark[p['action']]} {p['rel']}")
+        print(f"[harness] init - would write .harness/config.json ({len(files)} files tracked)")
+        return True
     try:
         os.makedirs(os.path.dirname(man_file), exist_ok=True)
         with open(man_file, "w", encoding="utf-8") as f:
@@ -1446,7 +1534,6 @@ def cmd_init(args=None):
     except OSError:
         print("[harness] init - could not write .harness/config.json")
         return False
-    scope = ",".join(names) if names else "core only"
     print(f"[harness] init {scope} - {len(written)} written, {len(skipped)} skipped (run harness doctor to verify)")
     return True
 
@@ -1724,7 +1811,59 @@ def missing_data(cmd):
     else:
         print(f"[harness] {cmd} - cannot locate install")
 
+def cmp_versions(a, b):
+    pa = [(int(n) if n.isdigit() else 0) for n in str(a).split(".")]
+    pb = [(int(n) if n.isdigit() else 0) for n in str(b).split(".")]
+    for x, y in zip(pa + [0] * len(pb), pb + [0] * len(pa)):
+        if x != y:
+            return -1 if x < y else 1
+    return 0
+
+def cmd_upgrade_check():
+    """Read-only version of upgrade: report only, change nothing."""
+    root = self_root()
+    if root and os.path.isdir(os.path.join(root, ".git")):
+        try:
+            r = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=root,
+                               capture_output=True, text=True, timeout=15)
+            head = (r.stdout or "").strip()
+        except (OSError, subprocess.TimeoutExpired):
+            head = ""
+        sha = resolve_main_sha()
+        if not sha:
+            print("[harness] upgrade check - could not reach github")
+            return False
+        if head == sha[:7]:
+            print(f"[harness] ok - up to date ({head})")
+        else:
+            print(f"[harness] upgrade available - local {head or '?'}, main {sha[:7]} (run: git pull)")
+        return True
+    here = os.path.realpath(__file__)
+    pipx_home = os.environ.get("PIPX_HOME", "")
+    under_pipx = (os.sep + "pipx" + os.sep + "venvs" + os.sep in here) or (bool(pipx_home) and here.startswith(pipx_home))
+    if under_pipx or "site-packages" in here or "dist-packages" in here:
+        try:
+            req = Request("https://raw.githubusercontent.com/TheElephantCoder/agent-harness/main/pyproject.toml",
+                          headers={"User-Agent": "agent-harness"})
+            text = urlopen(req, timeout=15).read().decode("utf-8", "replace")
+            m = re.search(r'^version\s*=\s*"([^"]+)"', text, re.M)
+            main = m.group(1) if m else None
+        except Exception:
+            main = None
+        if not main:
+            print("[harness] upgrade check - could not reach github")
+            return False
+        if cmp_versions(VERSION, main) >= 0:
+            print(f"[harness] ok - up to date (v{VERSION})")
+        else:
+            print(f"[harness] upgrade available - installed v{VERSION}, main v{main} (run: harness upgrade)")
+        return True
+    print("[harness] upgrade check - manual install (upgrade: reinstall from source or the curl script)")
+    return True
+
 def cmd_upgrade(args=None):
+    if bool(getattr(args, "check", False)) or getattr(args, "args", [""])[0:1] == ["--check"]:
+        return cmd_upgrade_check()
     root = self_root()
     if root and os.path.isdir(os.path.join(root, ".git")):
         print("[harness] source checkout - run: git pull")
@@ -1876,6 +2015,50 @@ def cmd_research(query):
         print("[harness] FAIL - research: could not write finding")
         return False
     print(f"[harness] ok - research stub: {rel} (fill it in, then plan)")
+    return True
+
+def cmd_research_search(term):
+    q = (term or "").strip().lower()
+    if not q:
+        print("[harness] research search - give a term to find")
+        return False
+    d = os.path.join(os.getcwd(), "research", "findings")
+    try:
+        files = sorted(f for f in os.listdir(d) if f.endswith(".md"))
+    except OSError:
+        files = []
+    hits = 0
+    for f in files:
+        text = read_text(os.path.join(d, f))
+        if text is None:
+            continue
+        line = next((l for l in text.split("\n") if q in l.lower()), None)
+        if line is not None and hits < 20:
+            title = line.strip()
+            if title.startswith("# "):
+                title = title[2:]
+            print(f"  {f} - {title[:120]}")
+            hits += 1
+    if hits == 0:
+        print(f"[harness] research - no findings mention \"{(term or '').strip()}\"")
+    return True
+
+def cmd_research_remove(name):
+    q = (name or "").strip()
+    if not q:
+        print("[harness] research remove - give a finding name")
+        return False
+    # slugify + fixed dir: the resolved path can never leave findings/.
+    abs_path = os.path.join(os.getcwd(), "research", "findings", slugify(q) + ".md")
+    if not os.path.isfile(abs_path):
+        print(f"[harness] research remove - no finding named \"{q}\"")
+        return False
+    try:
+        os.remove(abs_path)
+    except OSError:
+        print(f"[harness] research remove - could not remove {os.path.basename(abs_path)}")
+        return False
+    print(f"[harness] ok - research {os.path.basename(abs_path)} removed")
     return True
 
 def sanitize_skill_name(s):
@@ -2119,12 +2302,171 @@ def cmd_skill_info(name):
     print(text)
     return True
 
+def cmd_skill_lint(name):
+    root = self_root()
+    if not root:
+        missing_data("skill")
+        return False
+    skills = list_skills(root)
+    lst = [s for s in skills if s["name"] == (name or "")] if name else skills
+    if name and not lst:
+        print(f"[harness] skill lint - unknown skill \"{name}\" (try: harness skill list)")
+        return False
+    bad = 0
+    for s in lst:
+        fm = parse_frontmatter(read_text(s["file"]) or "")
+        problems = []
+        if not fm:
+            problems.append("frontmatter missing name/description")
+        elif not fm.get("desc"):
+            problems.append("description missing")
+        if problems:
+            print(f"  {s['name']} FAIL - {'; '.join(problems)}")
+            bad += 1
+        else:
+            print(f"  {s['name']} ok")
+    return bad == 0
+
+def cmd_skill_update(name):
+    cwd = os.getcwd()
+    added, corrupt = read_added_skills(cwd)
+    if corrupt:
+        print("[harness] FAIL - .harness/config.json corrupt")
+        return False
+    entry = next((a for a in added if a.get("name") == name), None)
+    if not entry:
+        print(f"[harness] skill update - no added skill named \"{name}\"")
+        return False
+    repo = str(entry.get("repo") or "")
+    recorded_ref = str(entry.get("ref") or "")
+    if not repo:
+        print(f"[harness] skill update - {name} has no recorded source (added before source pinning)")
+        return False
+    body = None
+    if repo.startswith("local:"):
+        abs_path = repo[len("local:"):]
+        cands = [os.path.join(abs_path, "SKILL.md")]
+        try:
+            for e in sorted(os.listdir(os.path.join(abs_path, "skills"))):
+                cands.append(os.path.join(abs_path, "skills", e, "SKILL.md"))
+        except OSError:
+            pass
+        for c in cands:
+            body = read_text(c)
+            if body is not None:
+                break
+    elif re.match(r"https?://", repo):
+        low = re.split(r"[?#]", repo)[0].lower()
+        if low.endswith(".md"):
+            body = fetch_text(repo)
+        else:
+            buf = fetch_tarball(repo)
+            body = extract_skill_body(buf) if buf else None
+    else:
+        refs = [recorded_ref] if recorded_ref and recorded_ref != "-" else ["main", "master"]
+        for ref in refs:
+            buf = fetch_tarball(f"https://codeload.github.com/{repo}/tar.gz/{ref}")
+            if not buf:
+                continue
+            body = extract_skill_body(buf)
+            if body:
+                break
+    if not body:
+        print(f"[harness] skill update - could not re-fetch {name} from {repo}")
+        return False
+    fm = parse_frontmatter(body)
+    if not fm or sanitize_skill_name(fm.get("name", "")) != name:
+        print(f"[harness] skill update - fetched body fails validation (name must stay {name})")
+        return False
+    dest = os.path.join(cwd, ".harness", "skills", name, "SKILL.md")
+    cur = read_text(dest)
+    if cur is not None and sha256(cur) == sha256(body):
+        print(f"[harness] ok - skill {name} already up to date")
+        return True
+    try:
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        with open(dest, "w", encoding="utf-8") as f:
+            f.write(body)
+    except OSError:
+        print(f"[harness] skill update - could not write {dest}")
+        return False
+    man_file = os.path.join(cwd, ".harness", "config.json")
+    try:
+        man_text = read_text(man_file)
+        if man_text is None:
+            raise ValueError("missing")
+        man = json.loads(man_text)
+        for a in man.get("addedSkills", []):
+            if a.get("name") == name:
+                a["sha256"] = sha256(body)
+                a["ts"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        with open(man_file, "w", encoding="utf-8") as f:
+            json.dump(man, f, indent=2)
+    except (ValueError, OSError):
+        print("[harness] skill update - file written, manifest left stale (re-verify)")
+        return False
+    print(f"[harness] ok - skill {name} updated")
+    return True
+
 def cmd_memory_show():
     text = read_text(os.path.join(os.getcwd(), "MEMORY.md"))
     if text is None:
         print("[harness] memory - no MEMORY.md here (run harness init)")
     else:
         print(text)
+    return True
+
+def cmd_memory_stats():
+    mem_file = os.path.join(os.getcwd(), "MEMORY.md")
+    text = read_text(mem_file)
+    if text is None:
+        print("[harness] memory - no MEMORY.md here (run harness init)")
+        return False
+    lines = text.split("\n")
+    sections = sum(1 for l in lines if l.startswith("#"))
+    print(f"  MEMORY.md ~{fmt_tok(est_tokens(text))} tokens, {len(lines)} lines, {sections} sections")
+    arch = read_text(os.path.join(os.getcwd(), "MEMORY.archive.md"))
+    if arch is not None:
+        print(f"  MEMORY.archive.md ~{fmt_tok(est_tokens(arch))} tokens, {len(arch.split(chr(10)))} lines")
+    return True
+
+def cmd_memory_search(term):
+    q = (term or "").strip().lower()
+    if not q:
+        print("[harness] memory search - give a term to find")
+        return False
+    hits = 0
+    for f in ("MEMORY.md", "MEMORY.archive.md"):
+        text = read_text(os.path.join(os.getcwd(), f))
+        if text is None:
+            continue
+        for i, l in enumerate(text.split("\n")):
+            if hits < 20 and q in l.lower():
+                print(f"  {f}:{i + 1}: {l.strip()[:120]}")
+                hits += 1
+    if hits == 0:
+        print(f"[harness] memory - no hits for \"{(term or '').strip()}\"")
+    return True
+
+def cmd_memory_backup():
+    mem_file = os.path.join(os.getcwd(), "MEMORY.md")
+    text = read_text(mem_file)
+    if text is None:
+        print("[harness] memory - no MEMORY.md here (run harness init)")
+        return False
+    stamp = time.strftime("%Y-%m-%d", time.gmtime())
+    dest = os.path.join(os.getcwd(), f"MEMORY.backup.{stamp}.md")
+    n = 2
+    while os.path.exists(dest):
+        dest = os.path.join(os.getcwd(), f"MEMORY.backup.{stamp}-{n}.md")
+        n += 1
+    try:
+        with open(dest, "w", encoding="utf-8") as f:
+            f.write(text)
+    except OSError:
+        print("[harness] FAIL - memory: could not write backup")
+        return False
+    print(f"[harness] ok - memory backed up to {os.path.basename(dest)}")
     return True
 
 def cmd_memory_edit():
@@ -2173,6 +2515,27 @@ def cmd_instinct_toggle(op, name):
             pass
     print(f"[harness] ok - instinct {op}d {done}/{len(matched)}")
     return done == len(matched)
+
+def cmd_instinct_test(name):
+    root = self_root()
+    if not root:
+        missing_data("instinct")
+        return False
+    if not name:
+        print("[harness] instinct test - give a hook name")
+        return False
+    matched = [h for h in list_hooks(root) if name in h]
+    if not matched:
+        print(f"[harness] instinct - no hooks match \"{name}\"")
+        return False
+    bad = 0
+    for h in matched:
+        ms, status = run_hook(os.path.join(root, h))
+        mark = "ok" if status == 0 else "FAIL"
+        print(f"  {h} {ms:.0f}ms exit {'timeout' if status is None else status} {mark}")
+        if status != 0:
+            bad += 1
+    return bad == 0
 
 def cmd_adapter_list():
     root = self_root()
@@ -2227,6 +2590,22 @@ def cmd_adapter_add(name):
         print(f"[harness] adapter add - could not scaffold {name}")
         return False
     print(f"[harness] ok - adapter {name} scaffolded (fill in skillPath, then: harness init --harness {name})")
+    return True
+
+def cmd_adapter_remove(name):
+    if not re.fullmatch(r"[a-z0-9-]+", name or ""):
+        print("[harness] adapter remove - want a lowercase-hyphen name")
+        return False
+    d = os.path.join(os.getcwd(), ".harness", "adapters", name)
+    if not os.path.isdir(d) or not os.path.isfile(os.path.join(d, "adapter.json")):
+        print(f"[harness] adapter remove - no custom adapter named \"{name}\"")
+        return False
+    try:
+        shutil.rmtree(d)
+    except OSError:
+        print(f"[harness] adapter remove - could not remove {d}")
+        return False
+    print(f"[harness] ok - adapter {name} removed")
     return True
 
 def cmd_skill_remove(name):
@@ -2292,10 +2671,13 @@ def main():
     a.add_argument("--harness", default="auto")
     a.add_argument("--auto", action="store_true")
     a.add_argument("--migrate", action="store_true")
+    a.add_argument("--dry-run", action="store_true")
+    a.add_argument("--force", action="store_true")
 
     b = sub.add_parser("doctor")
     b.add_argument("--fix", action="store_true")
     b.add_argument("--strict", action="store_true")
+    b.add_argument("--json", action="store_true")
 
     c = sub.add_parser("bench")
     c.add_argument("--harness")
@@ -2303,7 +2685,10 @@ def main():
     c.add_argument("--compare", action="store_true")
     c.add_argument("--quick", action="store_true")
 
-    for name in ["skill", "memory", "instinct", "research", "security", "upgrade", "optimize", "optimizations", "adapter", "map", "status", "version"]:
+    u = sub.add_parser("upgrade")
+    u.add_argument("--check", action="store_true")
+
+    for name in ["skill", "memory", "instinct", "research", "security", "optimize", "optimizations", "adapter", "map", "status", "version"]:
         s = sub.add_parser(name)
         s.add_argument("args", nargs=argparse.REMAINDER)
 
@@ -2331,6 +2716,10 @@ def main():
         if not cmd_adapter_list():
             sys.exit(1)
         return
+    if args.cmd == "adapter" and args.args[:1] == ["remove"]:
+        if not cmd_adapter_remove(args.args[1] if len(args.args) > 1 else ""):
+            sys.exit(1)
+        return
     if args.cmd == "skill" and args.args[:1] == ["add"]:
         if not cmd_skill_add(args.args[1:]):
             sys.exit(1)
@@ -2355,6 +2744,14 @@ def main():
         if not cmd_skill_info(args.args[1] if len(args.args) > 1 else ""):
             sys.exit(1)
         return
+    if args.cmd == "skill" and args.args[:1] == ["lint"]:
+        if not cmd_skill_lint(args.args[1] if len(args.args) > 1 else ""):
+            sys.exit(1)
+        return
+    if args.cmd == "skill" and args.args[:1] == ["update"]:
+        if not cmd_skill_update(args.args[1] if len(args.args) > 1 else ""):
+            sys.exit(1)
+        return
     if args.cmd == "memory" and args.args[:1] == ["show"]:
         cmd_memory_show()
         return
@@ -2370,12 +2767,28 @@ def main():
         if not cmd_memory_edit():
             sys.exit(1)
         return
+    if args.cmd == "memory" and args.args[:1] == ["stats"]:
+        if not cmd_memory_stats():
+            sys.exit(1)
+        return
+    if args.cmd == "memory" and args.args[:1] == ["search"]:
+        if not cmd_memory_search(" ".join(args.args[1:])):
+            sys.exit(1)
+        return
+    if args.cmd == "memory" and args.args[:1] == ["backup"]:
+        if not cmd_memory_backup():
+            sys.exit(1)
+        return
     if args.cmd == "instinct" and (not args.args or args.args[:1] == ["list"]):
         if not cmd_instinct_list():
             sys.exit(1)
         return
     if args.cmd == "instinct" and args.args[:1] in (["enable"], ["disable"]):
         if not cmd_instinct_toggle(args.args[0], args.args[1] if len(args.args) > 1 else ""):
+            sys.exit(1)
+        return
+    if args.cmd == "instinct" and args.args[:1] == ["test"]:
+        if not cmd_instinct_test(args.args[1] if len(args.args) > 1 else ""):
             sys.exit(1)
         return
     if args.cmd == "security" and (not args.args or args.args[:1] in (["audit"], ["scan"])):
@@ -2386,6 +2799,14 @@ def main():
     if args.cmd == "research":
         if not (args.args or []):
             cmd_research_list()
+            return
+        if (args.args or [])[:1] == ["search"]:
+            if not cmd_research_search(" ".join((args.args or [])[1:])):
+                sys.exit(1)
+            return
+        if (args.args or [])[:1] == ["remove"]:
+            if not cmd_research_remove(" ".join((args.args or [])[1:])):
+                sys.exit(1)
             return
         if not cmd_research(" ".join(args.args or [])):
             sys.exit(1)

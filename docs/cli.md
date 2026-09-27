@@ -1,20 +1,19 @@
 # CLI
 
 ```
-harness init [--harness <name>] [--auto] [--migrate]
-harness doctor [--fix] [--strict]
+harness init [--harness <name>] [--auto] [--migrate] [--dry-run] [--force]
+harness doctor [--fix] [--strict] [--json]
 harness status
 harness bench [--compare] [--quick]
 harness optimize
 harness map
-harness skill <list|search|info|add|remove|verify> [query|name|repo]
-harness memory <show|prune|sync|edit> [note]
-harness instinct <list|enable|disable> [name]
-harness research [query]
+harness skill <list|search|info|add|remove|verify|lint|update> [query|name|repo]
+harness memory <show|prune|sync|edit|stats|search|backup> [note]
+harness instinct <list|enable|disable|test> [name]
+harness research [query|search|remove] [...]
 harness security <audit|scan> [--staged]
-harness adapter <list|add> [name]
-harness upgrade
-harness shell
+harness adapter <list|add|remove> [name]
+harness upgrade [--check]
 ```
 
 Run `harness` with no args on a terminal to open the interactive menu: every command as a picker entry (with guided prompts for arguments), looping until you pick Quit. With arguments (`harness doctor --fix`), it just runs the action directly. Menu numbers with two digits work when typed quickly in sequence. The welcome screen centers itself to the terminal width.
@@ -62,6 +61,8 @@ never merged into existing files):
 
 `--migrate` adds missing files without touching anything already there. Running plain `init` twice errors out and tells you to use `--migrate`.
 
+`--dry-run` prints what would be written (`+`), overwritten (`!`), or skipped (`=`) and writes nothing. `--force` reinstalls everything init owns but keeps files you edited (tracked files whose content drifted from the manifest hash are reported and left alone).
+
 ## doctor
 
 Checks the install and the project. Exit code is 1 when anything fails, so it works as a CI gate.
@@ -75,7 +76,8 @@ Checks the install and the project. Exit code is 1 when anything fails, so it wo
 - local models: reports resident ollama runners with RSS; warns when more
   than one model is resident (switching residue) and points at optimize
 
-`--strict` turns warnings into failures.
+`--strict` turns warnings into failures. `--json` prints one machine-readable
+object (`{ok, failures, warnings, version}`) instead of the human lines.
 
 ## status
 
@@ -165,17 +167,27 @@ harness skill add https://host/pack.tar.gz  # archive with SKILL.md inside
 harness skill add --path ./dir           # local dir (SKILL.md at root or skills/*/)
 harness skill remove NAME   # delete project-added skill + drop its pin
 harness skill verify [NAME] # re-check pins against files
+harness skill lint [NAME]   # frontmatter name/description check
+harness skill update NAME   # re-fetch from the pinned source, skip if unchanged
 harness instinct list     # hook scripts with exec bit
 harness instinct disable guard   # chmod -x matching hooks (enable reverses)
+harness instinct test guard      # run matching hooks now, print ms + exit
 harness memory show       # print MEMORY.md
 harness memory sync "note"  # append a dated note, re-prune to budget
 harness memory prune      # same prune as optimize
 harness memory edit       # open MEMORY.md in $EDITOR (terminal only)
+harness memory stats      # tokens, lines, sections (+ archive)
+harness memory search tok # grep MEMORY.md + archive, file:line hits
+harness memory backup     # timestamped copy next to MEMORY.md
 harness adapter list      # supported harnesses from adapters/
 harness adapter add mytool  # scaffold .harness/adapters/mytool/ (fill skillPath, init picks it up)
+harness adapter remove mytool  # drop a custom scaffold
 harness research "query"  # capture a findings stub to fill in
 harness research          # list captured findings
+harness research search tok  # grep findings (a leading search/remove word is a subcommand, not a query)
+harness research remove NAME # delete a finding stub
 harness security audit    # run security/audit.sh here (scan = --staged)
+harness upgrade --check   # report only: up to date or behind, per install kind
 ```
 
 `init` records a sha256 per installed file in `.harness/config.json`
