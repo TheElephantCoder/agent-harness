@@ -85,9 +85,15 @@ describe("gui server", () => {
       const strip = (s: string) =>
         s.replace(/\x1b\[[?!]?[0-9;]*[@-~]/g, "").replace(/\x1b[()][AB0]/g, "");
       let menu = "";
-      for (let i = 0; i < 40 && !strip(menu).includes("What do you want to do?"); i++) {
+      for (
+        let i = 0;
+        i < 40 && !strip(menu).includes("What do you want to do?");
+        i++
+      ) {
         await new Promise((r) => setTimeout(r, 200));
-        const p = await (await fetch(`${base}/api/term/poll?id=${started.id}`)).json();
+        const p = await (
+          await fetch(`${base}/api/term/poll?id=${started.id}`)
+        ).json();
         menu += p.output;
       }
       const clean = strip(menu);
@@ -102,7 +108,9 @@ describe("gui server", () => {
       let bye = "";
       for (let i = 0; i < 40 && !strip(bye).includes("bye."); i++) {
         await new Promise((r) => setTimeout(r, 200));
-        const p = await (await fetch(`${base}/api/term/poll?id=${started.id}`)).json();
+        const p = await (
+          await fetch(`${base}/api/term/poll?id=${started.id}`)
+        ).json();
         bye += p.output;
         if (p.exited && p.output === "") break;
       }
@@ -123,7 +131,9 @@ describe("gui server", () => {
       let echoed = "";
       for (let i = 0; i < 40 && !strip(echoed).includes("hi-pty"); i++) {
         await new Promise((r) => setTimeout(r, 200));
-        const p = await (await fetch(`${base}/api/term/poll?id=${sh.id}`)).json();
+        const p = await (
+          await fetch(`${base}/api/term/poll?id=${sh.id}`)
+        ).json();
         echoed += p.output;
       }
       expect(strip(echoed)).toContain("hi-pty");
@@ -140,7 +150,37 @@ describe("gui server", () => {
       for (const name of ["Harvest", "Espresso", "Glacier", "Moss"]) {
         expect(page).toContain(name);
       }
-      for (const m of ['data-page="memory"', 'data-page="skills"', "Confirm before running", "Compact cards", "Remember last page", 'id="nav-update"', 'id="upd-pill"', 'id="upd-modal"', "Show update info", "nav-group", 'id="side-toggle"', "set-group", "pal-group", "Workspace", "Look and feel", 'id="term-out"', 'id="term-kbd-in"', 'id="term-shell"', 'id="term-menu"', "Click inside and type", 'data-page="about"', "System information", "Credits", "Licenses", "release date", "Not affiliated", "nor @theelephantcoder is affiliated with", "not affiliated with any agent vendor", "contact@theelephantcoder.com"]) {
+      for (const m of [
+        'data-page="memory"',
+        'data-page="skills"',
+        "Confirm before running",
+        "Compact cards",
+        "Remember last page",
+        'id="nav-update"',
+        'id="upd-pill"',
+        'id="upd-modal"',
+        "Show update info",
+        "nav-group",
+        'id="side-toggle"',
+        "set-group",
+        "pal-group",
+        "Workspace",
+        "Look and feel",
+        'id="term-out"',
+        'id="term-kbd-in"',
+        'id="term-shell"',
+        'id="term-menu"',
+        "Click inside and type",
+        'data-page="about"',
+        "System information",
+        "Credits",
+        "Licenses",
+        "release date",
+        "Not affiliated",
+        "nor @theelephantcoder is affiliated with",
+        "not affiliated with any agent vendor",
+        "contact@theelephantcoder.com",
+      ]) {
         expect(page).toContain(m);
       }
     } finally {

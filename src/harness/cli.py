@@ -16,7 +16,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from urllib.request import Request, urlopen
 
-VERSION = "0.2.1"
+VERSION = "0.3.0"
 
 RESET = "\x1b[0m"
 BOLD = "\x1b[1m"

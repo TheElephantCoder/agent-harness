@@ -90,12 +90,10 @@ def main():
         os.close(fd)
     except OSError:
         pass
+    # If the child already exited, it is reaped here; otherwise init
+    # reaps it after we exit. WNOHANG never blocks the shutdown path.
     try:
-        _, status = os.waitpid(pid, os.WNOHANG)
-        if status == 0:
-            # Reap blocking only if the child already died; otherwise leave
-            # init to reap it (we are exiting anyway).
-            pass
+        os.waitpid(pid, os.WNOHANG)
     except ChildProcessError:
         pass
     return 0
