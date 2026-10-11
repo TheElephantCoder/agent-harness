@@ -1,3 +1,17 @@
+agent-harness (0.3.0-1) UNRELEASED; urgency=medium
+
+  * Web GUI: local control surface with Overview, Agents, real-terminal
+    Commands tab (menu + shell PTY modes), Memory, Skills, Project,
+    Activity, Settings (19 themes), About, Update modal with live status.
+  * Menu-only interactive CLI with Local models submenu; shell removed.
+  * 13 features: init dry-run/force, doctor json, adapter remove,
+    instinct test, memory stats/search/backup, research search/remove,
+    skill lint/update, upgrade check.
+  * Perf: haveBin scans PATH in-process, update-info caches main SHA.
+  * Install hints point at theelephantcoder.com/agent-harness.
+
+ -- TheElephantCoder <contact@theelephantcoder.com>  Sun, 11 Oct 2026 00:00:00 +0000
+
 agent-harness (0.2.1-1) UNRELEASED; urgency=medium
 
   * Interactive CLI: status snapshot, per-project shell history,

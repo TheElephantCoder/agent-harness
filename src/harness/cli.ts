@@ -12,7 +12,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const VERSION = "0.2.1";
+export const VERSION = "0.3.0";
 
 // true while serving the web gui: prompts have no terminal to read from,
 // so askQuestion/selectOption bail out and callers degrade gracefully.
