@@ -7,7 +7,7 @@
 <meta name="description" content="Measured agent-harness A/B results across models, providers and hardware. Submit your own.">
 <meta property="og:title" content="agent-harness benchmarks">
 <meta property="og:description" content="Measured numbers, both arms, every run. Submit yours.">
-<meta property="og:url" content="https://theelephantcoder.github.io/agent-harness/benchmark.html">
+<meta property="og:url" content="https://theelephantcoder.com/agent-harness/benchmark.html">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◍</text></svg>">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -154,6 +154,19 @@
       <div class="row"><span>T1 orient</span><span>63s · 147.6k tok · 0/3</span><span>106s · 138.3k tok · 0/3</span></div>
       <div class="row"><span>T2 feature</span><span>130s · 142.2k tok · 2/3</span><span>122s · 178.4k tok · 3/3</span></div>
       <div class="row"><span>T3 bugfix</span><span>71s · 90.8k tok · 3/3</span><span>107s · 139.6k tok · 3/3</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="perf">
+  <div class="wrap">
+    <h2>M6 local models: qwen2.5-coder ladder ($0, Ollama)</h2>
+    <p class="muted">Apple M6 mini, 12c, 16 GB · bare read-everything (4 inferences) vs harness MAP+memory (2 inferences) · 48 rows · 16/16 fixes both arms. Per-token speed is identical; the harness halves session wall by halving inference count. 14b peaks 9.0 GB resident with ~3 GB swapped: the practical 16 GB ceiling.</p>
+    <div class="perf-table">
+      <div class="row head"><span>model</span><span>bare</span><span>harness</span></div>
+      <div class="row"><span>1.5b</span><span>5.7s · ~115 tok/s · 3/3</span><span>2.8s · ~115 tok/s · 3/3</span></div>
+      <div class="row"><span>7b</span><span>22.0s · ~29 tok/s · 3/3</span><span>11.2s · ~29 tok/s · 3/3</span></div>
+      <div class="row"><span>14b</span><span>43.5s · ~15 tok/s · 2/2</span><span>21.7s · ~15 tok/s · 2/2</span></div>
     </div>
   </div>
 </section>
