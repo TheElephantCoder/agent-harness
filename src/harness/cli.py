@@ -251,10 +251,11 @@ def show_menu():
         "Adapters",
         "Upgrade",
         "Local models",
+        "Web GUI",
         "Quit",
     ]
     picked = pick("What do you want to do?", options)
-    if picked is None or picked < 0 or picked == 15:
+    if picked is None or picked < 0 or picked == 16:
         return True
     if picked == 0:
         setup_menu()
@@ -286,6 +287,8 @@ def show_menu():
         cmd_upgrade()
     elif picked == 14:
         local_models_menu()
+    elif picked == 15:
+        cmd_gui()
     print(paint(DIM, "╌" * term_width()))
     return False
 
@@ -2662,6 +2665,22 @@ def launch_shell():
             break
     print(paint(DIM, "bye."))
 
+def cmd_gui(args=None):
+    """The web gui lives in the node build. Hand off to it when node and
+    the compiled CLI are present; otherwise say exactly what to install."""
+    argv = ["gui"]
+    raw = list(getattr(args, "args", []) or [])
+    if raw[:1] == ["--port"] and len(raw) > 1 and re.fullmatch(r"[0-9]+", raw[1] or ""):
+        argv += ["--port", raw[1]]
+    node = shutil.which("node")
+    root = self_root()
+    dist = os.path.join(root, "dist", "harness", "cli.js") if root else ""
+    if node and dist and os.path.isfile(dist):
+        os.execvp(node, [node, dist] + argv)
+        return True
+    print("[harness] gui - needs the node build (curl installer or source checkout with node); plain pip installs cannot serve it")
+    return False
+
 def main():
     p = argparse.ArgumentParser(prog="harness", description="harness - agent harness perf layer by TheElephantCoder")
     p.add_argument("--version", "-v", action="store_true")
@@ -2691,6 +2710,9 @@ def main():
     for name in ["skill", "memory", "instinct", "research", "security", "optimize", "optimizations", "adapter", "map", "status", "version"]:
         s = sub.add_parser(name)
         s.add_argument("args", nargs=argparse.REMAINDER)
+
+    g = sub.add_parser("gui")
+    g.add_argument("--port")
 
     args = p.parse_args()
     if args.version:
@@ -2817,6 +2839,11 @@ def main():
         return
     if args.cmd == "status":
         if not cmd_status():
+            sys.exit(1)
+        return
+    if args.cmd == "gui":
+        raw = ["--port", args.port] if getattr(args, "port", None) else []
+        if not cmd_gui(SimpleNamespace(args=raw)):
             sys.exit(1)
         return
     if args.cmd == "version":

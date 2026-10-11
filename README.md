@@ -49,7 +49,7 @@ More detail in [`skills/`](skills/), [`instincts/`](instincts/), [`memory/`](mem
 
 ## Performance
 
-Numbers below are from my own setup (250k LOC TS monorepo, M2 Max), not universal claims. Independent A/B runs on other models and hardware live on the [Benchmark tab](https://theelephantcoder.github.io/agent-harness/benchmark.html), raw rows in [`docs/benchmarks.md`](docs/benchmarks.md).
+Numbers below are from my own setup (250k LOC TS monorepo, M2 Max), not universal claims. Independent A/B runs on other models and hardware live on the [Benchmark tab](https://theelephantcoder.com/agent-harness/benchmark.html), raw rows in [`docs/benchmarks.md`](docs/benchmarks.md).
 
 - cold start 180s -> 13s
 - tokens per task down ~65 percent
@@ -104,7 +104,7 @@ See [`adapters/`](adapters/) for the per-tool mappings.
 
 ```bash
 # one line, the default (macOS + Linux, needs Node >= 20)
-curl -fsSL https://theelephantcoder.github.io/agent-harness/install.sh | bash
+curl -fsSL https://theelephantcoder.com/agent-harness/install.sh | bash
 # pin a release instead of main, or install user-local
 curl -fsSL ... | HARNESS_REF=v0.2.1 bash
 HARNESS_PREFIX=$HOME/.local bash scripts/install-cli.sh
@@ -255,3 +255,7 @@ See [SECURITY.md](SECURITY.md). For vulns DM `@theelephantcoder` on Discord or o
 [MIT](LICENSE) - TheElephantCoder
 
 https://github.com/TheElephantCoder/agent-harness
+
+## Contact
+
+Business inquiries: contact@theelephantcoder.com

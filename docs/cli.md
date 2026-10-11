@@ -14,9 +14,12 @@ harness research [query|search|remove] [...]
 harness security <audit|scan> [--staged]
 harness adapter <list|add|remove> [name]
 harness upgrade [--check]
+harness gui [--port <n>]
 ```
 
 Run `harness` with no args on a terminal to open the interactive menu: every command as a picker entry (with guided prompts for arguments), looping until you pick Quit. With arguments (`harness doctor --fix`), it just runs the action directly. Menu numbers with two digits work when typed quickly in sequence. The welcome screen centers itself to the terminal width.
+
+`harness gui [--port <n>]` starts a local web GUI on 127.0.0.1 (default port 5000): an Overview front page with project health; a Commands page that is a real terminal (a PTY on the server, so arrows and Tab work) with two modes: menu, already running the interactive harness, and shell, a plain login bash in the project — up to 3 sessions; an Agents page that runs the same CLI underneath; Memory (read plus sync-a-note) and Skills (search, lint, list) pages; a read-only Project page; an Activity log with JSON export; and a Settings page with nineteen themes (Regular default) plus appearance toggles (compact cards, reduce motion), run confirmations, remember-last-page, and log-size controls. A Ctrl/Cmd+K command palette jumps to pages or runs quick commands. Only read-only commands and `upgrade --check` are exposed over HTTP; everything else stays in the terminal.
 
 Anything not listed here prints `not implemented yet`. Every number the CLI prints comes from a measurement it just took. Token counts are estimates (~4 chars each) and always shown with a `~`.
 
