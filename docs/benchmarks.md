@@ -233,3 +233,18 @@ codebases), which this bed does not test. n=3, free-tier queueing noise visible
 (362s outlier). Success parity except the T1/nemotron-harness cell.
 
 Community results land on the site Benchmark tab via the benchmark issue template.
+
+## M6 extreme local-model A/B (Apple M6 mini, 12c, 16 GB)
+
+Same `research/bench-local.py` protocol as the local runs: bare (4
+inferences) vs harness (2 inferences), fixed seeds, alternating order.
+Raw rows: `research/evidence/m6-local-2026.jsonl` (48 rows). Session means:
+
+- qwen2.5-coder:1.5b: bare 5.7s vs harness 2.8s, ~115 tok/s both, 3/3 fixes both
+- qwen2.5-coder:7b: bare 22.0s vs harness 11.2s, ~29 tok/s both, 3/3 both
+- qwen2.5-coder:14b: bare 43.5s vs harness 21.7s, ~15 tok/s both, 2/2 both
+
+Per-token speed is identical across arms; the harness halves session wall by
+halving inference count. 14b peaks 9.0GB resident with ~3GB swapped — the
+practical ceiling on 16GB. Task is easy for all sizes (16/16 correct), so no
+quality claim. Details: `research/findings/m6-local-ab.md`.

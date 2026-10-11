@@ -6,12 +6,17 @@ import * as readline from "node:readline";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
+import * as http from "node:http";
 import * as https from "node:https";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const VERSION = "0.2.1";
+
+// true while serving the web gui: prompts have no terminal to read from,
+// so askQuestion/selectOption bail out and callers degrade gracefully.
+let guiMode = false;
 
 type Command =
   | "init"
@@ -28,6 +33,7 @@ type Command =
   | "optimizations"
   | "adapter"
   | "map"
+  | "gui"
   | "help"
   | "version";
 
@@ -91,20 +97,21 @@ harness v${VERSION} - agent harness perf layer by TheElephantCoder
 
 usage: harness <command> [options]
 
-  init [--harness <name>] [--auto] [--migrate]   install into current project
-  doctor [--fix] [--strict]                      verify install and project
+  init [--harness <name>] [--auto] [--migrate] [--dry-run] [--force] install into current project
+  doctor [--fix] [--strict] [--json]               verify install and project
   status                                         project snapshot: memory, skills, hooks, last bench
   bench [--compare] [--quick]                    measure costs, save baseline
   optimize                                       prune memory, repair, report savings
   optimizations [enable|disable] [name|all]      list, toggle optimizations
   map                                            index repo to .harness/MAP.md
-  skill <list|search|info|add|remove|verify> ...  list, search, show, fetch skills
-  memory <show|prune|sync|edit> [note]             show, prune, append, edit MEMORY.md
-  instinct <list|enable|disable> [name]          list, toggle hooks
-  research <query>                               capture a finding stub
+  skill <list|search|info|add|remove|verify|lint|update> ... list, search, show, fetch, check, refresh skills
+  memory <show|prune|sync|edit|stats|search|backup> [note] show, prune, append, edit, inspect MEMORY.md
+  instinct <list|enable|disable|test> [name]     list, toggle, run hooks
+  research [query|search|remove] ...             capture, find, drop findings
   security <audit|scan> [--staged]               run the audit script
-  adapter <list|add> [name]                       list, scaffold harnesses
-  upgrade                                        self-update to latest
+  adapter <list|add|remove> [name]                 list, scaffold, drop harnesses
+  upgrade [--check]                              self-update to latest
+  gui [--port <n>]                               local web gui on 127.0.0.1
 
 options:
   -h, --help
@@ -177,6 +184,7 @@ async function selectFallback(
 async function selectOption(title: string, options: string[]): Promise<number> {
   // arrow redraw math assumes no line wraps (longest line is 44 cells),
   // so narrow screens get the numbered fallback instead of torn redraws.
+  if (guiMode) return -1;
   if (!process.stdin.isTTY || !process.stdout.isTTY || termWidth() < 45) {
     return selectFallback(title, options);
   }
@@ -281,7 +289,11 @@ async function selectOption(title: string, options: string[]): Promise<number> {
           }
           return;
         }
-        if (d >= 1 && d <= options.length && (d * 10 > options.length || options.length < 10)) {
+        if (
+          d >= 1 &&
+          d <= options.length &&
+          (d * 10 > options.length || options.length < 10)
+        ) {
           process.stdout.write("\n");
           done(d - 1);
           return;
@@ -301,6 +313,9 @@ async function selectOption(title: string, options: string[]): Promise<number> {
 }
 
 async function askQuestion(prompt: string): Promise<string> {
+  // under the web gui there is no terminal to ask on: callers treat ""
+  // as "cancelled", so every guided flow degrades to a usage message.
+  if (guiMode) return "";
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -355,10 +370,11 @@ async function showMenu(): Promise<boolean> {
     "Adapters",
     "Upgrade",
     "Local models",
+    "Web GUI",
     "Quit",
   ];
   const picked = await selectOption("What do you want to do?", options);
-  if (picked < 0 || picked === 15) return true;
+  if (picked < 0 || picked === 16) return true;
   if (picked === 0) {
     await setupMenu();
   } else if (picked === 1) {
@@ -389,6 +405,8 @@ async function showMenu(): Promise<boolean> {
     await runCommand("upgrade", []);
   } else if (picked === 14) {
     await localModelsMenu();
+  } else if (picked === 15) {
+    await runCommand("gui", []);
   }
   console.log(paint(ANSI.dim, "╌".repeat(termWidth())));
   return false;
@@ -621,7 +639,12 @@ async function securityMenu(): Promise<void> {
 }
 
 async function adapterMenu(): Promise<void> {
-  const picked = await selectOption("Adapters", ["List", "Add", "Remove", "Back"]);
+  const picked = await selectOption("Adapters", [
+    "List",
+    "Add",
+    "Remove",
+    "Back",
+  ]);
   if (picked === 0) {
     await runCommand("adapter", ["list"]);
   } else if (picked === 1) {
@@ -689,12 +712,36 @@ function selfRoot(): string | null {
   return null;
 }
 
-function haveBin(bin: string): boolean {
+export function haveBin(bin: string): boolean {
+  // Presence check only: scan PATH in-process instead of spawning
+  // `bin --version` (~10-20ms a call). Callers run the binary for real
+  // when it matters, so a broken-but-present binary still fails honestly.
   try {
-    return spawnSync(bin, ["--version"], { stdio: "ignore" }).status === 0;
+    if (bin.includes(path.sep)) {
+      fs.accessSync(bin, fs.constants.X_OK);
+      return fs.statSync(bin).isFile();
+    }
+    const dirs = (process.env.PATH ?? "").split(path.delimiter);
+    const exts =
+      process.platform === "win32"
+        ? (process.env.PATHEXT ?? ".EXE").split(";")
+        : [""];
+    for (const d of dirs) {
+      if (!d) continue;
+      for (const e of exts) {
+        const f = path.join(d, bin + e);
+        try {
+          fs.accessSync(f, fs.constants.X_OK);
+          if (fs.statSync(f).isFile()) return true;
+        } catch {
+          // next candidate
+        }
+      }
+    }
   } catch {
-    return false;
+    // not found
   }
+  return false;
 }
 
 // branch tarballs are cached aggressively (npm served a stale one twice),
@@ -813,7 +860,8 @@ export function cmpVersions(a: string, b: string): number {
   const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
   const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) < (pb[i] ?? 0) ? -1 : 1;
+    if ((pa[i] ?? 0) !== (pb[i] ?? 0))
+      return (pa[i] ?? 0) < (pb[i] ?? 0) ? -1 : 1;
   }
   return 0;
 }
@@ -901,7 +949,9 @@ async function cmdUpgradeCheck(): Promise<boolean> {
     );
     return true;
   }
-  console.log(`[harness] upgrade check - manual install (upgrade: ${NPM_MANUAL})`);
+  console.log(
+    `[harness] upgrade check - manual install (upgrade: ${NPM_MANUAL})`,
+  );
   return true;
 }
 
@@ -1464,7 +1514,10 @@ function cmdInit(flags: string[]): boolean {
   }
   const written: Array<{ rel: string; sha: string }> = [];
   const skipped: string[] = [];
-  const planned: Array<{ rel: string; action: "write" | "overwrite" | "skip" }> = [];
+  const planned: Array<{
+    rel: string;
+    action: "write" | "overwrite" | "skip";
+  }> = [];
   const recorded = new Map<string, string>();
   for (const f of priorFiles) {
     if (typeof f !== "string") recorded.set(f.path, f.sha);
@@ -1789,10 +1842,9 @@ function cmdInit(flags: string[]): boolean {
   }
   const scope = names.length > 0 ? names.join(",") : "core only";
   if (dry) {
-    const mark = (a: string) => (a === "write" ? "+" : a === "overwrite" ? "!" : "=");
-    console.log(
-      `[harness] init ${scope} - dry run: nothing written`,
-    );
+    const mark = (a: string) =>
+      a === "write" ? "+" : a === "overwrite" ? "!" : "=";
+    console.log(`[harness] init ${scope} - dry run: nothing written`);
     for (const p of planned) console.log(`  ${mark(p.action)} ${p.rel}`);
     console.log(
       `[harness] init - would write .harness/config.json (${deduped.length} files tracked)`,
@@ -2014,6 +2066,182 @@ function fmtAge(ts: string): string {
 
 // project snapshot: init state, memory, findings, baseline, install.
 // reads only; never fails, missing pieces are reported as missing.
+function guiProjectStats(): Record<string, unknown> {
+  // Read-only, cheap snapshot for the gui overview page. Never throws.
+  const cwd = process.cwd();
+  const out: Record<string, unknown> = {};
+  try {
+    const hDir = path.join(cwd, ".harness");
+    out.initialized = fs.existsSync(path.join(hDir, "config.json"))
+      ? "yes"
+      : fs.existsSync(hDir)
+        ? "partial"
+        : "no";
+  } catch {
+    out.initialized = "no";
+  }
+  try {
+    const mem = readText(path.join(cwd, "MEMORY.md"));
+    out.memTokens = mem === null ? null : Math.round(estTokens(mem));
+  } catch {
+    out.memTokens = null;
+  }
+  try {
+    out.skills = fs
+      .readdirSync(path.join(cwd, "skills"), { withFileTypes: true })
+      .filter(
+        (e) =>
+          e.isDirectory() &&
+          fs.existsSync(path.join(cwd, "skills", e.name, "SKILL.md")),
+      ).length;
+  } catch {
+    out.skills = 0;
+  }
+  try {
+    out.findings = fs
+      .readdirSync(path.join(cwd, "research", "findings"))
+      .filter((f) => f.endsWith(".md")).length;
+  } catch {
+    out.findings = 0;
+  }
+  try {
+    const b = JSON.parse(
+      readText(path.join(cwd, ".harness", "bench.json")) ?? "",
+    );
+    out.lastBench = typeof b.ts === "number" ? fmtAge(b.ts) : null;
+  } catch {
+    out.lastBench = null;
+  }
+  try {
+    const opts = readOptimizations(cwd);
+    out.optimizationsOn = OPTIMIZATIONS.filter((o) => opts[o.name]).length;
+    out.optimizationsTotal = OPTIMIZATIONS.length;
+  } catch {
+    out.optimizationsOn = 0;
+    out.optimizationsTotal = OPTIMIZATIONS.length;
+  }
+  try {
+    const ol = ollamaState();
+    out.localModels =
+      ol === null
+        ? null
+        : { runners: ol.runners.length, mem: fmtMem(ol.totalKb) };
+  } catch {
+    out.localModels = null;
+  }
+  return out;
+}
+
+let mainShaCache: { at: number; sha: string | null } | null = null;
+const MAIN_SHA_TTL_MS = 60000;
+
+async function cachedMainSha(): Promise<string | null> {
+  const now = Date.now();
+  if (mainShaCache && now - mainShaCache.at < MAIN_SHA_TTL_MS) {
+    return mainShaCache.sha;
+  }
+  const sha = await resolveMainSha();
+  mainShaCache = { at: now, sha };
+  return sha;
+}
+
+function gitOut(args: string[]): string | null {
+  try {
+    const r = spawnSync("git", args, {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      timeout: 5000,
+    });
+    if (r.status !== 0 || typeof r.stdout !== "string") return null;
+    const s = r.stdout.trim();
+    return s ? s.slice(0, 500) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function guiUpdateInfo(): Promise<Record<string, unknown>> {
+  // Read-only version/build snapshot for the gui Update panel. Never throws.
+  const out: Record<string, unknown> = {
+    version: VERSION,
+    node: process.version,
+  };
+  try {
+    out.commit = gitOut(["rev-parse", "HEAD"]);
+    out.short = gitOut(["rev-parse", "--short", "HEAD"]);
+    out.branch = gitOut(["branch", "--show-current"]);
+    out.committed = gitOut(["log", "-1", "--format=%ci"]);
+    out.subject = gitOut(["log", "-1", "--format=%s"]);
+    const dirty = gitOut(["status", "--porcelain"]);
+    out.dirty = dirty === null ? null : dirty.length > 0;
+    try {
+      out.built = fs.statSync(process.argv[1] ?? "").mtime.toISOString();
+    } catch {
+      out.built = null;
+    }
+    // Live freshness: compare local checkout against main (git) when possible.
+    // resolveMainSha is cached 60s: the pill + modal hit this endpoint
+    // back-to-back, and must not stack 10s stalls when github is down.
+    try {
+      if (typeof out.commit === "string" && out.commit.length === 40) {
+        const main = await cachedMainSha();
+        if (main) {
+          out.latest = main.slice(0, 7);
+          out.behind =
+            typeof out.short === "string"
+              ? out.short !== main.slice(0, 7)
+              : null;
+        } else {
+          out.latest = null;
+          out.behind = null;
+        }
+      } else {
+        out.latest = null;
+        out.behind = null;
+      }
+    } catch {
+      out.latest = null;
+      out.behind = null;
+    }
+    // System + license facts for the gui About page. Read-only, never throws.
+    try {
+      out.sys = {
+        platform: os.platform(),
+        arch: os.arch(),
+        release: os.release(),
+        totalGb: Math.round((os.totalmem() / 1024 ** 3) * 10) / 10,
+        cpus: os.cpus().length,
+      };
+    } catch {
+      out.sys = null;
+    }
+    try {
+      const root = selfRoot();
+      const licPath = root ? path.join(root, "LICENSE") : "";
+      const text =
+        licPath && fs.existsSync(licPath)
+          ? fs.readFileSync(licPath, "utf8").slice(0, 4000)
+          : "";
+      let spdx = "";
+      try {
+        spdx = root
+          ? (JSON.parse(
+              fs.readFileSync(path.join(root, "package.json"), "utf8"),
+            ).license ?? "")
+          : "";
+      } catch {
+        spdx = "";
+      }
+      out.license = { spdx, text };
+    } catch {
+      out.license = { spdx: "", text: "" };
+    }
+  } catch {
+    // keep version + node
+  }
+  return out;
+}
+
 function cmdStatus(): boolean {
   const cwd = process.cwd();
   const hDir = path.join(cwd, ".harness");
@@ -2959,7 +3187,9 @@ async function cmdSkillUpdate(name: string): Promise<boolean> {
     }
   }
   if (!body) {
-    console.log(`[harness] skill update - could not re-fetch ${name} from ${repo}`);
+    console.log(
+      `[harness] skill update - could not re-fetch ${name} from ${repo}`,
+    );
     return false;
   }
   const fm = parseFrontmatter(body);
@@ -2994,7 +3224,9 @@ async function cmdSkillUpdate(name: string): Promise<boolean> {
     );
     fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
   } catch {
-    console.log("[harness] skill update - file written, manifest left stale (re-verify)");
+    console.log(
+      "[harness] skill update - file written, manifest left stale (re-verify)",
+    );
     return false;
   }
   console.log(`[harness] ok - skill ${name} updated`);
@@ -3652,7 +3884,9 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
           });
         }
         if (hits === 0) {
-          console.log(`[harness] memory - no hits for "${flags.slice(1).join(" ").trim()}"`);
+          console.log(
+            `[harness] memory - no hits for "${flags.slice(1).join(" ").trim()}"`,
+          );
         }
         return true;
       }
@@ -3676,7 +3910,9 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
           console.log("[harness] FAIL - memory: could not write backup");
           return false;
         }
-        console.log(`[harness] ok - memory backed up to ${path.basename(dest)}`);
+        console.log(
+          `[harness] ok - memory backed up to ${path.basename(dest)}`,
+        );
         return true;
       }
       if (flags[0] === "edit") {
@@ -3796,7 +4032,9 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
             .split("\n")
             .find((l) => l.toLowerCase().includes(term));
           if (line !== undefined && hits < 20) {
-            console.log(`  ${f} - ${line.trim().replace(/^# /, "").slice(0, 120)}`);
+            console.log(
+              `  ${f} - ${line.trim().replace(/^# /, "").slice(0, 120)}`,
+            );
             hits += 1;
           }
         }
@@ -3913,6 +4151,8 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
     case "upgrade":
       if (flags.includes("--check")) return cmdUpgradeCheck();
       return selfUpgrade();
+    case "gui":
+      return cmdGui(flags);
     default:
       console.error(`[harness] unknown command: ${cmd}`);
       return false;
@@ -3920,9 +4160,446 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
   return true;
 }
 
+// ---------- web gui (harness gui) ----------
+
+function loadGuiPage(): string | null {
+  const root = selfRoot();
+  if (!root) return null;
+  return readText(path.join(root, "templates", "gui", "index.html"));
+}
+
+function readBody(
+  req: http.IncomingMessage,
+  max = 1024 * 1024,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    let size = 0;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > max) {
+        reject(new Error("too large"));
+        req.destroy();
+      } else {
+        body += c.toString("utf8");
+      }
+    });
+    req.on("end", () => resolve(body));
+    req.on("error", reject);
+  });
+}
+
+async function captureRun(
+  cmd: string,
+  args: string[],
+): Promise<{ ok: boolean; output: string }> {
+  const lines: string[] = [];
+  const realLog = console.log;
+  const realErr = console.error;
+  console.log = (...a: unknown[]) => {
+    lines.push(a.map(String).join(" "));
+  };
+  console.error = (...a: unknown[]) => {
+    lines.push(a.map(String).join(" "));
+  };
+  try {
+    const ok = await runCommand(cmd, args);
+    const output = lines.join("\n").trim();
+    return { ok, output: output || "(no output)" };
+  } finally {
+    console.log = realLog;
+    console.error = realErr;
+  }
+}
+
+async function runAgent(
+  agent: string,
+  prompt: string,
+): Promise<{ ok: boolean; output: string; ms: number }> {
+  const t0 = Date.now();
+  const bin =
+    agent === "opencode" ? "opencode" : agent === "claude" ? "claude" : "";
+  if (!bin) return { ok: false, output: `unknown agent: ${agent}`, ms: 0 };
+  if (!haveBin(bin)) {
+    return { ok: false, output: `${bin} not found - install it first`, ms: 0 };
+  }
+  const clean = prompt.trim().slice(0, 8000);
+  if (!clean) return { ok: false, output: "give a prompt to run", ms: 0 };
+  // argv arrays only, never a shell; cwd is the project the server runs in.
+  const argv = bin === "opencode" ? ["run", clean] : ["-p", clean];
+  return new Promise((resolve) => {
+    const cap = 1024 * 1024;
+    let out = "";
+    const push = (d: Buffer) => {
+      if (out.length < cap)
+        out += d.toString("utf8").slice(0, cap - out.length);
+    };
+    let settled = false;
+    const done = (ok: boolean, extra = "") => {
+      if (settled) return;
+      settled = true;
+      const text = (out.trim() + extra).slice(0, cap) || "(no output)";
+      resolve({ ok, output: text, ms: Date.now() - t0 });
+    };
+    const child = spawn(bin, argv, { cwd: process.cwd(), timeout: 600000 });
+    child.stdout?.on("data", push);
+    child.stderr?.on("data", push);
+    child.on("error", () => done(false, "\n[harness] could not start " + bin));
+    child.on("close", (code) => done(code === 0));
+    const timer = setTimeout(() => {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        // already gone
+      }
+      done(false, "\n[harness] timed out after 10 minutes");
+    }, 600000);
+    if (typeof timer.unref === "function") timer.unref();
+  });
+}
+
+async function handleGui(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  page: string | null,
+): Promise<void> {
+  const send = (code: number, body: string, type = "application/json") => {
+    res.writeHead(code, { "Content-Type": type });
+    res.end(body);
+  };
+  try {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    if (req.method === "GET" && url.pathname === "/") {
+      if (page === null) return send(500, "gui page missing");
+      return send(200, page, "text/html; charset=utf-8");
+    }
+    if (req.method === "GET" && url.pathname === "/api/status") {
+      return send(
+        200,
+        JSON.stringify({
+          version: VERSION,
+          cwd: process.cwd(),
+          agents: { opencode: haveBin("opencode"), claude: haveBin("claude") },
+          project: guiProjectStats(),
+        }),
+      );
+    }
+    if (req.method === "GET" && url.pathname === "/api/update-info") {
+      return send(200, JSON.stringify(await guiUpdateInfo()));
+    }
+    if (url.pathname === "/api/term/start" && req.method === "POST") {
+      let mode = "menu";
+      try {
+        const parsed = JSON.parse(await readBody(req)) as { mode?: unknown };
+        if (parsed.mode === "shell") mode = "shell";
+      } catch {
+        // empty body means menu
+      }
+      return send(200, JSON.stringify(termStart(mode)));
+    }
+    if (url.pathname === "/api/term/input" && req.method === "POST") {
+      const parsed = JSON.parse(await readBody(req)) as {
+        id?: unknown;
+        data?: unknown;
+      };
+      if (typeof parsed.id !== "string" || typeof parsed.data !== "string") {
+        return send(
+          400,
+          JSON.stringify({ ok: false, output: "want {id, data}" }),
+        );
+      }
+      return send(200, JSON.stringify(termInput(parsed.id, parsed.data)));
+    }
+    if (url.pathname === "/api/term/poll" && req.method === "GET") {
+      const id = url.searchParams.get("id") ?? "";
+      return send(200, JSON.stringify(termPoll(id)));
+    }
+    if (url.pathname === "/api/term/kill" && req.method === "POST") {
+      const parsed = JSON.parse(await readBody(req)) as { id?: unknown };
+      if (typeof parsed.id !== "string") {
+        return send(400, JSON.stringify({ ok: false, output: "want {id}" }));
+      }
+      return send(200, JSON.stringify(termKill(parsed.id)));
+    }
+    if (req.method === "POST" && url.pathname === "/api/run") {
+      const parsed = JSON.parse(await readBody(req)) as {
+        cmd?: unknown;
+        args?: unknown;
+      };
+      if (typeof parsed.cmd !== "string" || !parsed.cmd) {
+        return send(
+          400,
+          JSON.stringify({ ok: false, output: "want {cmd, args}" }),
+        );
+      }
+      const argv = Array.isArray(parsed.args)
+        ? parsed.args
+            .filter((a): a is string => typeof a === "string")
+            .slice(0, 20)
+        : [];
+      if (
+        parsed.cmd === "upgrade" &&
+        !(argv.length === 1 && argv[0] === "--check")
+      ) {
+        return send(
+          200,
+          JSON.stringify({
+            ok: false,
+            output:
+              "[harness] upgrade runs only in the terminal (it reinstalls this binary); upgrade --check works here",
+          }),
+        );
+      }
+      const r = await Promise.race([
+        captureRun(parsed.cmd, argv),
+        new Promise<{ ok: boolean; output: string }>((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                ok: false,
+                output: "[harness] timed out after 10 minutes",
+              }),
+            600000,
+          ),
+        ),
+      ]);
+      return send(200, JSON.stringify(r));
+    }
+    if (req.method === "POST" && url.pathname === "/api/agent") {
+      const parsed = JSON.parse(await readBody(req)) as {
+        agent?: unknown;
+        prompt?: unknown;
+      };
+      if (parsed.agent !== "opencode" && parsed.agent !== "claude") {
+        return send(
+          400,
+          JSON.stringify({ ok: false, output: "want agent opencode|claude" }),
+        );
+      }
+      if (typeof parsed.prompt !== "string" || !parsed.prompt.trim()) {
+        return send(
+          400,
+          JSON.stringify({ ok: false, output: "want a prompt" }),
+        );
+      }
+      return send(
+        200,
+        JSON.stringify(await runAgent(parsed.agent, parsed.prompt)),
+      );
+    }
+    if (req.method === "POST" && url.pathname === "/api/quit") {
+      send(200, JSON.stringify({ ok: true }));
+      termKillAll();
+      setTimeout(() => process.exit(0), 100);
+      return;
+    }
+    return send(404, JSON.stringify({ ok: false, output: "not found" }));
+  } catch (e) {
+    try {
+      send(
+        500,
+        JSON.stringify({
+          ok: false,
+          output: String((e as Error)?.message ?? e),
+        }),
+      );
+    } catch {
+      // response already gone
+    }
+  }
+}
+
+type TermSession = {
+  proc: import("node:child_process").ChildProcess;
+  buf: string;
+  exited: boolean;
+};
+const termSessions = new Map<string, TermSession>();
+const TERM_MAX_SESSIONS = 3;
+const TERM_BUF_CAP = 1024 * 1024;
+
+function termSpawn(mode: string): TermSession {
+  // Real PTY via the stdlib-only python bridge (node has no built-in pty,
+  // and node-pty would need a native build). argv[1] is unreliable (vitest
+  // workers, bin symlinks), so both paths resolve through the package root.
+  const root = selfRoot();
+  const entry = root ? path.join(root, "dist", "harness", "cli.js") : "";
+  const bridge = root ? path.join(root, "src", "harness", "gui-pty.py") : "";
+  const missing = (msg: string): TermSession => ({
+    proc: undefined as unknown as import("node:child_process").ChildProcess,
+    buf: msg,
+    exited: true,
+  });
+  if (!entry || !fs.existsSync(entry)) {
+    return missing(
+      "[harness] terminal unavailable - built CLI not found (run npm run build)\n",
+    );
+  }
+  if (!bridge || !fs.existsSync(bridge)) {
+    return missing("[harness] terminal unavailable - pty bridge missing\n");
+  }
+  const shell = mode === "shell";
+  const cmd = shell ? ["bash", "-l"] : ["node", entry];
+  const proc = spawn("python3", [bridge, "80", "24", ...cmd], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      ...(shell ? {} : { HARNESS_INTERACTIVE: "1" }),
+    },
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  proc.stdin?.on("error", () => {
+    // child already gone; termInput guards with destroyed/exited flags
+  });
+  const s: TermSession = { proc, buf: "", exited: false };
+  const feed = (chunk: Buffer) => {
+    s.buf += chunk.toString("utf8");
+    if (s.buf.length > TERM_BUF_CAP) s.buf = s.buf.slice(-TERM_BUF_CAP);
+  };
+  proc.stdout?.on("data", feed);
+  proc.stderr?.on("data", feed);
+  proc.on("exit", () => {
+    s.exited = true;
+  });
+  proc.on("error", (e) => {
+    s.buf += `\n[harness] terminal failed to start: ${String((e as Error)?.message ?? e)}\n`;
+    s.exited = true;
+  });
+  return s;
+}
+
+function termStart(mode: string): { ok: boolean; id: string } {
+  while (termSessions.size >= TERM_MAX_SESSIONS) {
+    const oldest = termSessions.keys().next().value;
+    if (oldest === undefined) break;
+    termKill(oldest);
+  }
+  const id = `${Date.now().toString(36)}${Math.floor(Math.random() * 0xffff).toString(36)}`;
+  termSessions.set(id, termSpawn(mode));
+  return { ok: true, id };
+}
+
+function termInput(id: string, data: string): { ok: boolean } {
+  const s = termSessions.get(id);
+  if (!s || s.exited || !s.proc.stdin || s.proc.stdin.destroyed)
+    return { ok: false };
+  s.proc.stdin.write(data.slice(0, 64 * 1024));
+  return { ok: true };
+}
+
+function termPoll(id: string): {
+  ok: boolean;
+  output: string;
+  exited: boolean;
+} {
+  const s = termSessions.get(id);
+  if (!s) return { ok: false, output: "", exited: true };
+  const out = s.buf.slice(0, 256 * 1024);
+  s.buf = s.buf.slice(out.length);
+  if (s.exited && !s.buf.length) {
+    try {
+      s.proc?.stdin?.destroy();
+    } catch {
+      // already gone
+    }
+    termSessions.delete(id);
+  }
+  return { ok: true, output: out, exited: s.exited };
+}
+
+function termKill(id: string): { ok: boolean } {
+  const s = termSessions.get(id);
+  if (!s) return { ok: false };
+  termSessions.delete(id);
+  try {
+    s.proc.kill("SIGTERM");
+    setTimeout(() => {
+      try {
+        s.proc.kill("SIGKILL");
+      } catch {
+        // already gone
+      }
+    }, 2000).unref?.();
+  } catch {
+    // already gone
+  }
+  return { ok: true };
+}
+
+function termKillAll(): void {
+  for (const id of [...termSessions.keys()]) termKill(id);
+}
+
+export function startGuiServer(
+  port: number,
+): Promise<{ server: http.Server; port: number }> {
+  const page = loadGuiPage();
+  const server = http.createServer((req, res) => {
+    void handleGui(req, res, page);
+  });
+  return new Promise((resolve, reject) => {
+    server.on("error", reject);
+    server.listen(port, "127.0.0.1", () => {
+      const addr = server.address();
+      resolve({
+        server,
+        port: typeof addr === "object" && addr ? addr.port : port,
+      });
+    });
+  });
+}
+
+function openBrowser(url: string): void {
+  try {
+    if (process.platform === "win32") return;
+    const cmd = process.platform === "darwin" ? "open" : "xdg-open";
+    const child = spawn(cmd, [url], { stdio: "ignore", detached: true });
+    child.unref();
+  } catch {
+    // printed URL suffices
+  }
+}
+
+async function cmdGui(flags: string[]): Promise<boolean> {
+  let want = 5000;
+  const pi = flags.indexOf("--port");
+  if (pi !== -1) {
+    const n = parseInt(flags[pi + 1] ?? "", 10);
+    if (Number.isFinite(n) && n > 0 && n < 65536) want = n;
+  }
+  if (loadGuiPage() === null) {
+    console.log("[harness] gui - cannot locate install");
+    return false;
+  }
+  guiMode = true;
+  let started: { server: http.Server; port: number } | null = null;
+  for (let p = want; p < want + 10; p++) {
+    try {
+      started = await startGuiServer(p);
+      break;
+    } catch {
+      // busy, try next
+    }
+  }
+  if (!started) {
+    console.log(`[harness] gui - no free port near ${want}`);
+    return false;
+  }
+  const url = `http://127.0.0.1:${started.port}/`;
+  console.log(
+    `[harness] gui - serving ${process.cwd()} at ${url} (Ctrl-C to stop)`,
+  );
+  openBrowser(url);
+  await new Promise(() => {});
+  return true;
+}
+
 async function main() {
   if (process.argv.length <= 2) {
-    if (process.stdin.isTTY) {
+    // HARNESS_INTERACTIVE=1 forces the menu loop with piped stdio (used by
+    // the gui terminal tab); without a TTY the pickers fall back to numbered
+    // line mode on their own.
+    if (process.stdin.isTTY || process.env.HARNESS_INTERACTIVE === "1") {
       await interactive();
       return;
     }

@@ -8,7 +8,9 @@ import {
   cmpVersions,
   estTokens,
   fmtMem,
+  haveBin,
   parseOllamaPs,
+  startGuiServer,
   fmtTok,
   mapSymbols,
   parseFrontmatter,
@@ -27,6 +29,131 @@ describe("cmpVersions", () => {
     expect(cmpVersions("0.2.0", "0.2.1")).toBe(-1);
     expect(cmpVersions("0.10.0", "0.2.1")).toBe(1);
     expect(cmpVersions("1.0", "1.0.1")).toBe(-1);
+  });
+});
+
+describe("gui server", () => {
+  it("serves status, runs commands, rejects bad input", async () => {
+    const { server, port } = await startGuiServer(0);
+    try {
+      const base = `http://127.0.0.1:${port}`;
+      const status = await (await fetch(`${base}/api/status`)).json();
+      expect(status.version).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(typeof status.cwd).toBe("string");
+      expect(typeof status.project).toBe("object");
+      expect(typeof status.project.skills).toBe("number");
+      const upd = await (await fetch(`${base}/api/update-info`)).json();
+      expect(upd.version).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(typeof upd.node).toBe("string");
+      if (upd.commit !== null) expect(upd.commit).toMatch(/^[0-9a-f]{40}$/);
+      expect(typeof upd.sys).toBe("object");
+      expect(typeof upd.license).toBe("object");
+      const upd2 = await (await fetch(`${base}/api/update-info`)).json();
+      expect(upd2.latest).toEqual(upd.latest);
+      expect(upd2.commit).toEqual(upd.commit);
+      const run = await (
+        await fetch(`${base}/api/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cmd: "version", args: [] }),
+        })
+      ).json();
+      expect(run.ok).toBe(true);
+      expect(run.output).toContain("harness");
+      const blocked = await (
+        await fetch(`${base}/api/run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cmd: "upgrade", args: [] }),
+        })
+      ).json();
+      expect(blocked.ok).toBe(false);
+      const noAgent = await (
+        await fetch(`${base}/api/agent`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agent: "nope", prompt: "hi" }),
+        })
+      ).json();
+      expect(noAgent.ok).toBe(false);
+      const started = await (
+        await fetch(`${base}/api/term/start`, { method: "POST" })
+      ).json();
+      expect(started.ok).toBe(true);
+      expect(typeof started.id).toBe("string");
+      // a real pty: arrow UI with ANSI redraws; strip them before matching
+      const strip = (s: string) =>
+        s.replace(/\x1b\[[?!]?[0-9;]*[@-~]/g, "").replace(/\x1b[()][AB0]/g, "");
+      let menu = "";
+      for (let i = 0; i < 40 && !strip(menu).includes("What do you want to do?"); i++) {
+        await new Promise((r) => setTimeout(r, 200));
+        const p = await (await fetch(`${base}/api/term/poll?id=${started.id}`)).json();
+        menu += p.output;
+      }
+      const clean = strip(menu);
+      expect(clean).toContain("What do you want to do?");
+      expect(clean).toContain("Web GUI");
+      expect(clean).toContain("type a number");
+      await fetch(`${base}/api/term/input`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: started.id, data: "17" }),
+      });
+      let bye = "";
+      for (let i = 0; i < 40 && !strip(bye).includes("bye."); i++) {
+        await new Promise((r) => setTimeout(r, 200));
+        const p = await (await fetch(`${base}/api/term/poll?id=${started.id}`)).json();
+        bye += p.output;
+        if (p.exited && p.output === "") break;
+      }
+      expect(strip(bye)).toContain("bye.");
+      const sh = await (
+        await fetch(`${base}/api/term/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "shell" }),
+        })
+      ).json();
+      expect(sh.ok).toBe(true);
+      await fetch(`${base}/api/term/input`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: sh.id, data: "echo hi-pty\n" }),
+      });
+      let echoed = "";
+      for (let i = 0; i < 40 && !strip(echoed).includes("hi-pty"); i++) {
+        await new Promise((r) => setTimeout(r, 200));
+        const p = await (await fetch(`${base}/api/term/poll?id=${sh.id}`)).json();
+        echoed += p.output;
+      }
+      expect(strip(echoed)).toContain("hi-pty");
+      await fetch(`${base}/api/term/kill`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: sh.id }),
+      });
+      const page = await (await fetch(`${base}/`)).text();
+      expect(page).toContain('data-page="overview"');
+      expect(page).toContain("Project health at a glance");
+      expect(page).toContain('data-page="settings"');
+      expect(page).toContain("High contrast");
+      for (const name of ["Harvest", "Espresso", "Glacier", "Moss"]) {
+        expect(page).toContain(name);
+      }
+      for (const m of ['data-page="memory"', 'data-page="skills"', "Confirm before running", "Compact cards", "Remember last page", 'id="nav-update"', 'id="upd-pill"', 'id="upd-modal"', "Show update info", "nav-group", 'id="side-toggle"', "set-group", "pal-group", "Workspace", "Look and feel", 'id="term-out"', 'id="term-kbd-in"', 'id="term-shell"', 'id="term-menu"', "Click inside and type", 'data-page="about"', "System information", "Credits", "Licenses", "release date", "Not affiliated", "nor @theelephantcoder is affiliated with", "not affiliated with any agent vendor", "contact@theelephantcoder.com"]) {
+        expect(page).toContain(m);
+      }
+    } finally {
+      server.close();
+    }
+  }, 30000);
+});
+
+describe("haveBin", () => {
+  it("finds real binaries without spawning", () => {
+    expect(haveBin("node")).toBe(true);
+    expect(haveBin("definitely-not-a-real-binary-xyz")).toBe(false);
+    expect(haveBin("")).toBe(false);
   });
 });
 
