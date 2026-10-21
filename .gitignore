@@ -18,3 +18,14 @@ coverage/
 .turbo/
 *.egg-info/
 dist-deb-src/
+
+# per-harness install state in this repo: this is the agent's own
+# working memory and tool wiring, not project content. deliberately
+# untracked (the tracked exceptions are .claude/settings.json,
+# .cursor/rules/harness.mdc and .opencode/skills/README.md, which
+# gitignore never applies to anyway).
+MEMORY.md
+.claude/skills/
+.cursor/
+.opencode/
+.kiro/
