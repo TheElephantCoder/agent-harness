@@ -171,6 +171,21 @@
   </div>
 </section>
 
+<section class="perf">
+  <div class="wrap">
+    <h2>CLI boot floor, one-shot commands (M6, v0.3.0)</h2>
+    <p class="muted">Where does the remainder go once inference is fixed? Into process plumbing, and that is already minimal. Measured against an interleaved bare <code>node</code> boot: our code adds ~7ms to <code>version</code> (82ms total), ~22ms to <code>status</code> (~97ms), ~39ms to <code>doctor</code> (~111ms) — four ~7ms spawns plus file reads. Three further optimizations were measured and honestly rejected: swapping the curl spawn for native fetch is ~10ms slower cold (undici bootstrap 16–19ms vs ~6ms curl), folding doctor's rev-parse into the staged scan saves ~7ms, and a python lazy-import saves ~16ms — all below the ship bar. Wall deltas live in the multi-inference session structure, not the CLI.</p>
+    <div class="perf-table">
+      <div class="row head"><span>command</span><span>total (warm)</span><span>our code adds</span></div>
+      <div class="row"><span>version</span><span>~82ms</span><span>~7ms</span></div>
+      <div class="row"><span>status</span><span>~97ms</span><span>~22ms</span></div>
+      <div class="row"><span>doctor</span><span>~111ms</span><span>~39ms</span></div>
+      <div class="row"><span>bench --quick</span><span>~430ms</span><span>n/a</span></div>
+      <div class="row"><span>gui /api/status poll</span><span>~36ms</span><span>server-side</span></div>
+    </div>
+  </div>
+</section>
+
 <section class="compat">
   <div class="wrap">
     <h2>Reading</h2>
