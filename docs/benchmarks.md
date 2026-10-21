@@ -248,3 +248,15 @@ Per-token speed is identical across arms; the harness halves session wall by
 halving inference count. 14b peaks 9.0GB resident with ~3GB swapped — the
 practical ceiling on 16GB. Task is easy for all sizes (16/16 correct), so no
 quality claim. Details: `research/findings/m6-local-ab.md`.
+
+## CLI boot floor (M6, round 3)
+
+One-shot commands sit at the node boot floor, load-dependent
+~58-75ms: `version` 82ms, `status` ~97ms, `doctor` ~100-115ms
+(`bench --quick` ~430ms). Our-code exceedance is 7/22/39ms, i.e.
+four ~7ms process spawns in doctor plus file reads. Two candidate
+optimizations were measured and rejected with numbers: native fetch
+vs the curl spawn is ~10ms *slower* cold (undici 16-19ms bootstrap
+vs ~6ms curl spawn), and folding the rev-parse into the staged scan
+saves only ~7ms. The 50-session structure result above dwarfs
+command-plumbing wins — that is where the remaining time goes.

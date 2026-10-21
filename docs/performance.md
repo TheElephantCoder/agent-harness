@@ -1,5 +1,41 @@
 # Performance
 
+## Boot floor, one-shot commands (measured, M6, round 3)
+
+Every one-shot command is already at the spawn floor; exceedance over
+an interleaved `node -e 'process.exit(0)'` measurement:
+
+| command | floor | total | our code |
+|---|---|---|---|
+| version | ~58-75ms (load-dependent) | 82ms | ~7ms |
+| status | same | ~97ms | ~22ms |
+| doctor | same | ~100-115ms | ~39ms |
+| bench --quick | same | ~430ms | n/a |
+
+The doctor exceedance is four ~7ms spawns (pgrep, curl, rev-parse,
+diff) plus file reads. Two round-3 candidates were measured and
+rejected on the numbers:
+
+- **native fetch instead of the curl spawn**: cold first fetch costs
+  16-19ms (undici bootstrap) vs ~6ms for the cold curl spawn — a
+  ~10ms regression per one-shot run. Adopted only where processes are
+  long-lived would it pay (gui server polls), and there polls cost
+  ~36ms and are already fine. Not shipped.
+- **folding the rev-parse + diff spawns into one**: real ~7ms win,
+  below the >=50ms ship bar. Not shipped.
+
+Also rejected: py lazy urllib import (~16ms win, below bar — rounds 2
+and 3 both measured it).
+
+Lesson recorded: measure spawn cost from node (`spawnSync` ~7ms),
+not from a python/CLI wrapper wrapper which pays different fork/exec
+overhead; python-proxied timings overstate spawns ~3x.
+
+`doctor --strict` returning 1 with "project files modified" is by
+design on a working machine whose managed files were intentionally
+edited (MEMORY.md, MAP.md, adapter steerings); a pristine checkout is
+rc 0.
+
 Targets I try to keep, from my own setup (250k LOC TS monorepo, M2 Max).
 Independent A/B numbers on other models and hardware live on the site
 Benchmark tab, raw rows in `benchmarks.md`.
