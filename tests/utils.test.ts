@@ -12,6 +12,7 @@ import {
   parseOllamaPs,
   startGuiServer,
   fmtTok,
+  captureRunSingleton,
   mapSymbols,
   parseFrontmatter,
   slowHooks,
@@ -33,6 +34,19 @@ describe("cmpVersions", () => {
 });
 
 describe("gui server", () => {
+  it("serializes overlapping runs", async () => {
+    // same tick: the first call flips the busy flag, so the second must bounce
+    const p1 = captureRunSingleton("version", []);
+    const p2 = captureRunSingleton("version", []);
+    const [r1, r2] = await Promise.all([p1, p2]);
+    const busy = [r1, r2].filter((r) =>
+      r.output.includes("a run is already active"),
+    );
+    const ran = [r1, r2].filter((r) => r.ok && !r.output.includes("already"));
+    expect(busy).toHaveLength(1);
+    expect(ran).toHaveLength(1);
+  });
+
   it("serves status, runs commands, rejects bad input", async () => {
     const { server, port } = await startGuiServer(0);
     try {
@@ -275,6 +289,10 @@ describe("parseFrontmatter", () => {
   it("rejects missing description", () => {
     expect(parseFrontmatter("---\nname: x\n---\nbody")).toBeNull();
   });
+  it("parses frontmatter ending at the fence without a newline", () => {
+    const fm = parseFrontmatter("---\nname: x\ndescription: y\n---");
+    expect(fm).toEqual({ name: "x", desc: "y" });
+  });
 });
 
 describe("tokens", () => {
@@ -293,6 +311,9 @@ describe("stripFm", () => {
   });
   it("leaves plain text alone", () => {
     expect(stripFm("body")).toBe("body");
+  });
+  it("strips when the file ends at the closing fence", () => {
+    expect(stripFm("---\nname: x\ndescription: y\n---")).toBe("");
   });
 });
 

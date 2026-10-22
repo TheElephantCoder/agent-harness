@@ -1051,7 +1051,7 @@ export function fmtTok(t: number): string {
 export function parseFrontmatter(
   text: string,
 ): { name: string; desc: string } | null {
-  const m = /^---\n([\s\S]*?)\n---/.exec(text);
+  const m = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(text);
   if (!m) return null;
   const out: Record<string, string> = {};
   for (const line of m[1].split("\n")) {
@@ -1386,7 +1386,7 @@ const AUTO_MARKERS: Record<string, string> = {
 };
 
 export function stripFm(text: string): string {
-  return text.replace(/^---\n[\s\S]*?\n---\n/, "");
+  return text.replace(/^---\n[\s\S]*?\n---(?:\n|$)/, "");
 }
 
 // first "# comment" line of a hook script (shebang excluded by the space).
@@ -1445,6 +1445,10 @@ function cmdInit(flags: string[]): boolean {
   const dry = flags.includes("--dry-run");
   const forceAll = flags.includes("--force");
   const hi = flags.indexOf("--harness");
+  if (hi !== -1 && !flags[hi + 1]) {
+    console.log("[harness] init - --harness needs a name (harness init --harness claude)");
+    return false;
+  }
   const explicit =
     hi !== -1
       ? (flags[hi + 1] ?? "")
@@ -1672,11 +1676,11 @@ function cmdInit(flags: string[]): boolean {
       const hyd = find("session-start--hydrate.sh");
       const grd = find("pre-tool--guard.sh");
       const chk = find("post-edit--check.sh");
-      const aud = find("audit.sh");
-      if (hyd) hj.SessionStart = [entry(hyd, "*", 15000)];
-      if (grd) hj.PreToolUse = [entry(grd, "Bash|Edit|Write", 5000)];
-      if (chk) hj.PostToolUse = [entry(chk, "Edit|Write", 5000)];
-      if (aud) hj.PreCommit = [entry(aud, "*", 10000)];
+      // seconds per the Claude Code hooks spec; the staged scan is served by
+      // `harness security` (there is no pre-commit tool event to wire).
+      if (hyd) hj.SessionStart = [entry(hyd, "*", 15)];
+      if (grd) hj.PreToolUse = [entry(grd, "Bash|Edit|Write", 5)];
+      if (chk) hj.PostToolUse = [entry(chk, "Edit|Write", 5)];
       put(rel, JSON.stringify({ hooks: hj }, null, 2) + "\n");
     } else if (!tracked.has(rel)) {
       console.log(
@@ -2038,16 +2042,29 @@ function scanStaged(): { file: string; line: number }[] {
   }
   let file = "";
   let line = 0;
+  let inHunk = false;
   for (const l of out.split("\n")) {
     const m = /^\+\+\+ b\/(.+)/.exec(l);
     if (m) {
       file = m[1];
       line = 0;
+      inHunk = false;
       continue;
     }
+    // hunk headers carry the real new-file line number; context lines
+    // advance it too, or reported positions drift into wrong code.
+    const hm = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
+    if (hm) {
+      line = Number(hm[1]);
+      inHunk = true;
+      continue;
+    }
+    if (!inHunk) continue;
     if (l.startsWith("+") && !l.startsWith("+++")) {
-      line += 1;
       if (SECRET_PATTERNS.some((p) => p.test(l))) hits.push({ file, line });
+      line += 1;
+    } else if (l.startsWith(" ")) {
+      line += 1;
     }
   }
   return hits;
@@ -2108,7 +2125,7 @@ function guiProjectStats(): Record<string, unknown> {
     const b = JSON.parse(
       readText(path.join(cwd, ".harness", "bench.json")) ?? "",
     );
-    out.lastBench = typeof b.ts === "number" ? fmtAge(b.ts) : null;
+    out.lastBench = typeof b.ts === "string" ? fmtAge(b.ts) : null;
   } catch {
     out.lastBench = null;
   }
@@ -2597,12 +2614,10 @@ export function pruneFile(
   return { before, after: estTokens(kept.join("\n")), moved: rest.length };
 }
 
-function cmdOptimize(): boolean {
-  const root = selfRoot();
-  if (!root) {
-    console.log("[harness] optimize - cannot locate install");
-    return false;
-  }
+// memory prune = prune MEMORY.md + rotate its archive, nothing else.
+// optimize layers hook timing, exec repair, ollama unload and the skill
+// report on top (both previously ran from `memory prune`).
+function cmdMemoryPrune(): boolean {
   const cwd = process.cwd();
   const opts = readOptimizations(cwd);
   const mem = ["MEMORY.md", path.join(".kiro", "MEMORY.md")]
@@ -2610,28 +2625,32 @@ function cmdOptimize(): boolean {
     .find((f) => fs.existsSync(f));
   if (!mem) {
     console.log("[harness] optimize - no MEMORY.md here (run harness init)");
-  } else if (opts["prune-memory"] === false) {
+    return true;
+  }
+  if (opts["prune-memory"] === false) {
     const text = readText(mem);
     console.log(
       `[harness] info - prune-memory off, MEMORY.md ~${fmtTok(estTokens(text ?? ""))} (enable: harness optimizations enable prune-memory)`,
     );
-  } else {
-    const r = pruneFile(mem, 2000);
-    if (!r) {
-      console.log("[harness] FAIL - optimize: could not prune MEMORY.md");
-      return false;
-    }
-    if (r.moved === 0) {
-      console.log(
-        `[harness] ok - memory ~${fmtTok(r.before)} - under 2k budget, nothing to do`,
-      );
-    } else {
-      console.log(
-        `[harness] ok - memory ~${fmtTok(r.before)} -> ~${fmtTok(r.after)}, ${r.moved} lines archived`,
-      );
-    }
+    return true;
   }
-  if (opts["archive-rotate"] !== false && mem) {
+  const r = pruneFile(mem, 2000);
+  if (!r) {
+    console.log("[harness] FAIL - optimize: could not prune MEMORY.md");
+    return false;
+  }
+  if (r.moved === 0) {
+    console.log(
+      r.before <= 2000
+        ? `[harness] ok - memory ~${fmtTok(r.before)} - under 2k budget, nothing to do`
+        : `[harness] ok - memory ~${fmtTok(r.before)} - over budget but kept (recent-notes floor; archive manually)`,
+    );
+  } else {
+    console.log(
+      `[harness] ok - memory ~${fmtTok(r.before)} -> ~${fmtTok(r.after)}, ${r.moved} lines archived`,
+    );
+  }
+  if (opts["archive-rotate"] !== false) {
     const base = mem.slice(0, -path.extname(mem).length);
     const archive = `${base}.archive.md`;
     const text = readText(archive);
@@ -2650,6 +2669,18 @@ function cmdOptimize(): boolean {
       }
     }
   }
+  return true;
+}
+
+function cmdOptimize(): boolean {
+  const root = selfRoot();
+  if (!root) {
+    console.log("[harness] optimize - cannot locate install");
+    return false;
+  }
+  const cwd = process.cwd();
+  if (!cmdMemoryPrune()) return false;
+  const opts = readOptimizations(cwd);
   const hooks = listHooks(root);
   let repaired = 0;
   for (const h of hooks) {
@@ -2877,12 +2908,10 @@ function extractSkillBody(buf: Buffer): string | null {
     fs.mkdirSync(path.dirname(tmp), { recursive: true });
     fs.writeFileSync(tmp, buf);
     const entries = tarList(tmp);
-    const top = entries.length > 0 ? entries[0].split("/")[0] + "/" : "";
+    // shallowest SKILL.md wins: root SKILL.md and any skills/<n>/SKILL.md
+    // independent of whether the tarball leads with a directory entry.
     const cands = entries
-      .filter(
-        (e) =>
-          e === `${top}SKILL.md` || /^[^/]+\/skills\/[^/]+\/SKILL\.md$/.test(e),
-      )
+      .filter((e) => /(^|\/)SKILL\.md$/.test(e))
       .sort((a, b) => a.length - b.length);
     return cands.length > 0 ? tarRead(tmp, cands[0]) : null;
   } catch {
@@ -3009,9 +3038,7 @@ async function addFromUrl(url: string): Promise<boolean> {
     (segs.has("tar.gz") ||
       segs.has("tgz") ||
       pathPart.endsWith(".tar.gz") ||
-      pathPart.endsWith(".tgz") ||
-      pathPart.endsWith(".tar") ||
-      pathPart.endsWith(".gz"));
+      pathPart.endsWith(".tgz"));
   if (!isMd && !isTarball) {
     console.log(
       "[harness] skill add - want a .md file or .tar.gz archive URL (or owner/repo, or --path)",
@@ -3832,7 +3859,7 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
         return true;
       }
       if (flags[0] === "prune") {
-        return cmdOptimize();
+        return cmdMemoryPrune();
       }
       if (flags[0] === "sync") {
         const note = flags.slice(1).join(" ").trim();
@@ -3984,6 +4011,30 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
           console.log(`[harness] instinct - no hooks match "${name}"`);
           return false;
         }
+        // record intent in the manifest, or the next `doctor --fix` would
+        // silently chmod the hooks back on (same list optimize maintains).
+        const manFile = path.join(process.cwd(), ".harness", "config.json");
+        let man: Record<string, unknown> = {
+          version: VERSION,
+          harness: [],
+          files: [],
+        };
+        const manText = readText(manFile);
+        if (manText !== null) {
+          try {
+            man = JSON.parse(manText);
+          } catch {
+            console.log(
+              "[harness] FAIL - .harness/config.json corrupt (fix it first)",
+            );
+            return false;
+          }
+        }
+        const disabled = new Set<string>(
+          Array.isArray(man.disabledByPerf)
+            ? man.disabledByPerf.filter((x) => typeof x === "string")
+            : [],
+        );
         let done = 0;
         for (const h of matched) {
           try {
@@ -3991,10 +4042,19 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
               path.join(root, h),
               flags[0] === "enable" ? 0o755 : 0o644,
             );
+            if (flags[0] === "disable") disabled.add(h);
+            else disabled.delete(h);
             done += 1;
           } catch {
             // keep going
           }
+        }
+        man.disabledByPerf = [...disabled];
+        try {
+          fs.mkdirSync(path.dirname(manFile), { recursive: true });
+          fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+        } catch {
+          console.log("[harness] warn - could not record disabled hooks");
         }
         console.log(
           `[harness] ok - instinct ${flags[0]}d ${done}/${matched.length}`,
@@ -4125,7 +4185,9 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
         console.log("[harness] security - cannot locate install");
         return false;
       }
-      const sub = flags[0] ?? "audit";
+      // a --flag in first position is not the subcommand: without this,
+      // `security --staged` reads "--staged" as the subcommand and fails.
+      const sub = flags[0] && !flags[0].startsWith("--") ? flags[0] : "audit";
       if (sub !== "audit" && sub !== "scan") {
         console.log(
           `[harness] security ${flags.join(" ")} - not implemented yet`,
@@ -4137,7 +4199,7 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
         console.log("[harness] security - audit.sh missing from install");
         return false;
       }
-      const rest = flags.slice(1);
+      const rest = sub === flags[0] ? flags.slice(1) : flags;
       const args =
         sub === "scan" && !rest.includes("--staged")
           ? ["--staged", ...rest]
@@ -4157,7 +4219,6 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
       console.error(`[harness] unknown command: ${cmd}`);
       return false;
   }
-  return true;
 }
 
 // ---------- web gui (harness gui) ----------
@@ -4210,6 +4271,25 @@ async function captureRun(
     console.log = realLog;
     console.error = realErr;
   }
+}
+
+// one run at a time: captureRun installs global loggers, so overlapping
+// requests would cross-contaminate each other's output.
+let runBusy = false;
+
+export function captureRunSingleton(
+  cmd: string,
+  args: string[],
+): Promise<{ ok: boolean; output: string }> {
+  if (runBusy)
+    return Promise.resolve({
+      ok: false,
+      output: "[harness] a run is already active - wait for it to finish",
+    });
+  runBusy = true;
+  return captureRun(cmd, args).finally(() => {
+    runBusy = false;
+  });
 }
 
 async function runAgent(
@@ -4351,7 +4431,7 @@ async function handleGui(
         );
       }
       const r = await Promise.race([
-        captureRun(parsed.cmd, argv),
+        captureRunSingleton(parsed.cmd, argv),
         new Promise<{ ok: boolean; output: string }>((resolve) =>
           setTimeout(
             () =>
@@ -4563,6 +4643,10 @@ function openBrowser(url: string): void {
 async function cmdGui(flags: string[]): Promise<boolean> {
   let want = 5000;
   const pi = flags.indexOf("--port");
+  if (pi !== -1 && !flags[pi + 1]) {
+    console.log("[harness] gui - --port needs a number (harness gui --port 5000)");
+    return false;
+  }
   if (pi !== -1) {
     const n = parseInt(flags[pi + 1] ?? "", 10);
     if (Number.isFinite(n) && n > 0 && n < 65536) want = n;

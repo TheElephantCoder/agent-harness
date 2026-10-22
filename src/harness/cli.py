@@ -11,6 +11,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 from types import SimpleNamespace
@@ -174,9 +175,10 @@ def pick_arrows(title, options):
                     index = (index - 1) % len(options)
                 elif nxt == "[B":
                     index = (index + 1) % len(options)
-                else:
-                    sys.stdout.write("\n")
-                    return -1
+                elif nxt:
+                    # Home/Delete/right-arrow etc: ignore the sequence, do
+                    # not interpreting it as "quit the whole app".
+                    pass
             elif ch in ("k",):
                 pending = 0
                 index = (index - 1) % len(options)
@@ -186,7 +188,7 @@ def pick_arrows(title, options):
             elif ch in ("q",):
                 sys.stdout.write("\n")
                 return -1
-            elif ch.isdigit():
+            elif ch in "0123456789":
                 d = int(ch)
                 if pending and time.monotonic() - pending_at < 0.45:
                     two = pending * 10 + d
@@ -395,7 +397,7 @@ def memory_menu():
         text = read_text(os.path.join(os.getcwd(), "MEMORY.md"))
         print(text if text is not None else "[harness] memory - no MEMORY.md here (run harness init)")
     elif picked == 1:
-        cmd_optimize()
+        cmd_memory_prune()
     elif picked == 2:
         n = ask_question("Note to append?")
         if n:
@@ -492,6 +494,9 @@ def parse_frontmatter(text):
     lines = text.split("\n")
     if not lines or lines[0].strip() != "---":
         return None
+    # no closing fence: not frontmatter (matches the node twin's regex)
+    if "---" not in [l.strip() for l in lines[1:]]:
+        return None
     out = {}
     for line in lines[1:]:
         if line.strip() == "---":
@@ -586,7 +591,7 @@ def parse_ollama_ps(text):
 def ollama_api(pathname):
     try:
         r = subprocess.run(["curl", "-s", "-m", "5", f"http://localhost:11434{pathname}"],
-                           capture_output=True, text=True, timeout=10)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
         if r.returncode != 0 or not r.stdout:
             return None
         return r.stdout
@@ -596,7 +601,7 @@ def ollama_api(pathname):
 def rss_of(pid):
     try:
         r = subprocess.run(["ps", "-o", "rss=", "-p", str(pid)],
-                           capture_output=True, text=True, timeout=10)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
         if r.returncode != 0:
             return None
         n = int(r.stdout.strip())
@@ -609,7 +614,7 @@ def ollama_runner_pids():
     are never touched (see is_ollama_runner)."""
     try:
         r = subprocess.run(["pgrep", "-f", "llama-server"],
-                           capture_output=True, text=True, timeout=10)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
         if r.returncode != 0:
             return []
         pids = [int(p) for p in r.stdout.split() if p.strip().isdigit()]
@@ -683,7 +688,7 @@ def unload_ollama_runners():
 def runner_cmdline(pid):
     try:
         r = subprocess.run(["ps", "-o", "args=", "-p", str(pid)],
-                           capture_output=True, text=True, timeout=10)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
         if r.returncode != 0:
             return None
         return r.stdout or ""
@@ -805,7 +810,13 @@ def cmd_bench(args=None):
         print("[harness] warn - could not write .harness/bench.json")
     return ok
 
-SECRET_PATTERNS = ["AKIA", "ghp_", "github_pat_", "xoxb-", "xoxa-", "xoxp-"]
+SECRET_RE = [re.compile(p) for p in [
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+    r"AKIA[0-9A-Z]{16}",
+    r"ghp_[A-Za-z0-9]{20,}",
+    r"github_pat_[A-Za-z0-9_]+",
+    r"xox[bap]-[A-Za-z0-9-]+",
+]]
 
 
 def looks_like_pem(line):
@@ -814,21 +825,34 @@ def looks_like_pem(line):
 def scan_staged():
     hits = []
     try:
-        r = subprocess.run(["git", "diff", "--cached", "--no-color"], capture_output=True, text=True, timeout=30)
+        # errors="replace": a staged non-utf8 file must not crash the scan
+        # (strings mode decodes with the locale codec by default; the node
+        # twin is inherently lossy-safe, so graceful is the intent).
+        r = subprocess.run(["git", "diff", "--cached", "--no-color"], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=30)
         out = r.stdout or ""
     except (OSError, subprocess.TimeoutExpired):
         return hits
     fname, line = "", 0
+    in_hunk = False
     for l in out.split("\n"):
         if l.startswith("+++ b/"):
-            fname, line = l[6:], 0
+            fname, line, in_hunk = l[6:], 0, False
+            continue
+        # hunk headers carry the real new-file line number; context lines
+        # advance it too, or reported positions drift into wrong code.
+        hm = re.match(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", l)
+        if hm:
+            line, in_hunk = int(hm.group(1)), True
+            continue
+        if not in_hunk:
             continue
         if l.startswith("+") and not l.startswith("+++"):
-            line += 1
-            if looks_like_pem(l) or any(p in l for p in SECRET_PATTERNS):
-                if "AKIA" in l and not re.search(r"AKIA[0-9A-Z]{16}", l):
-                    continue
+            if looks_like_pem(l) or any(p.search(l) for p in SECRET_RE):
                 hits.append((fname, line))
+            line += 1
+        elif l.startswith(" "):
+            line += 1
     return hits
 
 def fmt_age(ts):
@@ -1034,7 +1058,7 @@ def cmd_doctor(args=None):
                 fail(f"[harness] FAIL - added skills: {', '.join(added_bad)}")
             elif added:
                 print(f"[harness] ok - added skills: {len(added)} verified")
-        except ValueError:
+        except (ValueError, AttributeError):
             fail("[harness] FAIL - project: .harness/config.json corrupt")
     else:
         print("[harness] info - project not initialized here (run harness init)")
@@ -1102,30 +1126,32 @@ def prune_file(abs_path, budget):
         return None
     return {"before": before, "after": est_tokens("\n".join(kept)), "moved": len(rest)}
 
-def cmd_optimize(args=None):
-    root = self_root()
-    if not root:
-        missing_data("optimize")
-        return False
+def cmd_memory_prune():
+    """prune MEMORY.md + rotate its archive, nothing else. optimize layers
+    hook timing, exec repair, ollama unload and the skill report on top."""
     cwd = os.getcwd()
     opts = read_optimizations(cwd)
     mem = next((os.path.join(cwd, f) for f in ["MEMORY.md", os.path.join(".kiro", "MEMORY.md")]
                 if os.path.exists(os.path.join(cwd, f))), None)
     if not mem:
         print("[harness] optimize - no MEMORY.md here (run harness init)")
-    elif opts.get("prune-memory", True) is False:
+        return True
+    if opts.get("prune-memory", True) is False:
         text = read_text(mem) or ""
         print(f"[harness] info - prune-memory off, MEMORY.md ~{fmt_tok(est_tokens(text))} (enable: harness optimizations enable prune-memory)")
-    else:
-        r = prune_file(mem, 2000)
-        if not r:
-            print("[harness] FAIL - optimize: could not prune MEMORY.md")
-            return False
-        if r["moved"] == 0:
+        return True
+    r = prune_file(mem, 2000)
+    if not r:
+        print("[harness] FAIL - optimize: could not prune MEMORY.md")
+        return False
+    if r["moved"] == 0:
+        if r["before"] <= 2000:
             print(f"[harness] ok - memory ~{fmt_tok(r['before'])} - under 2k budget, nothing to do")
         else:
-            print(f"[harness] ok - memory ~{fmt_tok(r['before'])} -> ~{fmt_tok(r['after'])}, {r['moved']} lines archived")
-    if opts.get("archive-rotate", True) is not False and mem:
+            print(f"[harness] ok - memory ~{fmt_tok(r['before'])} - over budget but kept (recent-notes floor; archive manually)")
+    else:
+        print(f"[harness] ok - memory ~{fmt_tok(r['before'])} -> ~{fmt_tok(r['after'])}, {r['moved']} lines archived")
+    if opts.get("archive-rotate", True) is not False:
         base, _ext = os.path.splitext(mem)
         archive = base + ".archive.md"
         text = read_text(archive)
@@ -1139,6 +1165,17 @@ def cmd_optimize(args=None):
                     print(f"[harness] ok - archive rotated: {len(lines)} -> {len(trimmed)} lines (oldest dropped)")
                 except OSError:
                     print("[harness] warn - could not rotate archive")
+    return True
+
+def cmd_optimize(args=None):
+    root = self_root()
+    if not root:
+        missing_data("optimize")
+        return False
+    cwd = os.getcwd()
+    if not cmd_memory_prune():
+        return False
+    opts = read_optimizations(cwd)
     repaired = 0
     for h in list_hooks(root):
         abs_path = os.path.join(root, h)
@@ -1199,7 +1236,9 @@ def sha256(text):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 def strip_fm(text):
-    return re.sub(r"^---\n[\s\S]*?\n---\n", "", text, count=1)
+    # same fence rule as parse_frontmatter, else a file ending at the
+    # closing fence keeps two frontmatter blocks after strip.
+    return re.sub(r"^---\n[\s\S]*?\n---(?:\n|$)", "", text, count=1)
 
 def hook_blurb(root, rel):
     text = read_text(os.path.join(root, rel))
@@ -1602,13 +1641,28 @@ def animated_run(cmd, stage):
         sys.stdout.flush()
     sys.stdout.write("\x1b[?25l")
     try:
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        # drain the pipe while the bar animates, or a chatty child fills the
+        # 64k pipe buffer, blocks on write, and poll() never returns.
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        chunks = []
+        def drain():
+            try:
+                while True:
+                    chunk = p.stdout.read(4096) if p.stdout else b""
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+            except (OSError, ValueError):
+                pass
+        t = threading.Thread(target=drain, daemon=True)
+        t.start()
         while p.poll() is None:
             draw()
             time.sleep(0.09)
             state["frame"] += 1
             state["pct"] = min(90.0, state["pct"] + (90 - state["pct"]) * 0.06 + 0.25)
-        out = p.stdout.read() if p.stdout else ""
+        t.join(timeout=5)
+        out = b"".join(chunks).decode("utf-8", "replace")
         return p.returncode, out
     except OSError:
         return 1, ""
@@ -1828,7 +1882,7 @@ def cmd_upgrade_check():
     if root and os.path.isdir(os.path.join(root, ".git")):
         try:
             r = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=root,
-                               capture_output=True, text=True, timeout=15)
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
             head = (r.stdout or "").strip()
         except (OSError, subprocess.TimeoutExpired):
             head = ""
@@ -1931,9 +1985,15 @@ def read_added_skills(cwd):
         return [], False
     try:
         added = json.loads(man_text).get("addedSkills", [])
-        return added if isinstance(added, list) else [], False
     except ValueError:
         return [], True
+    except AttributeError:
+        return [], True
+    # shape check: string entries pass isinstance-bool, then crash the
+    # callers' a.get(...) - treat any non-dict entry as a corrupt manifest.
+    if isinstance(added, list) and all(isinstance(a, dict) for a in added):
+        return added, False
+    return [], True
 
 def verify_added_skill(cwd, a):
     p = os.path.join(cwd, ".harness", "skills", str(a.get("name", "")), "SKILL.md")
@@ -1945,6 +2005,10 @@ def verify_added_skill(cwd, a):
     return None
 
 def cmd_memory_sync(note):
+    note = (note or "").strip()
+    if not note:
+        print("[harness] memory sync - give a note to append")
+        return False
     mem_file = os.path.join(os.getcwd(), "MEMORY.md")
     if read_text(mem_file) is None:
         print("[harness] memory - no MEMORY.md here (run harness init)")
@@ -2331,6 +2395,11 @@ def cmd_skill_lint(name):
     return bad == 0
 
 def cmd_skill_update(name):
+    # mirror the add/verify path: match against the sanitized manifest name.
+    name = sanitize_skill_name(name or "")
+    if not name:
+        print("[harness] skill update - give an added skill name")
+        return False
     cwd = os.getcwd()
     added, corrupt = read_added_skills(cwd)
     if corrupt:
@@ -2509,13 +2578,34 @@ def cmd_instinct_toggle(op, name):
     if not matched:
         print(f"[harness] instinct - no hooks match \"{name}\"")
         return False
+    # record intent in the manifest, or the next `doctor --fix` would
+    # silently chmod the hooks back on (same list optimize maintains).
+    cwd = os.getcwd()
+    man_file = os.path.join(cwd, ".harness", "config.json")
+    man = {"version": VERSION, "harness": [], "files": []}
+    man_text = read_text(man_file)
+    if man_text is not None:
+        try:
+            man = json.loads(man_text)
+        except ValueError:
+            print("[harness] FAIL - .harness/config.json corrupt (fix it first)")
+            return False
+    disabled = set(x for x in (man.get("disabledByPerf", []) or []) if isinstance(x, str))
     done = 0
     for h in matched:
         try:
             os.chmod(os.path.join(root, h), 0o755 if op == "enable" else 0o644)
+            disabled.add(h) if op == "disable" else disabled.discard(h)
             done += 1
         except OSError:
             pass
+    man["disabledByPerf"] = sorted(disabled)
+    try:
+        os.makedirs(os.path.dirname(man_file), exist_ok=True)
+        with open(man_file, "w", encoding="utf-8") as f:
+            json.dump(man, f, indent=2)
+    except OSError:
+        print("[harness] warn - could not record disabled hooks")
     print(f"[harness] ok - instinct {op}d {done}/{len(matched)}")
     return done == len(matched)
 
@@ -2630,7 +2720,7 @@ def cmd_skill_remove(name):
     if man_text is not None:
         try:
             man = json.loads(man_text)
-            man["addedSkills"] = [a for a in man.get("addedSkills", []) if a.get("name") != name]
+            man["addedSkills"] = [a for a in man.get("addedSkills", []) if isinstance(a, dict) and a.get("name") != name]
             with open(man_file, "w", encoding="utf-8") as f:
                 json.dump(man, f, indent=2)
         except (ValueError, OSError):
@@ -2685,6 +2775,10 @@ def main():
     p = argparse.ArgumentParser(prog="harness", description="harness - agent harness perf layer by TheElephantCoder")
     p.add_argument("--version", "-v", action="store_true")
     sub = p.add_subparsers(dest="cmd")
+    # `harness security --staged` is a valid spell; argparse would reject the
+    # flag before dispatch gets a say, so normalize it to `security audit`.
+    if len(sys.argv) > 2 and sys.argv[1] == "security" and sys.argv[2].startswith("--"):
+        sys.argv.insert(2, "audit")
 
     a = sub.add_parser("init")
     a.add_argument("--harness", default="auto")
@@ -2778,7 +2872,7 @@ def main():
         cmd_memory_show()
         return
     if args.cmd == "memory" and args.args[:1] == ["prune"]:
-        if not cmd_optimize():
+        if not cmd_memory_prune():
             sys.exit(1)
         return
     if args.cmd == "memory" and args.args[:1] == ["sync"]:
@@ -2813,9 +2907,11 @@ def main():
         if not cmd_instinct_test(args.args[1] if len(args.args) > 1 else ""):
             sys.exit(1)
         return
-    if args.cmd == "security" and (not args.args or args.args[:1] in (["audit"], ["scan"])):
-        sub = args.args[0] if args.args else "audit"
-        if not cmd_security(sub, (args.args or ["audit"])[1:]):
+    if args.cmd == "security" and (not args.args or args.args[0] in ("--staged",) or args.args[:1] in (["audit"], ["scan"])):
+        the_rest = list(args.args or []) if args.args else []
+        sub = the_rest[0] if the_rest and the_rest[0] in ("audit", "scan") else "audit"
+        rest = the_rest[1:] if the_rest and the_rest[0] in ("audit", "scan") else the_rest
+        if not cmd_security(sub, rest):
             sys.exit(1)
         return
     if args.cmd == "research":
