@@ -37,6 +37,65 @@ def test_tokens():
 def test_strip_fm():
     assert cli.strip_fm("---\nname: x\n---\nbody") == "body"
     assert cli.strip_fm("body") == "body"
+    # file ending right at the closing fence still strips
+    assert cli.strip_fm("---\nname: x\ndescription: y\n---") == ""
+
+
+def test_parse_frontmatter_eof_fence():
+    assert cli.parse_frontmatter("---\nname: x\ndescription: y\n---") == {
+        "name": "x",
+        "desc": "y",
+    }
+
+
+def test_read_added_skills_shapes():
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as d:
+        man = os.path.join(d, ".harness")
+        os.makedirs(man)
+        with open(os.path.join(man, "config.json"), "w", encoding="utf-8") as f:
+            f.write(json.dumps({"addedSkills": ["just-a-string"]}))
+        added, corrupt = cli.read_added_skills(d)
+        assert added == [] and corrupt
+        with open(os.path.join(man, "config.json"), "w", encoding="utf-8") as f:
+            f.write(json.dumps({"addedSkills": [{"name": "k", "sha256": "v"}]}))
+        added, corrupt = cli.read_added_skills(d)
+        assert not corrupt and added[0]["name"] == "k"
+
+
+def test_scan_staged_hunk_lines(monkeypatch):
+    import subprocess
+    import tempfile
+
+    diff = "\n".join([
+        "diff --git a/a.md b/a.md",
+        "index 1111111..2222222 100644",
+        "--- a/a.md",
+        "+++ b/a.md",
+        "@@ -10,4 +10,5 @@ header",
+        " context keeps numbering",
+        "+ghp_" + "A" * 25,
+        " more context",
+        "+another line",
+    ]) + "\n"
+
+    class R:
+        stdout = diff
+        returncode = 0
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: R())
+    hits = cli.scan_staged()
+    assert hits == [("a.md", 11)]
+
+
+def test_secret_patterns_shape():
+    line = "// the ghp_ prefix will be generated later"
+    assert not any(p.search(line) for p in cli.SECRET_RE)
+    assert any(p.search("token ghp_" + "x" * 30 + " end") for p in cli.SECRET_RE)
+    aws_example = "AKIAIOS" + "FODNN7EXAMPLE"
+    assert any(p.search(aws_example) for p in cli.SECRET_RE)
+    assert not any(p.search("AKIA short") for p in cli.SECRET_RE)
 
 
 def test_map_symbols():
