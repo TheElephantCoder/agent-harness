@@ -14,7 +14,9 @@ fi
 
 # docs mention example secrets, don't flag them if allowlisted via pattern file
 # also skip checking the audit script and policy doc itself for example strings
-SKIP="security/audit.sh|security/policy.md|security/README.md|skills/|docs/"
+# and the per-project deploy copies (.harness/, .kiro/) - fresh installs stage
+# the scanner itself, whose pattern literals then flag their own lines
+SKIP="security/audit.sh|security/policy.md|security/README.md|skills/|docs/|\\.harness/|\\.kiro/"
 
 FOUND=false
 while IFS= read -r f; do

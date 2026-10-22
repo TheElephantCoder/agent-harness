@@ -17,7 +17,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from urllib.request import Request, urlopen
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 RESET = "\x1b[0m"
 BOLD = "\x1b[1m"
@@ -177,7 +177,7 @@ def pick_arrows(title, options):
                     index = (index + 1) % len(options)
                 elif nxt:
                     # Home/Delete/right-arrow etc: ignore the sequence, do
-                    # not interpreting it as "quit the whole app".
+                    # not interpret it as "quit the whole app".
                     pass
             elif ch in ("k",):
                 pending = 0
@@ -1139,18 +1139,18 @@ def cmd_memory_prune():
     if opts.get("prune-memory", True) is False:
         text = read_text(mem) or ""
         print(f"[harness] info - prune-memory off, MEMORY.md ~{fmt_tok(est_tokens(text))} (enable: harness optimizations enable prune-memory)")
-        return True
-    r = prune_file(mem, 2000)
-    if not r:
-        print("[harness] FAIL - optimize: could not prune MEMORY.md")
-        return False
-    if r["moved"] == 0:
-        if r["before"] <= 2000:
-            print(f"[harness] ok - memory ~{fmt_tok(r['before'])} - under 2k budget, nothing to do")
-        else:
-            print(f"[harness] ok - memory ~{fmt_tok(r['before'])} - over budget but kept (recent-notes floor; archive manually)")
     else:
-        print(f"[harness] ok - memory ~{fmt_tok(r['before'])} -> ~{fmt_tok(r['after'])}, {r['moved']} lines archived")
+        r = prune_file(mem, 2000)
+        if not r:
+            print("[harness] FAIL - optimize: could not prune MEMORY.md")
+            return False
+        if r["moved"] == 0:
+            if r["before"] <= 2000:
+                print(f"[harness] ok - memory ~{fmt_tok(r['before'])} - under 2k budget, nothing to do")
+            else:
+                print(f"[harness] ok - memory ~{fmt_tok(r['before'])} - over budget but kept (recent-notes floor; archive manually)")
+        else:
+            print(f"[harness] ok - memory ~{fmt_tok(r['before'])} -> ~{fmt_tok(r['after'])}, {r['moved']} lines archived")
     if opts.get("archive-rotate", True) is not False:
         base, _ext = os.path.splitext(mem)
         archive = base + ".archive.md"
@@ -1204,9 +1204,11 @@ def cmd_optimize(args=None):
             if man_text is not None:
                 try:
                     man = json.loads(man_text)
-                except ValueError:
+                except (ValueError, AttributeError):
                     pass
-            disabled = set(man.get("disabledByPerf", []) or [])
+                if not isinstance(man, dict):
+                    man = {"version": VERSION, "harness": [], "files": []}
+            disabled = set(x for x in (man.get("disabledByPerf", []) or []) if isinstance(x, str))
             dropped = 0
             for h in slow:
                 try:
@@ -1293,6 +1295,10 @@ def cmd_init(args=None):
     dry = bool(getattr(args, "dry_run", False))
     force_all = bool(getattr(args, "force", False))
     raw = getattr(args, "harness", "auto") or "auto"
+    if raw.startswith("--"):
+        # argparse swallows `init --harness --force` as a harness named --force
+        print("[harness] init - --harness needs a name (harness init --harness claude)")
+        return False
     explicit = [s.strip() for s in raw.split(",") if s.strip()] if raw != "auto" else []
     adapters = [a for a in list_adapters(root) if a["json"]]
     by_name = {a["name"]: a for a in adapters}
@@ -1807,6 +1813,9 @@ def write_optimizations(cwd, patch):
     if man_text is not None:
         try:
             man = json.loads(man_text)
+            if not isinstance(man, dict):
+                print("[harness] FAIL - .harness/config.json corrupt")
+                return False
         except ValueError:
             print("[harness] FAIL - .harness/config.json corrupt")
             return False
@@ -2224,10 +2233,15 @@ def finish_skill_add(body, repo_label, ref):
     if man_text is not None:
         try:
             man = json.loads(man_text)
+            if not isinstance(man, dict):
+                print("[harness] skill add - .harness/config.json corrupt")
+                return False
         except ValueError:
             print("[harness] skill add - .harness/config.json corrupt")
             return False
     added = man.get("addedSkills", [])
+    if not isinstance(added, list):
+        added = []
     added.append({"name": name, "repo": repo_label, "ref": ref,
                   "sha256": sha256(body), "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
     man["addedSkills"] = added
@@ -2468,8 +2482,10 @@ def cmd_skill_update(name):
         if man_text is None:
             raise ValueError("missing")
         man = json.loads(man_text)
+        if not isinstance(man, dict):
+            raise ValueError("shape")
         for a in man.get("addedSkills", []):
-            if a.get("name") == name:
+            if isinstance(a, dict) and a.get("name") == name:
                 a["sha256"] = sha256(body)
                 a["ts"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         with open(man_file, "w", encoding="utf-8") as f:
@@ -2587,6 +2603,9 @@ def cmd_instinct_toggle(op, name):
     if man_text is not None:
         try:
             man = json.loads(man_text)
+            if not isinstance(man, dict):
+                print("[harness] FAIL - .harness/config.json corrupt (fix it first)")
+                return False
         except ValueError:
             print("[harness] FAIL - .harness/config.json corrupt (fix it first)")
             return False
@@ -2723,7 +2742,7 @@ def cmd_skill_remove(name):
             man["addedSkills"] = [a for a in man.get("addedSkills", []) if isinstance(a, dict) and a.get("name") != name]
             with open(man_file, "w", encoding="utf-8") as f:
                 json.dump(man, f, indent=2)
-        except (ValueError, OSError):
+        except (ValueError, TypeError, OSError):
             print("[harness] skill remove - manifest left stale, edit it by hand")
             return False
     print(f"[harness] ok - skill {name} removed")
@@ -2760,7 +2779,10 @@ def cmd_gui(args=None):
     the compiled CLI are present; otherwise say exactly what to install."""
     argv = ["gui"]
     raw = list(getattr(args, "args", []) or [])
-    if raw[:1] == ["--port"] and len(raw) > 1 and re.fullmatch(r"[0-9]+", raw[1] or ""):
+    if raw[:1] == ["--port"]:
+        if len(raw) < 2 or not re.fullmatch(r"[0-9]+", raw[1] or ""):
+            print("[harness] gui - --port needs a number (harness gui --port 5000)")
+            return False
         argv += ["--port", raw[1]]
     node = shutil.which("node")
     root = self_root()

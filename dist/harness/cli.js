@@ -10,7 +10,7 @@ import * as https from "node:https";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-export const VERSION = "0.3.0";
+export const VERSION = "0.3.1";
 // true while serving the web gui: prompts have no terminal to read from,
 // so askQuestion/selectOption bail out and callers degrade gracefully.
 let guiMode = false;
@@ -1349,7 +1349,7 @@ function cmdInit(flags) {
     const dry = flags.includes("--dry-run");
     const forceAll = flags.includes("--force");
     const hi = flags.indexOf("--harness");
-    if (hi !== -1 && !flags[hi + 1]) {
+    if (hi !== -1 && (!flags[hi + 1] || flags[hi + 1].startsWith("--"))) {
         console.log("[harness] init - --harness needs a name (harness init --harness claude)");
         return false;
     }
@@ -2455,20 +2455,21 @@ function cmdMemoryPrune() {
     if (opts["prune-memory"] === false) {
         const text = readText(mem);
         console.log(`[harness] info - prune-memory off, MEMORY.md ~${fmtTok(estTokens(text ?? ""))} (enable: harness optimizations enable prune-memory)`);
-        return true;
-    }
-    const r = pruneFile(mem, 2000);
-    if (!r) {
-        console.log("[harness] FAIL - optimize: could not prune MEMORY.md");
-        return false;
-    }
-    if (r.moved === 0) {
-        console.log(r.before <= 2000
-            ? `[harness] ok - memory ~${fmtTok(r.before)} - under 2k budget, nothing to do`
-            : `[harness] ok - memory ~${fmtTok(r.before)} - over budget but kept (recent-notes floor; archive manually)`);
     }
     else {
-        console.log(`[harness] ok - memory ~${fmtTok(r.before)} -> ~${fmtTok(r.after)}, ${r.moved} lines archived`);
+        const r = pruneFile(mem, 2000);
+        if (!r) {
+            console.log("[harness] FAIL - optimize: could not prune MEMORY.md");
+            return false;
+        }
+        if (r.moved === 0) {
+            console.log(r.before <= 2000
+                ? `[harness] ok - memory ~${fmtTok(r.before)} - under 2k budget, nothing to do`
+                : `[harness] ok - memory ~${fmtTok(r.before)} - over budget but kept (recent-notes floor; archive manually)`);
+        }
+        else {
+            console.log(`[harness] ok - memory ~${fmtTok(r.before)} -> ~${fmtTok(r.after)}, ${r.moved} lines archived`);
+        }
     }
     if (opts["archive-rotate"] !== false) {
         const base = mem.slice(0, -path.extname(mem).length);
@@ -4251,9 +4252,13 @@ async function cmdGui(flags) {
         return false;
     }
     if (pi !== -1) {
-        const n = parseInt(flags[pi + 1] ?? "", 10);
-        if (Number.isFinite(n) && n > 0 && n < 65536)
-            want = n;
+        const raw = flags[pi + 1] ?? "";
+        const n = parseInt(raw, 10);
+        if (!raw || !Number.isFinite(n) || n <= 0 || n >= 65536) {
+            console.log("[harness] gui - --port needs a number (harness gui --port 5000)");
+            return false;
+        }
+        want = n;
     }
     if (loadGuiPage() === null) {
         console.log("[harness] gui - cannot locate install");
