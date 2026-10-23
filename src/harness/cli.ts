@@ -4477,12 +4477,13 @@ async function handleGui(
     }
     return send(404, JSON.stringify({ ok: false, output: "not found" }));
   } catch (e) {
+    console.error("[gui] handleGui error:", e);
     try {
       send(
         500,
         JSON.stringify({
           ok: false,
-          output: String((e as Error)?.message ?? e),
+          output: "internal error",
         }),
       );
     } catch {
