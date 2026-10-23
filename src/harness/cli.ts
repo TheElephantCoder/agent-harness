@@ -4477,14 +4477,11 @@ async function handleGui(
     }
     return send(404, JSON.stringify({ ok: false, output: "not found" }));
   } catch (e) {
+    // unexpected handler crashes: remote clients get a generic line, the
+    // real reason stays in the server log (info exposure discipline).
+    console.error(`[harness] gui - ${String((e as Error)?.message ?? e)}`);
     try {
-      send(
-        500,
-        JSON.stringify({
-          ok: false,
-          output: String((e as Error)?.message ?? e),
-        }),
-      );
+      send(500, JSON.stringify({ ok: false, output: "[harness] request failed" }));
     } catch {
       // response already gone
     }
