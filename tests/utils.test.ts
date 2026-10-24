@@ -253,7 +253,9 @@ describe("gui server", () => {
         "not affiliated with any agent vendor",
         "contact@theelephantcoder.com",
       ]) {
-        expect(page).toContain(m);
+        // prettier rewraps template prose, so compare against collapsed
+        // whitespace instead of raw page text
+        expect(page.replace(/\s+/g, " ")).toContain(m);
       }
     } finally {
       server.close();
