@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as fs from "node:fs";
+import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
@@ -46,6 +47,62 @@ describe("gui server", () => {
     const ran = [r1, r2].filter((r) => r.ok && !r.output.includes("already"));
     expect(busy).toHaveLength(1);
     expect(ran).toHaveLength(1);
+  });
+
+  it("rejects cross-site and non-json requests (csrf wall)", async () => {
+    const { server, port } = await startGuiServer(0);
+    try {
+      const base = `http://127.0.0.1:${port}`;
+      // a website in the user's browser: cross-site origin
+      const evil = await fetch(`${base}/api/run`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "https://evil.example",
+        },
+        body: JSON.stringify({ cmd: "version", args: [] }),
+      });
+      expect(evil.status).toBe(403);
+      // classic form-crafted body: no preflight, wrong content type
+      const form = await fetch(`${base}/api/run`, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: '{"cmd":"version","args":[]}',
+      });
+      expect(form.status).toBe(415);
+      // <img>-style drain: browser marks it cross-site
+      const img = await fetch(`${base}/api/term/poll?id=x`, {
+        headers: { "Sec-Fetch-Site": "cross-site" },
+      });
+      expect(img.status).toBe(403);
+      // dns rebinding: hostile host header. fetch ignores Host overrides,
+      // so drive the socket directly with node:http
+      const rebind = await new Promise<number>((resolve) => {
+        const req = http.request(
+          `${base}/api/status`,
+          { headers: { host: "attacker.example" } },
+          (r) => {
+            r.resume();
+            r.on("end", () => resolve(r.statusCode ?? 0));
+          },
+        );
+        req.on("error", () => resolve(0));
+        req.end();
+      });
+      expect(rebind).toBe(403);
+      // the honest tool path still works:
+      const ok = await fetch(`${base}/api/status`);
+      expect(ok.status).toBe(200);
+      // malformed json now a clean 400, not a 500
+      const bad = await fetch(`${base}/api/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{oops",
+      });
+      expect(bad.status).toBe(400);
+    } finally {
+      server.close();
+    }
   });
 
   it("serves status, runs commands, rejects bad input", async () => {
@@ -285,10 +342,16 @@ describe("costReport", () => {
     try {
       fs.writeFileSync(path.join(dir, "big.md"), "x".repeat(400)); // 100 tok
       fs.writeFileSync(path.join(dir, "small.toml"), "y".repeat(80)); // 20 tok
-      fs.writeFileSync(path.join(dir, "bin.dat"), Buffer.from([0x61, 0x00, 0x62]));
+      fs.writeFileSync(
+        path.join(dir, "bin.dat"),
+        Buffer.from([0x61, 0x00, 0x62]),
+      );
       fs.writeFileSync(path.join(dir, ".hidden"), "z".repeat(40));
       fs.mkdirSync(path.join(dir, "node_modules"));
-      fs.writeFileSync(path.join(dir, "node_modules", "dep.md"), "d".repeat(40));
+      fs.writeFileSync(
+        path.join(dir, "node_modules", "dep.md"),
+        "d".repeat(40),
+      );
       const big = path.join(dir, "huge.log");
       fs.writeFileSync(big, "a".repeat(600 * 1024));
       const r = costReport(dir, ".", false);

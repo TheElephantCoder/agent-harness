@@ -21,6 +21,12 @@ command -v npm >/dev/null 2>&1 || fail "npm not found alongside node"
 # resolve the tarball. main floats, so pin it to a sha exactly like
 # `harness upgrade` does (npm serves stale branch tarballs from cache).
 # tags are immutable, use them directly.
+# REF flows into a node -e string below; a quoted/backslashed value would
+# execute as script - lock it to ref characters
+case "$REF" in
+  *[!A-Za-z0-9._/-]*) echo "invalid HARNESS_REF: $REF" >&2; exit 1;;
+esac
+
 resolve_sha() {
   node -e "
 fetch('https://api.github.com/repos/${REPO}/commits/${REF}', { headers: { 'User-Agent': 'agent-harness-installer', Accept: 'application/vnd.github+json' } })

@@ -2,10 +2,14 @@
 # bump brew formula version and sha, works on macOS and Linux
 set -euo pipefail
 VERSION="${1:?usage: bump-brew.sh <version> e.g. 0.1.0}"
+case "$VERSION" in
+  *[!0-9.]*) echo "invalid version: $VERSION" >&2; exit 1;;
+esac
 FORMULA="Formula/agent-harness.rb"
 TARBALL="https://github.com/TheElephantCoder/agent-harness/archive/refs/tags/v${VERSION}.tar.gz"
 echo "fetching $TARBALL ..."
-SHA=$(curl -L -s "$TARBALL" | shasum -a 256 | awk '{print $1}')
+# -f: a 404 body used to be hashed into the formula sha256
+SHA=$(curl -fsSL "$TARBALL" | shasum -a 256 | awk '{print $1}')
 if [ -z "$SHA" ] || [ "$SHA" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ]; then
   echo "failed to fetch tarball or got empty sha"
   exit 1

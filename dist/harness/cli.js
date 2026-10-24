@@ -3,7 +3,7 @@
 // node >=20
 import * as readline from "node:readline";
 import { spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import * as fs from "node:fs";
 import * as http from "node:http";
 import * as https from "node:https";
@@ -4147,6 +4147,30 @@ async function handleGui(req, res, page) {
         res.writeHead(code, { "Content-Type": type });
         res.end(body);
     };
+    // loopback-only server, so every stranger at the socket is either a local
+    // tool (curl, cron - fine) or a website driving the user's browser (not
+    // fine: /api/run and /api/term/start mutate the project). Host must be a
+    // loopback name (kills DNS rebinding), cross-site browser hints die, and
+    // POST bodies must be real JSON (forms and no-preflight fetch cannot send
+    // that content type, which is what makes this an actual CSRF wall).
+    const host = String(req.headers.host ?? "").toLowerCase();
+    const loopback = /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(host) && host !== "";
+    const origin = String(req.headers.origin ?? "");
+    const originOk = origin === "" ||
+        /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i.test(origin);
+    const secSite = String(req.headers["sec-fetch-site"] ?? "").toLowerCase();
+    if (!loopback ||
+        !originOk ||
+        secSite === "cross-site") {
+        return send(403, JSON.stringify({ ok: false, output: "forbidden" }));
+    }
+    if (req.method === "POST") {
+        const len = Number(req.headers["content-length"] ?? 0);
+        const ct = String(req.headers["content-type"] ?? "").toLowerCase();
+        if (len > 0 && !ct.startsWith("application/json")) {
+            return send(415, JSON.stringify({ ok: false, output: "want application/json" }));
+        }
+    }
     try {
         const url = new URL(req.url ?? "/", "http://127.0.0.1");
         if (req.method === "GET" && url.pathname === "/") {
@@ -4178,7 +4202,13 @@ async function handleGui(req, res, page) {
             return send(200, JSON.stringify(termStart(mode)));
         }
         if (url.pathname === "/api/term/input" && req.method === "POST") {
-            const parsed = JSON.parse(await readBody(req));
+            let parsed;
+            try {
+                parsed = JSON.parse(await readBody(req));
+            }
+            catch {
+                return send(400, JSON.stringify({ ok: false, output: "want {id, data}" }));
+            }
             if (typeof parsed.id !== "string" || typeof parsed.data !== "string") {
                 return send(400, JSON.stringify({ ok: false, output: "want {id, data}" }));
             }
@@ -4189,14 +4219,26 @@ async function handleGui(req, res, page) {
             return send(200, JSON.stringify(termPoll(id)));
         }
         if (url.pathname === "/api/term/kill" && req.method === "POST") {
-            const parsed = JSON.parse(await readBody(req));
+            let parsed;
+            try {
+                parsed = JSON.parse(await readBody(req));
+            }
+            catch {
+                return send(400, JSON.stringify({ ok: false, output: "want {id}" }));
+            }
             if (typeof parsed.id !== "string") {
                 return send(400, JSON.stringify({ ok: false, output: "want {id}" }));
             }
             return send(200, JSON.stringify(termKill(parsed.id)));
         }
         if (req.method === "POST" && url.pathname === "/api/run") {
-            const parsed = JSON.parse(await readBody(req));
+            let parsed;
+            try {
+                parsed = JSON.parse(await readBody(req));
+            }
+            catch {
+                return send(400, JSON.stringify({ ok: false, output: "want {cmd, args}" }));
+            }
             if (typeof parsed.cmd !== "string" || !parsed.cmd) {
                 return send(400, JSON.stringify({ ok: false, output: "want {cmd, args}" }));
             }
@@ -4222,7 +4264,13 @@ async function handleGui(req, res, page) {
             return send(200, JSON.stringify(r));
         }
         if (req.method === "POST" && url.pathname === "/api/agent") {
-            const parsed = JSON.parse(await readBody(req));
+            let parsed;
+            try {
+                parsed = JSON.parse(await readBody(req));
+            }
+            catch {
+                return send(400, JSON.stringify({ ok: false, output: "want agent opencode|claude" }));
+            }
             if (parsed.agent !== "opencode" && parsed.agent !== "claude") {
                 return send(400, JSON.stringify({ ok: false, output: "want agent opencode|claude" }));
             }
@@ -4232,6 +4280,13 @@ async function handleGui(req, res, page) {
             return send(200, JSON.stringify(await runAgent(parsed.agent, parsed.prompt)));
         }
         if (req.method === "POST" && url.pathname === "/api/quit") {
+            // quitting mid-run would orphan the spawned agent child; ask again later
+            if (runBusy) {
+                return send(409, JSON.stringify({
+                    ok: false,
+                    output: "[harness] a run is active - quit again when it finishes",
+                }));
+            }
             send(200, JSON.stringify({ ok: true }));
             termKillAll();
             setTimeout(() => process.exit(0), 100);
@@ -4309,7 +4364,9 @@ function termStart(mode) {
             break;
         termKill(oldest);
     }
-    const id = `${Date.now().toString(36)}${Math.floor(Math.random() * 0xffff).toString(36)}`;
+    // predictable ids would let a cross-site spray of guesses write into a
+    // live shell session; 128 random bits end that game.
+    const id = randomBytes(16).toString("base64url");
     termSessions.set(id, termSpawn(mode));
     return { ok: true, id };
 }

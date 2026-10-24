@@ -1,1492 +1,3502 @@
 <!doctype html>
 <html lang="en" data-theme="regular">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5">
-<meta name="color-scheme" content="light dark">
-<title>agent-harness gui</title>
-<style>
-/* ---------------------------------------------------------------------------
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=5"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <title>agent-harness gui</title>
+    <style>
+      /* ---------------------------------------------------------------------------
    agent-harness local gui.
    Instrument-panel aesthetic: hairline rules, serif display against a mono
    grid, one accent per theme. Dynamic text always wraps to fit its box
    (never clipped, never ellipsized); every grid cell uses
    minmax(min(100%, Npx), 1fr) so rows refuse to overflow at any viewport.
 --------------------------------------------------------------------------- */
-:root, html[data-theme="regular"]{
-  --bg:#f4f4f2; --panel:#ffffff; --fg:#171717; --muted:#6f6f6f;
-  --line:#e5e5e2; --accent:#1f6feb; --accent-fg:#ffffff;
-  --ok:#15803d; --bad:#b91c1c; --warn:#b45309;
-  --code:#101418; --code-fg:#e8e8e8; --radius:10px;
-  --shadow:0 1px 2px rgba(0,0,0,.05),0 6px 20px rgba(0,0,0,.05);
-  --r:10px;
-}
-html[data-theme="dark"]{
-  --bg:#131417; --panel:#1b1d21; --fg:#ececec; --muted:#9a9da5;
-  --line:#2a2d33; --accent:#4c8dff; --accent-fg:#0b0e14;
-  --ok:#4ade80; --bad:#f87171; --warn:#fbbf24;
-  --code:#0b0d10; --code-fg:#e8e8e8;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
-  --r:10px;
-}
-html[data-theme="midnight"]{
-  --bg:#000000; --panel:#0a0a0a; --fg:#f2f2f2; --muted:#8a8a8a;
-  --line:#1f1f1f; --accent:#7c6cff; --accent-fg:#ffffff;
-  --ok:#34d399; --bad:#ff6b6b; --warn:#fbbf24;
-  --code:#000000; --code-fg:#f2f2f2;
-  --shadow:none;
-  --r:6px;
-}
-html[data-theme="contrast"]{
-  --bg:#ffffff; --panel:#ffffff; --fg:#000000; --muted:#333333;
-  --line:#000000; --accent:#0000cc; --accent-fg:#ffffff;
-  --ok:#006400; --bad:#a80000; --warn:#7a4d00;
-  --code:#000000; --code-fg:#ffffff;
-  --shadow:none;
-  --r:4px;
-}
-html[data-theme="harvest"]{
-  --bg:#fbf1c7; --panel:#fffdf0; --fg:#3c3836; --muted:#7c6f64;
-  --line:#e5d9b8; --accent:#af3a03; --accent-fg:#ffffff;
-  --ok:#427b58; --bad:#9d0006; --warn:#b57614;
-  --code:#282828; --code-fg:#ebdbb2;
-  --shadow:0 1px 2px rgba(60,56,54,.08),0 6px 20px rgba(60,56,54,.08);
-  --r:10px;
-}
-html[data-theme="pine"]{
-  --bg:#0d1f16; --panel:#12291d; --fg:#e6f0e8; --muted:#8aa895;
-  --line:#1e3a2b; --accent:#57c785; --accent-fg:#06110b;
-  --ok:#4ade80; --bad:#f87171; --warn:#fbbf24;
-  --code:#08130d; --code-fg:#e6f0e8;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
-  --r:10px;
-}
-html[data-theme="tidal"]{
-  --bg:#0a1628; --panel:#0f1f38; --fg:#e3eefc; --muted:#87a0c0;
-  --line:#1d3354; --accent:#38bdf8; --accent-fg:#04121f;
-  --ok:#34d399; --bad:#fb7185; --warn:#fbbf24;
-  --code:#060d18; --code-fg:#e3eefc;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
-  --r:10px;
-}
-html[data-theme="dusk"]{
-  --bg:#150f1e; --panel:#1e1629; --fg:#efe8f7; --muted:#a293bd;
-  --line:#2e2340; --accent:#a78bfa; --accent-fg:#150f1e;
-  --ok:#34d399; --bad:#fb7185; --warn:#fbbf24;
-  --code:#0d0913; --code-fg:#efe8f7;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
-  --r:10px;
-}
-html[data-theme="ember"]{
-  --bg:#1a0f0a; --panel:#241410; --fg:#f5e8dd; --muted:#b39883;
-  --line:#3a2418; --accent:#fb923c; --accent-fg:#1a0f0a;
-  --ok:#4ade80; --bad:#f87171; --warn:#fbbf24;
-  --code:#100905; --code-fg:#f5e8dd;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
-  --r:10px;
-}
-html[data-theme="espresso"]{
-  --bg:#14100c; --panel:#1e1812; --fg:#ece2d4; --muted:#a89880;
-  --line:#33291d; --accent:#d4a373; --accent-fg:#14100c;
-  --ok:#7fb069; --bad:#e26d5a; --warn:#e9c46a;
-  --code:#0c0906; --code-fg:#ece2d4;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
-  --r:10px;
-}
-html[data-theme="storm"]{
-  --bg:#11151c; --panel:#181e27; --fg:#e2e8f0; --muted:#8b98ab;
-  --line:#273041; --accent:#7dd3fc; --accent-fg:#0b0f14;
-  --ok:#4ade80; --bad:#f87171; --warn:#fbbf24;
-  --code:#0a0d12; --code-fg:#e2e8f0;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
-  --r:10px;
-}
-html[data-theme="glacier"]{
-  --bg:#eef4f8; --panel:#ffffff; --fg:#102a43; --muted:#5b7a99;
-  --line:#d3e2ed; --accent:#0284c7; --accent-fg:#ffffff;
-  --ok:#15803d; --bad:#b91c1c; --warn:#b45309;
-  --code:#102a43; --code-fg:#f0f7fc;
-  --shadow:0 1px 2px rgba(16,42,67,.06),0 6px 20px rgba(16,42,67,.06);
-  --r:10px;
-}
-html[data-theme="meadow"]{
-  --bg:#f0f7f1; --panel:#ffffff; --fg:#1a2e1f; --muted:#5f7a64;
-  --line:#d5e5d8; --accent:#16a34a; --accent-fg:#ffffff;
-  --ok:#15803d; --bad:#b91c1c; --warn:#b45309;
-  --code:#14231a; --code-fg:#eef7f0;
-  --shadow:0 1px 2px rgba(26,46,31,.06),0 6px 20px rgba(26,46,31,.06);
-  --r:10px;
-}
-html[data-theme="blossom"]{
-  --bg:#faf0f3; --panel:#ffffff; --fg:#3d2230; --muted:#96697f;
-  --line:#eed5de; --accent:#db2777; --accent-fg:#ffffff;
-  --ok:#15803d; --bad:#b91c1c; --warn:#b45309;
-  --code:#2e1a24; --code-fg:#fbeff4;
-  --shadow:0 1px 2px rgba(61,34,48,.06),0 6px 20px rgba(61,34,48,.06);
-  --r:10px;
-}
-html[data-theme="dune"]{
-  --bg:#f5efe4; --panel:#fffdf7; --fg:#2e2620; --muted:#857262;
-  --line:#e3d5bd; --accent:#9a3412; --accent-fg:#ffffff;
-  --ok:#4d7c0f; --bad:#b91c1c; --warn:#b45309;
-  --code:#241c12; --code-fg:#f7f1e3;
-  --shadow:0 1px 2px rgba(46,38,32,.06),0 6px 20px rgba(46,38,32,.06);
-  --r:10px;
-}
-html[data-theme="birch"]{
-  --bg:#f2f2f0; --panel:#ffffff; --fg:#1c1c1c; --muted:#737373;
-  --line:#dededb; --accent:#374151; --accent-fg:#ffffff;
-  --ok:#15803d; --bad:#b91c1c; --warn:#b45309;
-  --code:#1c1c1c; --code-fg:#f2f2f0;
-  --shadow:0 1px 2px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.06);
-  --r:8px;
-}
-html[data-theme="clay"]{
-  --bg:#f7ece6; --panel:#fffaf7; --fg:#402419; --muted:#9a6f5c;
-  --line:#e8cfc2; --accent:#c2410c; --accent-fg:#ffffff;
-  --ok:#4d7c0f; --bad:#b91c1c; --warn:#b45309;
-  --code:#331c12; --code-fg:#f9efe9;
-  --shadow:0 1px 2px rgba(64,36,25,.06),0 6px 20px rgba(64,36,25,.06);
-  --r:10px;
-}
-html[data-theme="orchid"]{
-  --bg:#f3eff9; --panel:#ffffff; --fg:#2a2140; --muted:#75679c;
-  --line:#ddd3ee; --accent:#7c3aed; --accent-fg:#ffffff;
-  --ok:#15803d; --bad:#b91c1c; --warn:#b45309;
-  --code:#221a38; --code-fg:#f4f0fb;
-  --shadow:0 1px 2px rgba(42,33,64,.06),0 6px 20px rgba(42,33,64,.06);
-  --r:10px;
-}
-html[data-theme="moss"]{
-  --bg:#12140c; --panel:#1a1d11; --fg:#e8ead9; --muted:#9aa07a;
-  --line:#2a2e1c; --accent:#a3e635; --accent-fg:#12140c;
-  --ok:#a3e635; --bad:#f87171; --warn:#fbbf24;
-  --code:#0b0c07; --code-fg:#e8ead9;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
-  --r:8px;
-}
-/* ---------- foundation ---------- */
-*,*::before,*::after{box-sizing:border-box; min-width:0}
-html{-webkit-text-size-adjust:100%}
-html,body{margin:0; padding:0; height:100%}
-body{background:var(--bg); color:var(--fg);
-  font:400 14px/1.55 Inter,system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
-  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility}
-button{font:inherit; color:inherit; cursor:pointer; background:none; border:0; padding:0}
-a{color:var(--accent)}
-:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
-::selection{background:var(--accent); color:var(--accent-fg)}
-/* thin scrollbars that follow the theme */
-*{scrollbar-width:thin; scrollbar-color:var(--muted) transparent}
-*::-webkit-scrollbar{width:8px; height:8px}
-*::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px}
-*::-webkit-scrollbar-thumb:hover{background:var(--muted)}
-*::-webkit-scrollbar-track{background:transparent}
-.mono, code, kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-/* the two-frame shell */
-.app{display:flex; min-height:100dvh}
-/* ---------- sidebar rail ---------- */
-.side{width:232px; flex:none; display:flex; flex-direction:column;
-  position:sticky; top:0; height:100dvh; background:var(--panel);
-  border-right:1px solid var(--line); overflow:hidden}
-.brand{flex:none; display:flex; align-items:center; gap:10px;
-  padding:14px 16px; border-bottom:1px solid var(--line)}
-.mark{width:28px; height:28px; flex:none; border-radius:7px; background:var(--accent);
-  color:var(--accent-fg); display:flex; align-items:center; justify-content:center;
-  font:700 12px/1 ui-monospace,Menlo,monospace; letter-spacing:-.02em}
-.bname{min-width:0; display:flex; flex-direction:column; line-height:1.2}
-.bname b{font:700 14px/1.2 Inter,system-ui,sans-serif; letter-spacing:-.015em}
-.bname small{color:var(--muted); font:500 10.5px/1.3 ui-monospace,Menlo,monospace}
-#side-toggle{margin-left:auto; flex:none; width:24px; height:24px; border:1px solid var(--line);
-  border-radius:6px; color:var(--muted); font-size:12px; line-height:1}
-#side-toggle:hover{color:var(--fg); border-color:var(--muted)}
-.nav{flex:1 1 auto; overflow-y:auto; overscroll-behavior:contain;
-  padding:10px 10px 14px; display:flex; flex-direction:column; gap:1px}
-.nav-group{flex:none; margin:14px 4px 5px; font:500 10px/1 ui-monospace,Menlo,monospace;
-  letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
-.nav-group:first-child{margin-top:4px}
-.nav button{flex:none; position:relative; display:flex; align-items:center; gap:10px;
-  width:100%; padding:8px 10px 8px 13px; border-radius:8px; text-align:left;
-  color:var(--muted); font-size:13.5px; line-height:1.25}
-.nav button::before{content:""; position:absolute; left:3px; top:22%; bottom:22%;
-  width:3px; border-radius:2px; background:transparent; transition:background .15s}
-.nav button .ico{flex:none; width:18px; text-align:center; font-size:13px; opacity:.9}
-.nav button .lbl{flex:1 1 auto; overflow-wrap:anywhere; word-break:break-word; line-height:1.3}
-.nav button .cnt{flex:none; margin-left:auto; min-width:20px; text-align:center;
-  font:600 10.5px/1.6 ui-monospace,Menlo,monospace; color:var(--muted);
-  border:1px solid var(--line); border-radius:99px; padding:0 6px}
-.nav button:hover{color:var(--fg); background:var(--bg)}
-.nav button:hover .cnt{border-color:var(--muted)}
-.nav button[aria-current="page"]{background:var(--bg); color:var(--fg); font-weight:600}
-.nav button[aria-current="page"]::before{background:var(--accent)}
-.nav button[aria-current="page"] .cnt{border-color:var(--muted); color:var(--fg)}
-/* sidebar footer: cwd (wraps freely, never clipped) + version pill */
-.side-foot{flex:none; display:flex; flex-direction:column; gap:8px;
-  padding:12px; border-top:1px solid var(--line)}
-#side-cwd{display:block; color:var(--muted); font:400 10.5px/1.45 ui-monospace,Menlo,monospace;
-  overflow-wrap:anywhere; word-break:break-word}
-.ver-pill{width:100%; min-height:40px; display:flex; align-items:center; justify-content:center;
-  gap:6px; padding:6px 10px; text-align:center; line-height:1.35; overflow-wrap:anywhere;
-  word-break:break-word; border:1px solid var(--line); border-radius:8px;
-  background:var(--bg); color:var(--muted); font:600 11px/1.35 ui-monospace,Menlo,monospace}
-.ver-pill.avail{background:var(--accent); border-color:var(--accent); color:var(--accent-fg)}
-.ver-pill:active{transform:translateY(1px)}
-/* ---------- console bar ---------- */
-.main{flex:1 1 auto; display:flex; flex-direction:column; min-width:0}
-.top{flex:none; position:sticky; top:0; z-index:9; background:var(--bg);
-  border-bottom:1px solid var(--line)}
-.top-inner{display:flex; flex-wrap:wrap; align-items:center; column-gap:10px; row-gap:6px;
-  max-width:1480px; margin-inline:auto; width:100%;
-  padding:12px clamp(14px,2.6vw,36px)}
-.top h1{font:700 17px/1.25 Charter,"Iowan Old Style","Palatino Linotype",Georgia,serif;
-  letter-spacing:-.01em; margin:0}
-.cwd{flex:1 1 180px; min-width:0; color:var(--muted);
-  font:400 11px/1.4 ui-monospace,Menlo,monospace;
-  overflow-wrap:anywhere; word-break:break-word}
-.spacer{flex:1 1 0}
-.pill{display:inline-flex; align-items:center; gap:7px; padding:4px 11px;
-  border:1px solid var(--line); border-radius:999px; background:var(--panel);
-  color:var(--muted); font-size:12px; white-space:nowrap}
-.dot{width:7px; height:7px; border-radius:50%; background:var(--ok);
-  box-shadow:0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent)}
-@supports not (background:color-mix(in srgb, red 50%, blue)){
-  .dot{box-shadow:none}
-}
-.kbd{font:500 10.5px/1.5 ui-monospace,Menlo,monospace; color:var(--muted);
-  border:1px solid var(--line); border-bottom-width:2px; border-radius:5px;
-  padding:0 5px; background:var(--panel)}
-.pal-btn{display:inline-flex; align-items:center; gap:8px; min-height:34px;
-  padding:5px 12px; border:1px solid var(--line); border-radius:8px;
-  background:var(--panel); color:var(--muted); font-size:12.5px; white-space:nowrap}
-.pal-btn:hover{color:var(--fg); border-color:var(--muted)}
-/* ---------- content ---------- */
-.content{width:100%; max-width:1240px; margin-inline:auto;
-  padding:clamp(20px,3vw,40px) clamp(14px,2.6vw,36px) 110px; flex:1}
-.page{display:none}
-.page.on{display:block; animation:rise .22s cubic-bezier(.2,.7,.3,1)}
-@keyframes rise{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
-@media (prefers-reduced-motion:reduce){.page.on{animation:none}}
-.eyebrow{margin:0 0 6px; font:500 10px/1.4 ui-monospace,Menlo,monospace;
-  letter-spacing:.16em; text-transform:uppercase; color:var(--muted)}
-.eyebrow::before{content:""; display:inline-block; width:18px; height:1px;
-  background:var(--muted); vertical-align:middle; margin-right:8px}
-.lead{font:700 clamp(24px,3.6vw,34px)/1.15 Charter,"Iowan Old Style","Palatino Linotype",Georgia,serif;
-  letter-spacing:-.025em; margin:0 0 8px; text-wrap:balance}
-.sub{color:var(--muted); margin:0 0 26px; line-height:1.6; max-width:62ch;
-  font-size:14px; text-wrap:pretty}
-.set-group{margin:30px 0 10px; font:500 10px/1.4 ui-monospace,Menlo,monospace;
-  letter-spacing:.16em; text-transform:uppercase; color:var(--muted)}
-.set-group::after{content:""; display:block; margin-top:6px; height:1px; background:var(--line)}
-/* stat tiles */
-.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,148px),1fr));
-  gap:10px; margin-bottom:22px}
-.stat{background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
-  padding:13px 15px; box-shadow:var(--shadow); min-width:0}
-.stat .v{font:700 clamp(17px,2vw,22px)/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
-  letter-spacing:-.02em; overflow-wrap:anywhere; word-break:break-word}
-.stat .v.good{color:var(--ok)} .stat .v.bad{color:var(--bad)} .stat .v.warn{color:var(--warn)}
-.stat .k{margin-top:3px; font:500 10px/1.4 ui-monospace,Menlo,monospace;
-  letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
-  overflow-wrap:anywhere}
-/* panels + cards */
-.panels{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,292px),1fr));
-  gap:12px; align-items:start; min-width:0}
-.after-panels{margin-top:12px}
-.card{background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
-  padding:15px 16px; box-shadow:var(--shadow); min-width:0;
-  transition:border-color .16s ease, transform .16s ease}
-.card:hover{border-color:var(--muted)}
-.card h3{margin:0 0 4px; font-size:14.5px; font-weight:650; letter-spacing:-.01em}
-.card p{margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.55}
-.card p:last-child, .card p:last-of-type{margin-bottom:0}
-.row{display:flex; flex-wrap:wrap; gap:8px; align-items:center; min-width:0}
-/* form primitives */
-select,input[type=text],textarea{display:block; width:100%; max-width:100%; font:inherit;
-  color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:8px;
-  padding:8px 11px; min-height:38px}
-select{display:inline-block; width:auto; flex:1 1 auto; min-width:0}
-input.grow{flex:2 1 200px; width:auto; min-width:0}
-textarea{min-height:92px; resize:vertical; line-height:1.5}
-label.flag{display:inline-flex; align-items:center; gap:7px; font-size:13px;
-  color:var(--muted); min-height:34px}
-input[type=checkbox]{width:17px; height:17px; accent-color:var(--accent); flex:none}
-/* buttons: rectangles that wrap their label, never clip it */
-.btn{display:inline-flex; align-items:center; justify-content:center; min-width:0;
-  min-height:38px; padding:7px 16px; border-radius:8px; text-align:center;
-  background:var(--accent); color:var(--accent-fg); border:1px solid var(--accent);
-  font-size:13.5px; font-weight:600; line-height:1.2; overflow-wrap:break-word;
-  transition:transform .07s ease, filter .14s ease}
-.btn:hover{filter:brightness(1.06)}
-.btn:active{transform:translateY(1px)}
-.btn:disabled{opacity:.55; cursor:wait}
-.btn.ghost{background:var(--panel); color:var(--fg); border-color:var(--line)}
-.btn.ghost:hover{border-color:var(--muted); filter:none}
-.btn.small{min-height:32px; padding:5px 12px; font-size:12.5px}
-.btn.danger{background:var(--panel); color:var(--bad); border-color:var(--bad)}
-.btn.danger:hover{filter:none}
-.note{font-size:13px; color:var(--muted); line-height:1.55; overflow-wrap:anywhere}
-code.inline{font-size:12px; background:var(--bg); border:1px solid var(--line);
-  padding:1px 6px; border-radius:5px}
-/* command runs: ledger rows */
-.run{border:1px solid var(--line); border-radius:var(--r); margin:10px 0;
-  background:var(--panel); overflow:hidden; min-width:0}
-.run header{display:flex; flex-wrap:wrap; gap:6px 12px; align-items:baseline;
-  padding:9px 13px; border-bottom:1px solid var(--line); font-size:12.5px;
-  min-height:0}
-.run header code{flex:1 1 auto; min-width:0; overflow-wrap:anywhere;
-  word-break:break-word; font-size:12px; background:none; padding:0; border:0}
-.run .ok{color:var(--ok); font-weight:700}
-.run .bad{color:var(--bad); font-weight:700}
-.run .ms{color:var(--muted); font:500 11px/1.6 ui-monospace,Menlo,monospace}
-.run .mini{margin-left:auto; flex:none; display:flex; gap:8px}
-.run pre{margin:0; padding:13px 14px; background:var(--code); color:var(--code-fg);
-  font:400 12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  white-space:pre-wrap; overflow-x:auto; overflow-y:auto;
-  max-height:440px; overflow-wrap:anywhere}
-.linkbtn{color:var(--muted); font-size:12px; text-decoration:underline; text-underline-offset:3px}
-.linkbtn:hover{color:var(--fg)}
-.spin{width:13px; height:13px; flex:none; display:inline-block; vertical-align:-2px;
-  border:2px solid var(--line); border-top-color:var(--fg); border-radius:50%;
-  animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.spin{animation-duration:2.4s}}
-/* activity ledger */
-.actwrap{border:1px solid var(--line); border-radius:var(--r); background:var(--panel);
-  box-shadow:var(--shadow); overflow:auto; max-height:65vh}
-table.act{width:100%; border-collapse:collapse; font-size:12.5px; min-width:480px}
-table.act th,table.act td{padding:9px 12px; border-bottom:1px solid var(--line);
-  text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word}
-table.act tr:last-child td{border-bottom:0}
-table.act th{position:sticky; top:0; background:var(--panel); z-index:1;
-  color:var(--muted); font:500 10px/1.4 ui-monospace,Menlo,monospace;
-  letter-spacing:.12em; text-transform:uppercase}
-table.act td{font:400 12px/1.5 ui-monospace,Menlo,monospace}
-.mono{font-size:11.5px}
-/* themes grid */
-.themes{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,196px),1fr));
-  gap:10px; min-width:0}
-.theme{border:1.5px solid var(--line); border-radius:var(--r); overflow:hidden;
-  background:var(--panel); text-align:left; padding:0; min-width:0;
-  transition:border-color .15s, transform .15s}
-.theme:hover{transform:translateY(-1px); border-color:var(--muted)}
-.theme[aria-pressed="true"]{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent)}
-.theme .sw{height:64px; display:flex; align-items:flex-end; gap:6px; padding:9px}
-.theme .sw i{display:block; width:22px; height:22px; border-radius:6px;
-  border:1px solid rgba(128,128,128,.35)}
-.theme .nm{display:block; padding:9px 12px 0; font-size:13.5px; font-weight:650;
-  line-height:1.3; overflow-wrap:anywhere}
-.theme .ds{display:block; padding:2px 12px 11px; font-size:11.5px; color:var(--muted);
-  line-height:1.45; overflow-wrap:anywhere}
-/* settings rows */
-.setrow{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;
-  padding:11px 0; border-top:1px solid var(--line); font-size:13.5px}
-.setrow:first-of-type{border-top:0}
-.setrow .grow{flex:1 1 200px; min-width:0}
-.setrow small{display:block; color:var(--muted); font-size:12px; margin-top:2px;
-  line-height:1.45}
-.switch{margin-left:auto; flex:none}
-/* ---------- terminal ---------- */
-.term{border:1px solid var(--line); border-radius:var(--r); overflow:hidden;
-  background:var(--code); color:var(--code-fg); box-shadow:var(--shadow); min-width:0}
-.term-bar{display:flex; flex-wrap:wrap; align-items:center; gap:7px; padding:8px 11px;
-  border-bottom:1px solid var(--line); background:var(--panel); color:var(--muted);
-  font-size:12px}
-.tdot{width:9px; height:9px; flex:none; border-radius:50%; background:var(--line)}
-.tname{min-width:0; flex:1 1 auto; overflow-wrap:anywhere; word-break:break-word;
-  line-height:1.35; font:500 11.5px/1.35 ui-monospace,Menlo,monospace}
-.tbtn{flex:none; border:1px solid var(--line); border-radius:6px; color:var(--muted);
-  font-size:11.5px; padding:3px 10px; min-height:24px; line-height:1.3;
-  overflow-wrap:break-word}
-.tbtn:hover{color:var(--fg); border-color:var(--muted)}
-.tbtn[aria-pressed="true"]{color:var(--accent-fg); background:var(--accent);
-  border-color:var(--accent); font-weight:600}
-.term-out{height:min(56vh,470px); min-height:230px; padding:13px 14px;
-  font:400 12.5px/1.62 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  white-space:pre; overflow:auto; overflow-x:auto; outline:none; cursor:text;
-  tab-size:8}
-.term-out:focus{box-shadow:inset 0 0 0 1.5px var(--accent)}
-.term-out .ln{min-height:1.62em}
-.term-out .cur{background:var(--code-fg); color:var(--code)}
-.term-out .b{font-weight:700}
-.term-out .d{opacity:.6}
-.term-out .g32{color:#4ade80}
-.term-out .g35{color:#e879f9}
-.term-out .g36{color:#67e8f9}
-.term-kbd{display:none; align-items:center; gap:8px; padding:9px 12px;
-  border-top:1px solid var(--line)}
-@media (pointer:coarse){.term-kbd{display:flex}}
-.term-kbd input{flex:1; min-width:0; background:none; border:0; outline:none;
-  color:var(--code-fg); font:400 13px/1.5 ui-monospace,Menlo,monospace;
-  min-height:0; padding:4px 0}
-.term-kbd input::placeholder{color:var(--muted)}
-.tprompt{flex:none; color:var(--accent); font-weight:700}
-/* ---------- palette ---------- */
-.pal{position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.42);
-  display:none; padding:11vh 16px 16px; overflow:auto}
-.pal.on{display:block}
-.pal-box{max-width:560px; margin-inline:auto; background:var(--panel);
-  border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:var(--shadow)}
-.pal-box input{width:100%; border:0; background:none; outline:none; color:var(--fg);
-  font:400 15px/1.5 Inter,system-ui,sans-serif; padding:15px 17px}
-#pal-in::placeholder{color:var(--muted)}
-.pal-list{max-height:min(46vh,340px); overflow:auto; border-top:1px solid var(--line)}
-.pal-group{padding:10px 17px 3px; font:500 10px/1.4 ui-monospace,Menlo,monospace;
-  letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
-.pal-list button{display:flex; flex-wrap:wrap; gap:2px 12px; width:100%;
-  padding:9px 17px; text-align:left; font-size:13.5px; line-height:1.35}
-.pal-list button .lbl{flex:1 1 auto; overflow-wrap:anywhere; word-break:break-word}
-.pal-list button small{flex:none; margin-left:auto; color:var(--muted);
-  font:400 11px/1.6 ui-monospace,Menlo,monospace; overflow-wrap:anywhere}
-.pal-list button.sel, .pal-list button:hover{background:var(--bg)}
-/* ---------- modal ---------- */
-.modal{position:fixed; inset:0; z-index:90; background:rgba(0,0,0,.42);
-  display:none; overflow:auto; padding:16px}
-.modal.on{display:block}
-.modal-box{max-width:540px; margin:8vh auto 16px; background:var(--panel);
-  border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow);
-  overflow:hidden}
-.modal-box header{display:flex; align-items:center; gap:10px; padding:13px 17px;
-  border-bottom:1px solid var(--line)}
-.modal-box h2{margin:0; font:700 16px/1.3 Charter,"Iowan Old Style",Georgia,serif;
-  letter-spacing:-.01em}
-.modal-box .x{margin-left:auto; flex:none; width:28px; height:28px; border-radius:7px;
-  color:var(--muted); font-size:16px; line-height:1}
-.modal-box .x:hover{color:var(--fg); background:var(--bg)}
-.kv{padding:6px 17px 14px}
-.kv .r{display:flex; flex-wrap:wrap; gap:2px 14px; padding:7px 0;
-  border-bottom:1px solid var(--line); font-size:12.5px}
-.kv .r:last-child{border-bottom:0}
-.kv .k{flex:0 0 118px; color:var(--muted); font:inherit; line-height:1.5}
-.kv .v{flex:1 1 140px; min-width:0; overflow-wrap:anywhere; word-break:break-word;
-  font:400 11.5px/1.55 ui-monospace,Menlo,monospace}
-.modal-box footer{display:flex; flex-wrap:wrap; gap:8px; padding:13px 17px;
-  border-top:1px solid var(--line)}
-/* ---------- attribute fallbacks / utilities ---------- */
-body.compact .card{padding:10px 12px}
-body.compact .stats{gap:8px}
-body.compact .content{padding-left:14px; padding-right:14px}
-body.rmotion *, body.rmotion *::before, body.rmotion *::after{
-  animation:none !important; transition:none !important}
-.sronly{position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
-/* ---------- wide displays ---------- */
-@media (min-width:1520px){ .content{max-width:1400px} }
-@media (min-width:2000px){
-  .content{max-width:1560px; padding-top:clamp(20px,2vw,40px)}
-  .panels{gap:14px}
-}
-/* very tall + narrow slivers: everything single-column */
-@media (max-width:560px){
-  .panels, .themes{grid-template-columns:1fr}
-  .stats{grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr))}
-  /* block flow here: text wraps unconditionally, no flex shrinking Games */
-  .top-inner{display:block}
-  .top h1{margin:0 0 3px}
-  .cwd{display:block; max-width:100%; margin-bottom:8px}
-  .pill, .pal-btn{display:inline-flex; margin:0 8px 6px 0}
-}
-/* phone: sidebar becomes a bottom drawer rail */
-@media (max-width:760px){
-  .app{flex-direction:column}
-  .side{order:2; position:fixed; left:0; right:0; bottom:0; top:auto; width:auto;
-    height:auto; z-index:12; border-right:0; border-top:1px solid var(--line);
-    padding-bottom:env(safe-area-inset-bottom)}
-  .brand{padding:9px 12px; border-bottom:1px solid var(--line)}
-  .bname small{white-space:nowrap; overflow-wrap:normal}
-  .side-foot{display:none}
-  .nav{flex-direction:row; overflow-x:auto; overflow-y:hidden; gap:2px;
-    padding:6px 8px; scrollbar-width:none}
-  .nav::-webkit-scrollbar{display:none}
-  .nav-group{display:none}
-  .nav button{flex:0 0 auto; width:auto; min-width:58px; flex-direction:column;
-    align-items:center; gap:4px; padding:6px 10px 7px; border-radius:9px;
-    text-align:center}
-  .nav button::before{display:none}
-  .nav button .lbl{flex:none; font-size:10px; line-height:1.15;
-    letter-spacing:-.01em; text-align:center; max-width:9ch; margin-inline:auto}
-  .nav button .cnt{display:none}
-  .main{order:1}
-  .content{padding-bottom:150px}
-}
-/* classic phones in landscape: keep the rail, shrink the console */
-@media (max-width:914px) and (max-height:480px) and (orientation:landscape){
-  .side .nav{padding:4px 6px}
-  .nav button{min-width:48px}
-  .term-out{height:38vh; min-height:150px}
-  .content{padding-bottom:96px}
-}
-/* ultra-wide: three-ish columns, cap the measure */
-@media (min-width:1400px){
-  .panels{grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))}
-}
-/* print: kill the chrome */
-@media print{
-  .side,.top,.pal,.modal{display:none !important}
-  .content{padding:0}
-  body{background:#fff}
-}
-/* collapsed rail (desktop): icons only, labels kept for screen readers */
-@media (min-width:761px){
-  body.narrow .side{width:64px}
-  body.narrow .brand{position:relative; padding:14px 8px; justify-content:center}
-  body.narrow .bname{display:none}
-  body.narrow .brand #side-toggle{position:absolute; top:14px; right:8px; transform:rotate(180deg)}
-  body.narrow .nav{padding:8px 6px}
-  body.narrow .nav button{justify-content:center; padding:9px 0}
-  body.narrow .nav button .lbl{position:absolute; width:1px; height:1px; overflow:hidden;
-    clip-path:inset(50%); white-space:nowrap}
-  body.narrow .nav button .cnt{display:none}
-  body.narrow .nav button::before{left:auto; right:2px; top:24%; bottom:24%}
-  body.narrow .nav-group{margin:12px 0 2px; text-align:center; font-size:0}
-  body.narrow .nav-group::after{content:"···"; font-size:9px; letter-spacing:.08em}
-  body.narrow .side-foot{padding:8px}
-  body.narrow #side-cwd{display:none}
-  body.narrow .ver-pill{font-size:9.5px; min-height:34px; padding:4px 3px; line-height:1.3}
-}
-</style>
-</head>
-<body>
-<div class="app">
-  <aside class="side" aria-label="primary">
-    <div class="brand">
-      <span class="mark" aria-hidden="true">ah</span>
-      <span class="bname"><b>agent-harness</b><small id="brand-ver">local gui</small></span>
-      <button id="side-toggle" title="collapse sidebar" aria-label="collapse sidebar">‹</button>
-    </div>
-    <nav class="nav" id="nav" aria-label="pages">
-      <div class="nav-group">Workspace</div>
-      <button data-page="overview" aria-current="page"><span class="ico" aria-hidden="true">◉</span><span class="lbl">Overview</span></button>
-      <button data-page="agents"><span class="ico" aria-hidden="true">⚙</span><span class="lbl">Agents</span><span class="cnt" id="nav-agents"></span></button>
-      <button data-page="commands"><span class="ico" aria-hidden="true">▸</span><span class="lbl">Commands</span></button>
-      <div class="nav-group">Library</div>
-      <button data-page="memory"><span class="ico" aria-hidden="true">✎</span><span class="lbl">Memory</span></button>
-      <button data-page="skills"><span class="ico" aria-hidden="true">✣</span><span class="lbl">Skills</span></button>
-      <button data-page="project"><span class="ico" aria-hidden="true">▤</span><span class="lbl">Project</span></button>
-      <div class="nav-group">System</div>
-      <button data-page="activity"><span class="ico" aria-hidden="true">≣</span><span class="lbl">Activity</span><span class="cnt" id="nav-act"></span></button>
-      <button data-page="settings"><span class="ico" aria-hidden="true">✦</span><span class="lbl">Settings</span></button>
-      <button id="nav-update"><span class="ico" aria-hidden="true">↻</span><span class="lbl">Update</span><span class="cnt" id="nav-upd"></span></button>
-      <button data-page="about"><span class="ico" aria-hidden="true">ⓘ</span><span class="lbl">About</span></button>
-    </nav>
-    <div class="side-foot">
-      <button class="ver-pill" id="upd-pill" title="update status">…</button>
-      <span id="side-cwd"></span>
-    </div>
-  </aside>
-  <div class="main">
-    <header class="top"><div class="top-inner">
-      <h1 id="page-title">Overview</h1>
-      <span class="cwd" id="cwd"></span>
-      <span class="spacer"></span>
-      <span class="pill"><span class="dot"></span><span id="srv-state">server live</span></span>
-      <button class="pal-btn" id="pal-open" title="command palette">⌘K <span class="kbd">Ctrl K</span></button>
-    </div></header>
-    <main class="content">
-      <section class="page on" data-page="overview" aria-label="Overview">
-        <p class="eyebrow">Front page</p>
-        <h2 class="lead">Project health at a glance.</h2>
-        <p class="sub">Live snapshot of this checkout, read from the harness server. No CLI commands needed.</p>
-        <div class="stats" id="stats"></div>
-        <div class="panels">
-          <div class="card"><h3>Quick actions</h3><p>One click runs the matching harness command.</p>
-            <div class="row">
-              <button class="btn small ghost" data-quick="status">status</button>
-              <button class="btn small ghost" data-quick="doctor">check setup</button>
-              <button class="btn small ghost" data-quick="upgrade --check">check updates</button>
-              <button class="btn small ghost" data-goto="agents">ask an agent</button>
-            </div></div>
-          <div class="card"><h3>Recent activity</h3><p>Latest runs from this browser session.</p><div id="recent"></div></div>
-        </div>
-      </section>
-      <section class="page" data-page="agents" aria-label="Agents">
-        <p class="eyebrow">Agents</p>
-        <h2 class="lead">Run a prompt.</h2>
-        <p class="sub" id="agents-note">Non-interactive runs through an installed coding agent, in the project above. Unavailable agents show why. agent-harness is not affiliated with any agent vendor.</p>
-        <div class="panels" id="agents-box"></div>
-      </section>
-      <section class="page" data-page="commands" aria-label="Commands">
-        <p class="eyebrow">Commands</p>
-        <h2 class="lead">A terminal, already running harness.</h2>
-        <p class="sub">Menu runs the interactive harness; shell is a plain bash in this project. Click inside and type.</p>
-        <div class="term" id="term">
-          <div class="term-bar"><span class="tdot"></span><span class="tdot"></span><span class="tdot"></span>
-            <span class="tname" id="term-name">harness — menu</span>
-            <button class="tbtn" id="term-menu" aria-pressed="true">menu</button>
-            <button class="tbtn" id="term-shell" aria-pressed="false">shell</button>
-            <button class="tbtn" id="term-restart">restart</button></div>
-          <div class="term-out" id="term-out" tabindex="0" aria-label="harness terminal. Click and type."></div>
-          <div class="term-kbd"><span class="tprompt">❯</span>
-            <input type="text" id="term-kbd-in" placeholder="tap here for keyboard…" aria-label="terminal keyboard" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
-        </div>
-      </section>
-      <section class="page" data-page="memory" aria-label="Memory">
-        <p class="eyebrow">Memory</p>
-        <h2 class="lead">What the harness remembers.</h2>
-        <p class="sub">Read MEMORY.md, or append a note to it. Notes sync into the file immediately.</p>
-        <div class="panels">
-          <div class="card"><h3>Add a note</h3><p>Appends one line to MEMORY.md in this project.</p>
-            <div class="row"><input class="grow" type="text" id="mem-note" placeholder="something worth remembering…" aria-label="memory note">
-            <button class="btn small" id="mem-add">sync note</button></div></div>
-        </div>
-        <div class="panels after-panels" id="mem-cards"></div>
-      </section>
-      <section class="page" data-page="skills" aria-label="Skills">
-        <p class="eyebrow">Skills</p>
-        <h2 class="lead">Extend the harness.</h2>
-        <p class="sub">Search installed skills, check their health, or browse the full list.</p>
-        <div class="panels">
-          <div class="card"><h3>Search skills</h3><p>Matches names and descriptions.</p>
-            <div class="row"><input class="grow" type="text" id="skill-q" placeholder="e.g. performance" aria-label="skill search">
-            <button class="btn small" id="skill-go">search</button>
-            <button class="btn small ghost" id="skill-lint">lint all</button></div></div>
-        </div>
-        <div class="panels after-panels" id="skill-cards"></div>
-      </section>
-      <section class="page" data-page="project" aria-label="Project">
-        <p class="eyebrow">Project</p>
-        <h2 class="lead">Read the project files.</h2>
-        <p class="sub">Read-only viewers over the live project: snapshot, memory, skills.</p>
-        <div class="panels" id="proj-cards"></div>
-      </section>
-      <section class="page" data-page="activity" aria-label="Activity">
-        <p class="eyebrow">Activity</p>
-        <h2 class="lead">What ran here.</h2>
-        <p class="sub">Every command and agent run from this browser session, newest first.</p>
-        <div class="row" style="margin-bottom:12px"><button class="btn small ghost" id="act-clear">clear log</button></div>
-        <div class="actwrap" id="act-box"><p class="note">Nothing run yet.</p></div>
-      </section>
-      <section class="page" data-page="about" aria-label="About">
-        <p class="eyebrow">About</p>
-        <h2 class="lead">This machine, this build.</h2>
-        <p class="sub">System facts, release identity, credits and licenses. Read from the live server.</p>
-        <div class="row" style="margin-bottom:12px"><button class="btn small ghost" id="about-refresh">refresh</button></div>
-        <div class="panels" id="about-panels"><p class="note">Loading…</p></div>
-      </section>
-      <section class="page" data-page="settings" aria-label="Settings">
-        <p class="eyebrow">Settings</p>
-        <h2 class="lead">Make it yours.</h2>
-        <p class="sub">Theme applies instantly and is remembered in this browser.</p>
-        <h3 class="set-group">Look and feel</h3>
-        <div class="card" style="margin-bottom:12px"><h3>Theme</h3><p>Nineteen looks. Regular is the default. Applies instantly, remembered in this browser.</p>
-          <div class="themes" id="themes"></div></div>
-        <div class="panels">
-          <div class="card"><h3>Appearance</h3><p>Density and motion for this browser.</p>
-            <div class="setrow"><span class="grow">Compact cards<small>Tighter padding everywhere.</small></span>
-              <input class="switch" type="checkbox" id="set-compact" aria-label="compact cards"></div>
-            <div class="setrow"><span class="grow">Reduce motion<small>Disables animations and transitions.</small></span>
-              <input class="switch" type="checkbox" id="set-motion" aria-label="reduce motion"></div>
-          </div>
-        </div>
-        <h3 class="set-group">Behavior</h3>
-        <div class="panels">
-          <div class="card"><h3>Confirmations</h3><p>Ask before side effects happen.</p>
-            <div class="setrow"><span class="grow">Confirm before running commands<small>bench, optimize and map can take a while.</small></span>
-              <input class="switch" type="checkbox" id="set-confirm-cmd" aria-label="confirm before running commands"></div>
-            <div class="setrow"><span class="grow">Confirm before agent runs<small>Agent calls cost time and tokens.</small></span>
-              <input class="switch" type="checkbox" id="set-confirm-agent" aria-label="confirm before agent runs" checked></div>
-          </div>
-          <div class="card"><h3>Navigation</h3><p>Where the GUI starts.</p>
-            <div class="setrow"><span class="grow">Remember last page<small>Reopen on the page you left.</small></span>
-              <input class="switch" type="checkbox" id="set-remember" aria-label="remember last page"></div>
-          </div>
-        </div>
-        <h3 class="set-group">Data</h3>
-        <div class="panels">
-          <div class="card"><h3>Activity log</h3><p>How much run history this browser keeps.</p>
-            <div class="setrow"><span class="grow">Keep last runs</span>
-              <select id="set-keeplog" aria-label="runs to keep">
-                <option value="25">25</option><option value="50">50</option>
-                <option value="100" selected>100</option>
-              </select></div>
-            <div class="row" style="margin-top:10px">
-              <button class="btn small ghost" id="act-export">export json</button>
-              <button class="btn small ghost" id="act-clear2">clear log</button>
-            </div>
-          </div>
-        </div>
-        <h3 class="set-group">System</h3>
-        <div class="panels">
-          <div class="card"><h3>Server</h3><p id="srv-info">…</p>
-            <div class="row">
-              <button class="btn small ghost" id="set-copy-url">copy url</button>
-              <button class="btn small danger" id="quit">stop server</button>
-            </div>
-          </div>
-        </div>
-      </section>
-      <section aria-label="Output" style="margin-top:30px">
-        <div class="row" style="margin-bottom:6px; align-items:baseline">
-          <h2 class="lead" style="font-size:19px;margin:0">Output</h2>
-          <span class="spacer"></span>
-          <button class="btn small ghost" id="clear">clear output</button>
-        </div>
-        <div id="out"><p class="note">Nothing run yet. Pick a command above.</p></div>
-      </section>
-    </main>
-  </div>
-</div>
-<div class="pal" id="pal"><div class="pal-box">
-  <input id="pal-in" type="text" placeholder="Type a command or page…" aria-label="command palette">
-  <div class="pal-list" id="pal-list"></div>
-</div></div>
-<div class="modal" id="upd-modal"><div class="modal-box" role="dialog" aria-label="update info">
-  <header><h2><span aria-hidden="true">↻</span> Update</h2><button class="x" id="upd-close" aria-label="close">×</button></header>
-  <div class="kv" id="upd-rows"><p class="note">Loading…</p></div>
-  <footer>
-    <button class="btn small" id="upd-check">check for updates</button>
-    <button class="btn small ghost" id="upd-goto-out">view output</button>
-  </footer>
-</div></div>
-<script>
-"use strict";
-const AGENTS = [
-  {id:"opencode", t:"Opencode", d:"Runs opencode run with your prompt in this project."},
-  {id:"claude", t:"Claude Code", d:"Runs claude -p with your prompt in this project."},
-];
-const THEMES = [
-  {id:"regular", t:"Regular", d:"Clean light default.", sw:["#ffffff","#f4f4f2","#1f6feb"]},
-  {id:"dark", t:"Dark", d:"Low-light gray.", sw:["#1b1d21","#131417","#4c8dff"]},
-  {id:"midnight", t:"Midnight", d:"True black, OLED friendly.", sw:["#0a0a0a","#000000","#7c6cff"]},
-  {id:"contrast", t:"High contrast", d:"Maximum legibility.", sw:["#ffffff","#000000","#0000cc"]},
-  {id:"harvest", t:"Harvest", d:"Warm retro cream and burnt orange.", sw:["#fffdf0","#fbf1c7","#af3a03"]},
-  {id:"pine", t:"Pine", d:"Deep forest green dark.", sw:["#12291d","#0d1f16","#57c785"]},
-  {id:"tidal", t:"Tidal", d:"Deep ocean blue dark.", sw:["#0f1f38","#0a1628","#38bdf8"]},
-  {id:"dusk", t:"Dusk", d:"Muted violet dark.", sw:["#1e1629","#150f1e","#a78bfa"]},
-  {id:"ember", t:"Ember", d:"Smoky warm orange dark.", sw:["#241410","#1a0f0a","#fb923c"]},
-  {id:"espresso", t:"Espresso", d:"Roasted coffee brown dark.", sw:["#1e1812","#14100c","#d4a373"]},
-  {id:"storm", t:"Storm", d:"Blue-gray slate dark.", sw:["#181e27","#11151c","#7dd3fc"]},
-  {id:"glacier", t:"Glacier", d:"Icy blue light.", sw:["#ffffff","#eef4f8","#0284c7"]},
-  {id:"meadow", t:"Meadow", d:"Soft green light.", sw:["#ffffff","#f0f7f1","#16a34a"]},
-  {id:"blossom", t:"Blossom", d:"Soft pink light.", sw:["#ffffff","#faf0f3","#db2777"]},
-  {id:"dune", t:"Dune", d:"Warm sand light.", sw:["#fffdf7","#f5efe4","#9a3412"]},
-  {id:"birch", t:"Birch", d:"Neutral gray light.", sw:["#ffffff","#f2f2f0","#374151"]},
-  {id:"clay", t:"Clay", d:"Terracotta tint light.", sw:["#fffaf7","#f7ece6","#c2410c"]},
-  {id:"orchid", t:"Orchid", d:"Lavender tint light.", sw:["#ffffff","#f3eff9","#7c3aed"]},
-  {id:"moss", t:"Moss", d:"Olive green dark.", sw:["#1a1d11","#12140c","#a3e635"]},
-];
-const $ = (s) => document.querySelector(s);
-const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-/* theme */
-function setTheme(id) {
-  const ok = THEMES.some((t) => t.id === id);
-  const use = ok ? id : "regular";
-  document.documentElement.dataset.theme = use;
-  try { localStorage.setItem("ah-theme", use); } catch (e) { /* private mode */ }
-  document.querySelectorAll(".theme").forEach((b) =>
-    b.setAttribute("aria-pressed", b.dataset.theme === use ? "true" : "false"));
-}
-function renderThemes() {
-  const box = $("#themes");
-  THEMES.forEach((t) => {
-    const b = document.createElement("button");
-    b.className = "theme";
-    b.dataset.theme = t.id;
-    b.innerHTML = `<span class="sw" style="background:${t.sw[0]}">` +
-      t.sw.map((c) => `<i style="background:${c}"></i>`).join("") +
-      `</span><span class="nm">${esc(t.t)}</span><span class="ds">${esc(t.d)}</span>`;
-    b.addEventListener("click", () => setTheme(t.id));
-    box.appendChild(b);
-  });
-}
-/* nav */
-const TITLES = {overview:"Overview", agents:"Agents", commands:"Commands", memory:"Memory", skills:"Skills", project:"Project", activity:"Activity", settings:"Settings", about:"About"};
-function store(key, val) {
-  if (val === undefined) {
-    try { return localStorage.getItem(key); } catch (e) { return null; }
-  }
-  try {
-    if (val === null) localStorage.removeItem(key);
-    else localStorage.setItem(key, val);
-  } catch (e) { /* private mode */ }
-}
-const SET = {
-  get compact() { return store("ah-compact") === "1"; },
-  get motion() { return store("ah-motion") === "1"; },
-  get confirmCmd() { return store("ah-confirm-cmd") === "1"; },
-  get confirmAgent() { return store("ah-confirm-agent") !== "0"; },
-  get remember() { return store("ah-remember") === "1"; },
-  get keepLog() { const v = parseInt(store("ah-keeplog") || "100", 10); return v > 0 ? v : 100; },
-};
-function applyPrefs() {
-  document.body.classList.toggle("compact", SET.compact);
-  document.body.classList.toggle("rmotion", SET.motion);
-}
-function goto(page) {
-  document.querySelectorAll("#nav button").forEach((b) =>
-    b.setAttribute("aria-current", b.dataset.page === page ? "page" : "false"));
-  document.querySelectorAll(".page").forEach((s) => s.classList.toggle("on", s.dataset.page === page));
-  $("#page-title").textContent = TITLES[page] || page;
-  curPage = page;
-  try { location.hash = page; } catch (e) { /* ignore */ }
-  if (SET.remember) store("ah-page", page);
-  if (page === "commands") termStart();
-  if (page === "about") renderAbout();
-  window.scrollTo(0, 0);
-}
-/* api */
-async function api(path, body) {
-  const r = await fetch(path, {
-    method: body === undefined ? "GET" : "POST",
-    headers: body === undefined ? {} : {"Content-Type": "application/json"},
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error("http " + r.status);
-  return r.json();
-}
-/* activity */
-let log = [];
-function pushAct(cmd, ms, ok) {
-  log.unshift({t: new Date().toISOString(), cmd, ms, ok});
-  while (log.length > SET.keepLog) log.length = SET.keepLog;
-  renderAct();
-}
-function actRow(a) {
-  return `<tr><td>${esc(new Date(a.t).toLocaleTimeString())}</td><td>${esc(a.cmd)}</td>` +
-    `<td>${a.ms >= 1000 ? (a.ms / 1000).toFixed(1) + "s" : a.ms + "ms"}</td>` +
-    `<td style="color:var(--${a.ok ? "ok" : "bad"});font-weight:700">${a.ok ? "ok" : "FAIL"}</td></tr>`;
-}
-function renderAct() {
-  $("#nav-act").textContent = log.length ? String(log.length) : "";
-  $("#recent").innerHTML = log.length
-    ? `<div class="actwrap"><table class="act"><tbody>${log.slice(0, 5).map(actRow).join("")}</tbody></table></div>`
-    : `<p class="note">No runs yet this session.</p>`;
-  $("#act-box").innerHTML = log.length
-    ? `<table class="act"><thead><tr><th>time</th><th>command</th><th>took</th><th>result</th></tr></thead><tbody>${log.map(actRow).join("")}</tbody></table>`
-    : `<p class="note">Nothing run yet.</p>`;
-}
-/* command runs */
-let n = 0;
-function outBox() {
-  const box = $("#out");
-  const empty = box.querySelector(".note");
-  if (empty) empty.remove();
-  return box;
-}
-async function runCommand(cmd, args, btn, label) {
-  if (SET.confirmCmd && !confirm(`Run harness ${cmd}${args.length ? " " + args.join(" ") : ""}?`)) return;
-  const box = outBox();
-  const id = "run-" + (++n);
-  const shown = label || ("harness " + cmd + args.map((a) => " " + a).join(""));
-  const div = document.createElement("div");
-  div.className = "run";
-  div.id = id;
-  div.innerHTML = `<header><span class="spin"></span><code>${esc(shown)}</code></header><pre>running…</pre>`;
-  box.prepend(div);
-  if (btn) btn.disabled = true;
-  const t0 = performance.now();
-  try {
-    const r = await api("/api/run", {cmd, args});
-    const ms = Math.round(performance.now() - t0);
-    div.querySelector("header").innerHTML =
-      `<span class="${r.ok ? "ok" : "bad"}">${r.ok ? "ok" : "FAIL"}</span><code>${esc(shown)}</code>` +
-      `<span class="ms">${ms}ms</span><span class="mini"><button class="linkbtn" data-copy="${id}">copy</button></span>`;
-    div.querySelector("pre").textContent = r.output || "(no output)";
-    pushAct(shown, ms, r.ok);
-  } catch (e) {
-    div.querySelector("header").innerHTML = `<span class="bad">error</span><code>${esc(shown)}</code>`;
-    div.querySelector("pre").textContent = String((e && e.message) || e);
-    pushAct(shown, 0, false);
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-document.addEventListener("click", (e) => {
-  const b = e.target.closest("[data-copy]");
-  if (!b) return;
-  const pre = document.querySelector("#" + b.dataset.copy + " pre");
-  if (pre && navigator.clipboard) navigator.clipboard.writeText(pre.textContent);
-  b.textContent = "copied";
-  setTimeout(() => { b.textContent = "copy"; }, 1200);
-});
-function agentCard(a, available) {
-  const el = document.createElement("div");
-  el.className = "card";
-  el.innerHTML = `<h3>${esc(a.t)}</h3><p>${esc(a.d)}</p>` +
-    `<textarea placeholder="a prompt for ${esc(a.id)}…" aria-label="prompt"></textarea>` +
-    `<div class="row" style="margin-top:10px"><button class="btn small"${available ? "" : " disabled"}>run${available ? "" : " (not installed)"}</button></div>`;
-  const btn = el.querySelector("button");
-  const box = el.querySelector("textarea");
-  box.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && available) btn.click();
-  });
-  if (available) btn.addEventListener("click", async () => {
-    const v = box.value.trim();
-    if (!v) { box.focus(); return; }
-    if (SET.confirmAgent && !confirm(`Ask ${a.id} (${v.length} chars)? Agent runs cost time and tokens.`)) return;
-    const out = outBox();
-    const id = "run-" + (++n);
-    const div = document.createElement("div");
-    div.className = "run";
-    div.id = id;
-    div.innerHTML = `<header><span class="spin"></span><code>${esc(a.id)} ← prompt (${v.length} chars)</code></header><pre>running — agents can take minutes…</pre>`;
-    out.prepend(div);
-    btn.disabled = true;
-    const t0 = performance.now();
-    try {
-      const r = await api("/api/agent", {agent: a.id, prompt: v});
-      const ms = Math.round(performance.now() - t0);
-      div.querySelector("header").innerHTML =
-        `<span class="${r.ok ? "ok" : "bad"}">${r.ok ? "ok" : "FAIL"}</span><code>${esc(a.id)} ← prompt (${v.length} chars)</code>` +
-        `<span class="ms">${(ms / 1000).toFixed(1)}s</span><span class="mini"><button class="linkbtn" data-copy="${id}">copy</button></span>`;
-      div.querySelector("pre").textContent = r.output || "(no output)";
-      pushAct(a.id + " ← prompt", ms, r.ok);
-    } catch (e) {
-      div.querySelector("header").innerHTML = `<span class="bad">error</span><code>${esc(a.id)}</code>`;
-      div.querySelector("pre").textContent = String((e && e.message) || e);
-      pushAct(a.id + " ← prompt", 0, false);
-    } finally {
-      btn.disabled = false;
-    }
-  });
-  return el;
-}
-/* project viewers */
-const VIEWERS = [
-  {cmd:"status", t:"Snapshot", d:"Init state, memory, skills, hooks, last benchmark.", args:[]},
-  {cmd:"memory", t:"Memory", d:"Full MEMORY.md contents.", args:["show"]},
-  {cmd:"skill", t:"Skills", d:"Installed skills list.", args:["list"]},
-];
-function projCard(v) {
-  const el = document.createElement("div");
-  el.className = "card";
-  el.innerHTML = `<h3>${esc(v.t)}</h3><p>${esc(v.d)}</p>` +
-    `<div class="row"><button class="btn small ghost">load</button></div><div class="view"></div>`;
-  const btn = el.querySelector("button");
-  const view = el.querySelector(".view");
-  btn.addEventListener("click", async () => {
-    btn.disabled = true;
-    view.innerHTML = `<p class="note"><span class="spin"></span> loading…</p>`;
-    const t0 = performance.now();
-    try {
-      const r = await api("/api/run", {cmd: v.cmd, args: v.args});
-      const ms = Math.round(performance.now() - t0);
-      view.innerHTML = `<div class="run"><header><span class="${r.ok ? "ok" : "bad"}">${r.ok ? "ok" : "FAIL"}</span>` +
-        `<code>harness ${esc(v.cmd)}${v.args.map((a) => " " + esc(a)).join("")}</code><span class="ms">${ms}ms</span></header>` +
-        `<pre></pre></div>`;
-      view.querySelector("pre").textContent = r.output || "(no output)";
-      pushAct("view " + v.cmd, ms, r.ok);
-    } catch (e) {
-      view.innerHTML = `<p class="note">error: ${esc(String((e && e.message) || e))}</p>`;
-    } finally {
-      btn.disabled = false;
-    }
-  });
-  return el;
-}
-/* overview stats */
-function renderStats(p) {
-  const init = p ? p.initialized : "?";
-  const mem = p && typeof p.memTokens === "number" ? "~" + p.memTokens + " tok" : "missing";
-  const skills = p ? p.skills : "?";
-  const bench = p && p.lastBench ? p.lastBench + " ago" : "never";
-  const opt = p ? `${p.optimizationsOn}/${p.optimizationsTotal}` : "?";
-  const lm = !p ? "?" : p.localModels === null ? "no ollama" : `${p.localModels.runners} · ${p.localModels.mem}`;
-  $("#stats").innerHTML = [
-    ["Initialized", init, init === "yes" ? "good" : "warn"],
-    ["Memory", mem, ""],
-    ["Skills", skills, ""],
-    ["Last bench", bench, p && p.lastBench ? "" : "warn"],
-    ["Optimizations", opt, ""],
-    ["Local models", lm, ""],
-  ].map(([k, v, c]) => `<div class="stat"><div class="v${c ? " " + c : ""}">${esc(String(v))}</div><div class="k">${esc(k)}</div></div>`).join("");
-}
-/* palette */
-const PAL = [
-  {t:"Go to Overview", h:"page", run:() => goto("overview")},
-  {t:"Go to Agents", h:"page", run:() => goto("agents")},
-  {t:"Go to Commands", h:"page", run:() => goto("commands")},
-  {t:"Go to Memory", h:"page", run:() => goto("memory")},
-  {t:"Go to Skills", h:"page", run:() => goto("skills")},
-  {t:"Go to Project", h:"page", run:() => goto("project")},
-  {t:"Go to Activity", h:"page", run:() => goto("activity")},
-  {t:"Go to Settings", h:"page", run:() => goto("settings")},
-  {t:"Go to About", h:"page", run:() => goto("about")},
-  {t:"Run status", h:"harness status", run:() => runCommand("status", [], null)},
-  {t:"Run check setup", h:"harness doctor", run:() => runCommand("doctor", [], null)},
-  {t:"Run memory stats", h:"harness memory stats", run:() => runCommand("memory", ["stats"], null)},
-  {t:"Run lint skills", h:"harness skill lint", run:() => runCommand("skill", ["lint"], null)},
-  {t:"Run check for updates", h:"harness upgrade --check", run:() => runCommand("upgrade", ["--check"], null)},
-  {t:"Run optimize", h:"harness optimize", run:() => runCommand("optimize", [], null)},
-  {t:"Show update info", h:"version · commit · build", run:() => openUpdate()},
-];
-function row(k, v) {
-  return `<div class="r"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`;
-}
-function aboutCard(title, rows) {
-  return `<div class="card"><h3>${esc(title)}</h3><div class="kv" style="padding:0">` +
-    rows.map(([k, v]) => row(k, v)).join("") + `</div></div>`;
-}
-let aboutLoading = false;
-async function renderAbout() {
-  if (aboutLoading) return;
-  aboutLoading = true;
-  const box = $("#about-panels");
-  box.innerHTML = `<p class="note">Loading…</p>`;
-  try {
-    const u = await api("/api/update-info");
-    const s = await api("/api/status");
-    const sys = u.sys || {};
-    const lic = u.license || {};
-    const dash = (x) => (x === null || x === undefined || x === "" ? "—" : String(x));
-    const cards = [
-      aboutCard("System information", [
-        ["platform", dash(sys.platform)],
-        ["arch", dash(sys.arch)],
-        ["kernel", dash(sys.release)],
-        ["memory", sys.totalGb ? sys.totalGb + " GB" : "—"],
-        ["cpus", dash(sys.cpus)],
-        ["node", dash(u.node)],
-        ["serving", s.cwd || "—"],
-      ]),
-      aboutCard("Release", [
-        ["version", dash(u.version)],
-        ["commit", dash(u.commit)],
-        ["short id", dash(u.short)],
-        ["branch", dash(u.branch)],
-        ["release date", dash(u.committed)],
-        ["message", dash(u.subject)],
-        ["server built", dash(u.built)],
-      ]),
-      `<div class="card"><h3>Credits</h3><p>agent-harness is written and maintained by ` +
-        `<a href="https://github.com/TheElephantCoder" style="color:var(--accent)">TheElephantCoder</a>, ` +
-        `open source on <a href="https://github.com/TheElephantCoder/agent-harness" style="color:var(--accent)">GitHub</a>. ` +
-        `Business inquiries: <a href="mailto:contact@theelephantcoder.com" style="color:var(--accent)">contact@theelephantcoder.com</a>.</p>` +
-        `<p>Agents on this machine: ${s.agents && s.agents.opencode ? "opencode" : "—"}, ` +
-        `${s.agents && s.agents.claude ? "claude" : "—"}. The agent CLIs are separate tools with their own licenses.</p></div>`,
-      `<div class="card"><h3>Licenses</h3><p>agent-harness itself is ${dash(lic.spdx) || "licensed as below"}:</p>` +
-        `<div class="run"><pre></pre></div></div>` +
-      `<div class="card"><h3>Not affiliated</h3>` +
-        `<p>agent-harness is an independent project by ` +
-        `<a href="https://github.com/TheElephantCoder" style="color:var(--accent)">@theelephantcoder</a>. ` +
-        `Neither agent-harness nor @theelephantcoder is affiliated with, endorsed by, ` +
-        `or sponsored by Anthropic, OpenCode, or any other agent vendor. Claude, Claude Code, ` +
-        `Opencode and all related marks are trademarks of their respective owners.</p></div>`,
-    ];
-    box.innerHTML = cards.join("");
-    const pres = box.querySelectorAll("pre");
-    if (pres.length) pres[pres.length - 1].textContent = lic.text || "(license file not shipped with this install)";
-  } catch (e) {
-    box.innerHTML = `<p class="note">Could not load about info: ${esc(String((e && e.message) || e))}</p>`;
-  }
-  aboutLoading = false;
-}
-async function openUpdate() {
-  $("#upd-modal").classList.add("on");
-  $("#upd-rows").innerHTML = `<p class="note">Loading…</p>`;
-  try {
-    const u = await api("/api/update-info");
-    paintPill(u);
-    const dash = (x) => (x === null || x === undefined || x === "" ? "—" : String(x));
-    const state = u.behind === true ? "behind — update available"
-      : u.behind === false ? "up to date" : "unknown (could not reach github)";
-    $("#upd-rows").innerHTML =
-      row("harness version", dash(u.version)) +
-      row("commit", dash(u.commit)) +
-      row("short id", dash(u.short)) +
-      row("branch", dash(u.branch)) +
-      row("committed", dash(u.committed)) +
-      row("message", dash(u.subject)) +
-      row("worktree", u.dirty === null ? "—" : (u.dirty ? "dirty (uncommitted changes)" : "clean")) +
-      row("latest main", dash(u.latest)) +
-      row("status", state) +
-      row("node", dash(u.node)) +
-      row("server built", dash(u.built));
-  } catch (e) {
-    $("#upd-rows").innerHTML = `<p class="note">Could not load update info: ${esc(String((e && e.message) || e))}</p>`;
-  }
-}
-function closeUpdate() { $("#upd-modal").classList.remove("on"); }
-function paintPill(u) {
-  const pill = $("#upd-pill");
-  const nav = $("#nav-upd");
-  const v = "v" + (u.version || "?");
-  if (u.behind === true && u.latest) {
-    pill.textContent = `↻ update available · ${v} → ${u.latest}`;
-    pill.classList.add("avail");
-    nav.textContent = "!";
-  } else if (u.behind === false) {
-    pill.textContent = `✓ ${v} up to date`;
-    pill.classList.remove("avail");
-    nav.textContent = "";
-  } else {
-    pill.textContent = `${v} · could not check`;
-    pill.classList.remove("avail");
-    nav.textContent = "";
-  }
-}
-function openPal() { $("#pal").classList.add("on"); renderPal(""); $("#pal-in").value = ""; $("#pal-in").focus(); }
-function closePal() { $("#pal").classList.remove("on"); }
-function renderPal(q) {
-  const box = $("#pal-list");
-  const query = q.toLowerCase();
-  const pages = PAL.filter((p) => p.h === "page" && p.t.toLowerCase().includes(query));
-  const cmds = PAL.filter((p) => p.h !== "page" && (p.t.toLowerCase().includes(query) || p.h.toLowerCase().includes(query)));
-  box.innerHTML = "";
-  let first = true;
-  for (const [label, items] of [["Pages", pages], ["Commands", cmds]]) {
-    if (!items.length) continue;
-    const h = document.createElement("div");
-    h.className = "pal-group";
-    h.textContent = label;
-    box.appendChild(h);
-    items.forEach((p) => {
-      const b = document.createElement("button");
-      if (first) { b.classList.add("sel"); first = false; }
-      b.innerHTML = `<span class="lbl">${esc(p.t)}</span><small>${esc(p.h)}</small>`;
-      b.addEventListener("click", () => { closePal(); p.run(); });
-      box.appendChild(b);
-    });
-  }
-  if (first) box.innerHTML = `<p class="note" style="padding:12px 17px">No match.</p>`;
-}
-/* terminal tab: a live PTY session. Grid emulator for the ANSI subset the
-   CLI emits (SGR colors, cursor moves, erase line). 80x24 like the server. */
-const VT_COLS = 80, VT_ROWS = 24;
-function vtBlank() {
-  const g = [];
-  for (let r = 0; r < VT_ROWS; r++) {
-    const row = [];
-    for (let c = 0; c < VT_COLS; c++) row.push({ch: " ", cls: ""});
-    g.push(row);
-  }
-  return g;
-}
-const VT = {grid: vtBlank(), r: 0, c: 0, fg: 0, bold: false, dim: false, scroll: []};
-function vtCls() {
-  return (VT.bold ? "b" : "") + (VT.dim ? " d" : "") + (VT.fg ? " g" + VT.fg : "");
-}
-function vtNewline() {
-  VT.r++;
-  VT.c = 0;
-  if (VT.r >= VT_ROWS) {
-    VT.scroll.push(VT.grid.shift());
-    if (VT.scroll.length > 300) VT.scroll.shift();
-    const row = [];
-    for (let c = 0; c < VT_COLS; c++) row.push({ch: " ", cls: ""});
-    VT.grid.push(row);
-    VT.r = VT_ROWS - 1;
-  }
-}
-function vtPut(ch) {
-  if (ch === "\n") { vtNewline(); return; }
-  if (ch === "\r") { VT.c = 0; return; }
-  if (ch === "\b" || ch === "\x7f") { VT.c = Math.max(0, VT.c - 1); return; }
-  if (ch === "\t") { do { vtPut(" "); } while (VT.c % 8 !== 0); return; }
-  if (ch < " " || ch === "\x7f") return;
-  if (VT.c >= VT_COLS) vtNewline();
-  VT.grid[VT.r][VT.c] = {ch, cls: vtCls().trim()};
-  VT.c++;
-}
-function vtSgr(params) {
-  for (const p of params) {
-    if (p === 0) { VT.fg = 0; VT.bold = false; VT.dim = false; }
-    else if (p === 1) VT.bold = true;
-    else if (p === 2) VT.dim = true;
-    else if (p === 22) { VT.bold = false; VT.dim = false; }
-    else if (p === 32 || p === 35 || p === 36) VT.fg = p;
-    else if (p === 39) VT.fg = 0;
-  }
-}
-function vtCsi(private_, nums, final) {
-  const n = nums.length ? nums[0] : 0;
-  const one = n || 1;
-  if (final === "A") VT.r = Math.max(0, VT.r - one);
-  else if (final === "B") VT.r = Math.min(VT_ROWS - 1, VT.r + one);
-  else if (final === "C") VT.c = Math.min(VT_COLS - 1, VT.c + one);
-  else if (final === "D") VT.c = Math.max(0, VT.c - one);
-  else if (final === "G") VT.c = Math.min(VT_COLS - 1, Math.max(0, one - 1));
-  else if (final === "H" || final === "f") {
-    VT.r = Math.min(VT_ROWS - 1, Math.max(0, (nums[0] || 1) - 1));
-    VT.c = Math.min(VT_COLS - 1, Math.max(0, (nums[1] || 1) - 1));
-  } else if (final === "K") {
-    const row = VT.grid[VT.r];
-    const from = n === 1 ? 0 : VT.c;
-    const to = n === 1 ? VT.c : VT_COLS - 1;
-    for (let c = from; c <= to; c++) row[c] = {ch: " ", cls: ""};
-  } else if (final === "J" && n === 2) {
-    VT.grid = vtBlank();
-    VT.r = 0; VT.c = 0;
-  } else if (final === "m") {
-    vtSgr(nums.length ? nums : [0]);
-  }
-  // anything else (?25l/h, s/u, …): ignored
-}
-function vtWrite(s) {
-  let i = 0;
-  while (i < s.length) {
-    const ch = s[i];
-    if (ch === "\x1b" && s[i + 1] === "[") {
-      const m = /^\x1b\[([?!]?)([0-9;]*)([@-~])/.exec(s.slice(i));
-      if (m) {
-        const nums = m[2] === "" ? [] : m[2].split(";").map((x) => parseInt(x || "0", 10));
-        vtCsi(m[1], nums, m[3]);
-        i += m[0].length;
-        continue;
+      :root,
+      html[data-theme="regular"] {
+        --bg: #f4f4f2;
+        --panel: #ffffff;
+        --fg: #171717;
+        --muted: #6f6f6f;
+        --line: #e5e5e2;
+        --accent: #1f6feb;
+        --accent-fg: #ffffff;
+        --ok: #15803d;
+        --bad: #b91c1c;
+        --warn: #b45309;
+        --code: #101418;
+        --code-fg: #e8e8e8;
+        --radius: 10px;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 20px rgba(0, 0, 0, 0.05);
+        --r: 10px;
       }
-      i += 2; // unknown ESC [: skip
-      continue;
-    }
-    if (ch === "\x1b") { i++; continue; } // lone ESC / charset switches: skip
-    vtPut(ch);
-    i++;
-  }
-}
-function vtRender() {
-  const out = $("#term-out");
-  const lines = VT.scroll.slice(-140).concat(VT.grid);
-  const cur = VT.scroll.length + VT.r;
-  let html = "";
-  for (let li = 0; li < lines.length; li++) {
-    const row = lines[li];
-    let run = "", cls = null, parts = "";
-    const flush = () => {
-      if (run) { parts += cls ? `<span class="${cls}">${esc(run)}</span>` : esc(run); run = ""; }
-    };
-    for (let c = 0; c < row.length; c++) {
-      const cell = row[c];
-      const isCur = li === cur && c === VT.c;
-      const cc = isCur ? (cell.cls ? cell.cls + " cur" : "cur") : cell.cls;
-      if (cc !== cls) { flush(); cls = cc; }
-      run += cell.ch;
-    }
-    flush();
-    html += `<div class="ln">${parts || " "}</div>`;
-  }
-  out.innerHTML = html;
-  out.scrollTop = out.scrollHeight;
-}
-let termId = null, termTimer = 0, termMode = "menu", curPage = "overview";
-async function termPollOnce() {
-  if (!termId) return;
-  const r = await fetch("/api/term/poll?id=" + encodeURIComponent(termId)).then((x) => {
-    if (!x.ok) throw new Error("http " + x.status);
-    return x.json();
-  });
-  if (r.output) vtWrite(r.output);
-  vtRender();
-  if (r.exited) {
-    clearInterval(termTimer);
-    termTimer = 0;
-    termId = null;
-    vtWrite("\r\n[session ended — hit restart for a fresh one]\r\n");
-    vtRender();
-  }
-}
-async function termStart() {
-  if (termId || termTimer) return;
-  vtWrite("[connecting…]\r\n");
-  vtRender();
-  try {
-    const r = await api("/api/term/start", {mode: termMode});
-    termId = r.id;
-    termTimer = setInterval(() => {
-      if (curPage === "commands" && !document.hidden) termPollOnce().catch(termDead);
-    }, 150);
-    termPollOnce().catch(termDead);
-  } catch (e) {
-    vtWrite("[could not start terminal: " + String((e && e.message) || e) + "]\r\n");
-    vtRender();
-  }
-}
-function termDead(e) {
-  clearInterval(termTimer);
-  termTimer = 0;
-  termId = null;
-  vtWrite("\r\n[lost the terminal session: " + String((e && e.message) || e) + "]\r\n");
-  vtRender();
-}
-function termKey(e) {
-  if (e.metaKey) return false; // let Cmd+R etc. through
-  let s = null;
-  if (e.ctrlKey && !e.altKey) {
-    const k = e.key.toLowerCase();
-    if (k === "c") s = "\x03";
-    else if (k === "d") s = "\x04";
-    else if (k === "l") s = "\x0c";
-    else if (k === "u") s = "\x15";
-    else if (k.length === 1 && k >= "a" && k <= "z") s = String.fromCharCode(k.charCodeAt(0) - 96);
-    else return false;
-  } else if (e.key === "Enter") s = "\r";
-  else if (e.key === "Backspace") s = "\x7f";
-  else if (e.key === "Tab") s = "\t";
-  else if (e.key === "Escape") s = "\x1b";
-  else if (e.key === "ArrowUp") s = "\x1b[A";
-  else if (e.key === "ArrowDown") s = "\x1b[B";
-  else if (e.key === "ArrowRight") s = "\x1b[C";
-  else if (e.key === "ArrowLeft") s = "\x1b[D";
-  else if (e.key === "Home") s = "\x1b[H";
-  else if (e.key === "End") s = "\x1b[F";
-  else if (e.key === "PageUp") s = "\x1b[5~";
-  else if (e.key === "PageDown") s = "\x1b[6~";
-  else if (e.key === "Delete") s = "\x1b[3~";
-  else if (e.key.length === 1 && !e.altKey) s = e.key;
-  else if (e.key.length === 1 && e.altKey) s = "\x1b" + e.key;
-  else return false;
-  e.preventDefault();
-  if (!termId) termStart();
-  else api("/api/term/input", {id: termId, data: s}).catch(() => {});
-  return true;
-}
-async function termRestart() {
-  await termStop();
-  VT.grid = vtBlank();
-  VT.r = 0; VT.c = 0;
-  VT.scroll = [];
-  vtRender();
-  termStart();
-}
-async function termStop() {
-  if (termTimer) { clearInterval(termTimer); termTimer = 0; }
-  if (termId) {
-    try { await api("/api/term/kill", {id: termId}); } catch (e) { /* gone already */ }
-    termId = null;
-  }
-}
-async function termSetMode(mode) {
-  if (termMode === mode) return;
-  termMode = mode;
-  $("#term-menu").setAttribute("aria-pressed", mode === "menu" ? "true" : "false");
-  $("#term-shell").setAttribute("aria-pressed", mode === "shell" ? "true" : "false");
-  $("#term-name").textContent = mode === "shell" ? "bash — " + $("#cwd").textContent : "harness — menu";
-  await termStop();
-  VT.grid = vtBlank();
-  VT.r = 0; VT.c = 0;
-  VT.scroll = [];
-  vtRender();
-  termStart();
-}
-/* init */
-(async function init() {
-  let saved = "regular";
-  try { saved = localStorage.getItem("ah-theme") || "regular"; } catch (e) { /* private mode */ }
-  renderThemes();
-  setTheme(saved);
-  document.querySelectorAll("#nav button").forEach((b) => b.addEventListener("click", () => goto(b.dataset.page)));
-  document.querySelectorAll("[data-goto]").forEach((b) => b.addEventListener("click", () => goto(b.dataset.goto)));
-  document.querySelectorAll("[data-quick]").forEach((b) => b.addEventListener("click", () => {
-    const [c, ...a] = b.dataset.quick.split(" ");
-    goto("commands");
-    runCommand(c, a, null);
-  }));
-  $("#pal-open").addEventListener("click", openPal);
-  $("#nav-update").addEventListener("click", openUpdate);
-  $("#upd-pill").addEventListener("click", openUpdate);
-  $("#upd-close").addEventListener("click", closeUpdate);
-  $("#upd-modal").addEventListener("click", (e) => { if (e.target.id === "upd-modal") closeUpdate(); });
-  $("#upd-check").addEventListener("click", (e) => { closeUpdate(); goto("commands"); runCommand("upgrade", ["--check"], e.target); });
-  $("#upd-goto-out").addEventListener("click", () => { closeUpdate(); window.scrollTo(0, document.body.scrollHeight); });
-  $("#pal").addEventListener("click", (e) => { if (e.target.id === "pal") closePal(); });
-  $("#pal-in").addEventListener("input", (e) => renderPal(e.target.value));
-  $("#pal-in").addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closePal();
-    if (e.key === "Enter") {
-      const first = $("#pal-list button");
-      if (first) first.click();
-    }
-  });
-  document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPal(); }
-    if (e.key === "Escape") closeUpdate();
-  });
-  const start = (location.hash || "").replace("#", "");
-  if (TITLES[start]) goto(start);
-  else if (SET.remember && TITLES[store("ah-page") || ""]) goto(store("ah-page"));
-  applyPrefs();
-  if (store("ah-narrow") === "1") document.body.classList.add("narrow");
-  $("#side-toggle").addEventListener("click", () => {
-    const on = document.body.classList.toggle("narrow");
-    store("ah-narrow", on ? "1" : null);
-  });
-  $("#set-compact").checked = SET.compact;
-  $("#set-motion").checked = SET.motion;
-  $("#set-confirm-cmd").checked = SET.confirmCmd;
-  $("#set-confirm-agent").checked = SET.confirmAgent;
-  $("#set-remember").checked = SET.remember;
-  $("#set-keeplog").value = String(SET.keepLog);
-  $("#set-compact").addEventListener("change", (e) => { store("ah-compact", e.target.checked ? "1" : null); applyPrefs(); });
-  $("#set-motion").addEventListener("change", (e) => { store("ah-motion", e.target.checked ? "1" : null); applyPrefs(); });
-  $("#set-confirm-cmd").addEventListener("change", (e) => store("ah-confirm-cmd", e.target.checked ? "1" : null));
-  $("#set-confirm-agent").addEventListener("change", (e) => store("ah-confirm-agent", e.target.checked ? "1" : "0"));
-  $("#set-remember").addEventListener("change", (e) => store("ah-remember", e.target.checked ? "1" : null));
-  $("#set-keeplog").addEventListener("change", (e) => { store("ah-keeplog", e.target.value); while (log.length > SET.keepLog) log.length = SET.keepLog; renderAct(); });
-  $("#mem-add").addEventListener("click", (e) => {
-    const v = $("#mem-note").value.trim();
-    if (!v) { $("#mem-note").focus(); return; }
-    $("#mem-note").value = "";
-    runCommand("memory", ["sync", ...v.split(/\s+/)], e.target);
-  });
-  $("#mem-note").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#mem-add").click(); });
-  $("#skill-go").addEventListener("click", (e) => {
-    const v = $("#skill-q").value.trim();
-    runCommand("skill", v ? ["search", ...v.split(/\s+/)] : ["list"], e.target);
-  });
-  $("#skill-q").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#skill-go").click(); });
-  $("#skill-lint").addEventListener("click", (e) => runCommand("skill", ["lint"], e.target));
-  $("#act-export").addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(log, null, 2)], {type: "application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "harness-activity.json";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  });
-  const clearLog = () => { log = []; renderAct(); };
-  $("#act-clear2").addEventListener("click", clearLog);
-  $("#set-copy-url").addEventListener("click", (e) => {
-    if (navigator.clipboard) navigator.clipboard.writeText(location.origin + "/");
-    e.target.textContent = "copied";
-    setTimeout(() => { e.target.textContent = "copy url"; }, 1200);
-  });
-  const mb = $("#mem-cards");
-  [{cmd:"memory", t:"Full memory", d:"Complete MEMORY.md contents.", args:["show"]},
-   {cmd:"memory", t:"Memory stats", d:"Size, notes, token estimate.", args:["stats"]},
-  ].forEach((v) => mb.appendChild(projCard(v)));
-  const sb = $("#skill-cards");
-  [{cmd:"skill", t:"Installed skills", d:"Every skill with a SKILL.md.", args:["list"]},
-  ].forEach((v) => sb.appendChild(projCard(v)));
-  renderAct();
-  try {
-    const s = await api("/api/status");
-    $("#cwd").textContent = s.cwd;
-    $("#side-cwd").textContent = s.cwd;
-    $("#brand-ver").textContent = "v" + s.version + " · local gui";
-    document.title = "agent-harness gui — " + s.cwd;
-    renderStats(s.project || null);
-    const ab = $("#agents-box");
-    AGENTS.forEach((a) => ab.appendChild(agentCard(a, !!(s.agents && s.agents[a.id]))));
-    const have = ["opencode", "claude"].filter((k) => s.agents && s.agents[k]).length;
-    $("#nav-agents").textContent = have ? String(have) + "/2" : "";
-    if (!have) $("#agents-note").textContent += " Neither agent binary was found on PATH — install one to use this section.";
-    const tout = $("#term-out");
-    tout.addEventListener("keydown", termKey);
-    tout.addEventListener("click", () => tout.focus());
-    const kbd = $("#term-kbd-in");
-    kbd.addEventListener("keydown", (e) => { if (termKey(e)) kbd.value = ""; });
-    $("#term-restart").addEventListener("click", termRestart);
-    $("#term-menu").addEventListener("click", () => termSetMode("menu"));
-    $("#term-shell").addEventListener("click", () => termSetMode("shell"));
-    const pb = $("#proj-cards");
-    VIEWERS.forEach((v) => pb.appendChild(projCard(v)));
-    $("#srv-info").textContent = `Serving ${s.cwd} as harness ${s.version}. Agents on PATH: ` +
-      `${s.agents.opencode ? "opencode" : "—"}, ${s.agents.claude ? "claude" : "—"}.`;
-    api("/api/update-info").then(paintPill).catch(() => {
-      $("#upd-pill").textContent = "update info unavailable";
-    });
-  } catch (e) {
-    $("#srv-state").textContent = "server unreachable";
-    $("#out").innerHTML = `<p class="note">Could not reach the harness server: ${esc(String((e && e.message) || e))}</p>`;
-  }
-  $("#clear").addEventListener("click", () => {
-    $("#out").innerHTML = `<p class="note">Nothing run yet. Pick a command above.</p>`;
-  });
-  $("#act-clear").addEventListener("click", () => { log = []; renderAct(); });
-  $("#about-refresh").addEventListener("click", renderAbout);
-  $("#quit").addEventListener("click", async () => {
-    if (!confirm("Stop the local harness server?")) return;
-    try { await api("/api/quit", {}); } catch (e) { /* server is gone, that is the point */ }
-    document.body.innerHTML = `<main class="content"><p class="eyebrow">Stopped</p>` +
-      `<h2 class="lead">Server is off.</h2><p class="sub">Re-run <code class="inline">harness gui</code> to start it again.</p></main>`;
-  });
-})();
-</script>
-</body>
+      html[data-theme="dark"] {
+        --bg: #131417;
+        --panel: #1b1d21;
+        --fg: #ececec;
+        --muted: #9a9da5;
+        --line: #2a2d33;
+        --accent: #4c8dff;
+        --accent-fg: #0b0e14;
+        --ok: #4ade80;
+        --bad: #f87171;
+        --warn: #fbbf24;
+        --code: #0b0d10;
+        --code-fg: #e8e8e8;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.4);
+        --r: 10px;
+      }
+      html[data-theme="midnight"] {
+        --bg: #000000;
+        --panel: #0a0a0a;
+        --fg: #f2f2f2;
+        --muted: #8a8a8a;
+        --line: #1f1f1f;
+        --accent: #7c6cff;
+        --accent-fg: #ffffff;
+        --ok: #34d399;
+        --bad: #ff6b6b;
+        --warn: #fbbf24;
+        --code: #000000;
+        --code-fg: #f2f2f2;
+        --shadow: none;
+        --r: 6px;
+      }
+      html[data-theme="contrast"] {
+        --bg: #ffffff;
+        --panel: #ffffff;
+        --fg: #000000;
+        --muted: #333333;
+        --line: #000000;
+        --accent: #0000cc;
+        --accent-fg: #ffffff;
+        --ok: #006400;
+        --bad: #a80000;
+        --warn: #7a4d00;
+        --code: #000000;
+        --code-fg: #ffffff;
+        --shadow: none;
+        --r: 4px;
+      }
+      html[data-theme="harvest"] {
+        --bg: #fbf1c7;
+        --panel: #fffdf0;
+        --fg: #3c3836;
+        --muted: #7c6f64;
+        --line: #e5d9b8;
+        --accent: #af3a03;
+        --accent-fg: #ffffff;
+        --ok: #427b58;
+        --bad: #9d0006;
+        --warn: #b57614;
+        --code: #282828;
+        --code-fg: #ebdbb2;
+        --shadow: 0 1px 2px rgba(60, 56, 54, 0.08),
+          0 6px 20px rgba(60, 56, 54, 0.08);
+        --r: 10px;
+      }
+      html[data-theme="pine"] {
+        --bg: #0d1f16;
+        --panel: #12291d;
+        --fg: #e6f0e8;
+        --muted: #8aa895;
+        --line: #1e3a2b;
+        --accent: #57c785;
+        --accent-fg: #06110b;
+        --ok: #4ade80;
+        --bad: #f87171;
+        --warn: #fbbf24;
+        --code: #08130d;
+        --code-fg: #e6f0e8;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.4);
+        --r: 10px;
+      }
+      html[data-theme="tidal"] {
+        --bg: #0a1628;
+        --panel: #0f1f38;
+        --fg: #e3eefc;
+        --muted: #87a0c0;
+        --line: #1d3354;
+        --accent: #38bdf8;
+        --accent-fg: #04121f;
+        --ok: #34d399;
+        --bad: #fb7185;
+        --warn: #fbbf24;
+        --code: #060d18;
+        --code-fg: #e3eefc;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.4);
+        --r: 10px;
+      }
+      html[data-theme="dusk"] {
+        --bg: #150f1e;
+        --panel: #1e1629;
+        --fg: #efe8f7;
+        --muted: #a293bd;
+        --line: #2e2340;
+        --accent: #a78bfa;
+        --accent-fg: #150f1e;
+        --ok: #34d399;
+        --bad: #fb7185;
+        --warn: #fbbf24;
+        --code: #0d0913;
+        --code-fg: #efe8f7;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.4);
+        --r: 10px;
+      }
+      html[data-theme="ember"] {
+        --bg: #1a0f0a;
+        --panel: #241410;
+        --fg: #f5e8dd;
+        --muted: #b39883;
+        --line: #3a2418;
+        --accent: #fb923c;
+        --accent-fg: #1a0f0a;
+        --ok: #4ade80;
+        --bad: #f87171;
+        --warn: #fbbf24;
+        --code: #100905;
+        --code-fg: #f5e8dd;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.4);
+        --r: 10px;
+      }
+      html[data-theme="espresso"] {
+        --bg: #14100c;
+        --panel: #1e1812;
+        --fg: #ece2d4;
+        --muted: #a89880;
+        --line: #33291d;
+        --accent: #d4a373;
+        --accent-fg: #14100c;
+        --ok: #7fb069;
+        --bad: #e26d5a;
+        --warn: #e9c46a;
+        --code: #0c0906;
+        --code-fg: #ece2d4;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.4);
+        --r: 10px;
+      }
+      html[data-theme="storm"] {
+        --bg: #11151c;
+        --panel: #181e27;
+        --fg: #e2e8f0;
+        --muted: #8b98ab;
+        --line: #273041;
+        --accent: #7dd3fc;
+        --accent-fg: #0b0f14;
+        --ok: #4ade80;
+        --bad: #f87171;
+        --warn: #fbbf24;
+        --code: #0a0d12;
+        --code-fg: #e2e8f0;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.4);
+        --r: 10px;
+      }
+      html[data-theme="glacier"] {
+        --bg: #eef4f8;
+        --panel: #ffffff;
+        --fg: #102a43;
+        --muted: #5b7a99;
+        --line: #d3e2ed;
+        --accent: #0284c7;
+        --accent-fg: #ffffff;
+        --ok: #15803d;
+        --bad: #b91c1c;
+        --warn: #b45309;
+        --code: #102a43;
+        --code-fg: #f0f7fc;
+        --shadow: 0 1px 2px rgba(16, 42, 67, 0.06),
+          0 6px 20px rgba(16, 42, 67, 0.06);
+        --r: 10px;
+      }
+      html[data-theme="meadow"] {
+        --bg: #f0f7f1;
+        --panel: #ffffff;
+        --fg: #1a2e1f;
+        --muted: #5f7a64;
+        --line: #d5e5d8;
+        --accent: #16a34a;
+        --accent-fg: #ffffff;
+        --ok: #15803d;
+        --bad: #b91c1c;
+        --warn: #b45309;
+        --code: #14231a;
+        --code-fg: #eef7f0;
+        --shadow: 0 1px 2px rgba(26, 46, 31, 0.06),
+          0 6px 20px rgba(26, 46, 31, 0.06);
+        --r: 10px;
+      }
+      html[data-theme="blossom"] {
+        --bg: #faf0f3;
+        --panel: #ffffff;
+        --fg: #3d2230;
+        --muted: #96697f;
+        --line: #eed5de;
+        --accent: #db2777;
+        --accent-fg: #ffffff;
+        --ok: #15803d;
+        --bad: #b91c1c;
+        --warn: #b45309;
+        --code: #2e1a24;
+        --code-fg: #fbeff4;
+        --shadow: 0 1px 2px rgba(61, 34, 48, 0.06),
+          0 6px 20px rgba(61, 34, 48, 0.06);
+        --r: 10px;
+      }
+      html[data-theme="dune"] {
+        --bg: #f5efe4;
+        --panel: #fffdf7;
+        --fg: #2e2620;
+        --muted: #857262;
+        --line: #e3d5bd;
+        --accent: #9a3412;
+        --accent-fg: #ffffff;
+        --ok: #4d7c0f;
+        --bad: #b91c1c;
+        --warn: #b45309;
+        --code: #241c12;
+        --code-fg: #f7f1e3;
+        --shadow: 0 1px 2px rgba(46, 38, 32, 0.06),
+          0 6px 20px rgba(46, 38, 32, 0.06);
+        --r: 10px;
+      }
+      html[data-theme="birch"] {
+        --bg: #f2f2f0;
+        --panel: #ffffff;
+        --fg: #1c1c1c;
+        --muted: #737373;
+        --line: #dededb;
+        --accent: #374151;
+        --accent-fg: #ffffff;
+        --ok: #15803d;
+        --bad: #b91c1c;
+        --warn: #b45309;
+        --code: #1c1c1c;
+        --code-fg: #f2f2f0;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 20px rgba(0, 0, 0, 0.06);
+        --r: 8px;
+      }
+      html[data-theme="clay"] {
+        --bg: #f7ece6;
+        --panel: #fffaf7;
+        --fg: #402419;
+        --muted: #9a6f5c;
+        --line: #e8cfc2;
+        --accent: #c2410c;
+        --accent-fg: #ffffff;
+        --ok: #4d7c0f;
+        --bad: #b91c1c;
+        --warn: #b45309;
+        --code: #331c12;
+        --code-fg: #f9efe9;
+        --shadow: 0 1px 2px rgba(64, 36, 25, 0.06),
+          0 6px 20px rgba(64, 36, 25, 0.06);
+        --r: 10px;
+      }
+      html[data-theme="orchid"] {
+        --bg: #f3eff9;
+        --panel: #ffffff;
+        --fg: #2a2140;
+        --muted: #75679c;
+        --line: #ddd3ee;
+        --accent: #7c3aed;
+        --accent-fg: #ffffff;
+        --ok: #15803d;
+        --bad: #b91c1c;
+        --warn: #b45309;
+        --code: #221a38;
+        --code-fg: #f4f0fb;
+        --shadow: 0 1px 2px rgba(42, 33, 64, 0.06),
+          0 6px 20px rgba(42, 33, 64, 0.06);
+        --r: 10px;
+      }
+      html[data-theme="moss"] {
+        --bg: #12140c;
+        --panel: #1a1d11;
+        --fg: #e8ead9;
+        --muted: #9aa07a;
+        --line: #2a2e1c;
+        --accent: #a3e635;
+        --accent-fg: #12140c;
+        --ok: #a3e635;
+        --bad: #f87171;
+        --warn: #fbbf24;
+        --code: #0b0c07;
+        --code-fg: #e8ead9;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.4);
+        --r: 8px;
+      }
+      /* ---------- foundation ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        min-width: 0;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          400 14px/1.55 Inter,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Helvetica,
+          Arial,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        background: none;
+        border: 0;
+        padding: 0;
+      }
+      a {
+        color: var(--accent);
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+      ::selection {
+        background: var(--accent);
+        color: var(--accent-fg);
+      }
+      /* thin scrollbars that follow the theme */
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted) transparent;
+      }
+      *::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      *::-webkit-scrollbar-thumb {
+        background: var(--line);
+        border-radius: 4px;
+      }
+      *::-webkit-scrollbar-thumb:hover {
+        background: var(--muted);
+      }
+      *::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .mono,
+      code,
+      kbd {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      /* the two-frame shell */
+      .app {
+        display: flex;
+        min-height: 100dvh;
+      }
+      /* ---------- sidebar rail ---------- */
+      .side {
+        width: 232px;
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        position: sticky;
+        top: 0;
+        height: 100dvh;
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        overflow: hidden;
+      }
+      .brand {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      .mark {
+        width: 28px;
+        height: 28px;
+        flex: none;
+        border-radius: 7px;
+        background: var(--accent);
+        color: var(--accent-fg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font:
+          700 12px/1 ui-monospace,
+          Menlo,
+          monospace;
+        letter-spacing: -0.02em;
+      }
+      .bname {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        line-height: 1.2;
+      }
+      .bname b {
+        font:
+          700 14px/1.2 Inter,
+          system-ui,
+          sans-serif;
+        letter-spacing: -0.015em;
+      }
+      .bname small {
+        color: var(--muted);
+        font:
+          500 10.5px/1.3 ui-monospace,
+          Menlo,
+          monospace;
+      }
+      #side-toggle {
+        margin-left: auto;
+        flex: none;
+        width: 24px;
+        height: 24px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1;
+      }
+      #side-toggle:hover {
+        color: var(--fg);
+        border-color: var(--muted);
+      }
+      .nav {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 10px 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+      .nav-group {
+        flex: none;
+        margin: 14px 4px 5px;
+        font:
+          500 10px/1 ui-monospace,
+          Menlo,
+          monospace;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .nav-group:first-child {
+        margin-top: 4px;
+      }
+      .nav button {
+        flex: none;
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 8px 10px 8px 13px;
+        border-radius: 8px;
+        text-align: left;
+        color: var(--muted);
+        font-size: 13.5px;
+        line-height: 1.25;
+      }
+      .nav button::before {
+        content: "";
+        position: absolute;
+        left: 3px;
+        top: 22%;
+        bottom: 22%;
+        width: 3px;
+        border-radius: 2px;
+        background: transparent;
+        transition: background 0.15s;
+      }
+      .nav button .ico {
+        flex: none;
+        width: 18px;
+        text-align: center;
+        font-size: 13px;
+        opacity: 0.9;
+      }
+      .nav button .lbl {
+        flex: 1 1 auto;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        line-height: 1.3;
+      }
+      .nav button .cnt {
+        flex: none;
+        margin-left: auto;
+        min-width: 20px;
+        text-align: center;
+        font:
+          600 10.5px/1.6 ui-monospace,
+          Menlo,
+          monospace;
+        color: var(--muted);
+        border: 1px solid var(--line);
+        border-radius: 99px;
+        padding: 0 6px;
+      }
+      .nav button:hover {
+        color: var(--fg);
+        background: var(--bg);
+      }
+      .nav button:hover .cnt {
+        border-color: var(--muted);
+      }
+      .nav button[aria-current="page"] {
+        background: var(--bg);
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .nav button[aria-current="page"]::before {
+        background: var(--accent);
+      }
+      .nav button[aria-current="page"] .cnt {
+        border-color: var(--muted);
+        color: var(--fg);
+      }
+      /* sidebar footer: cwd (wraps freely, never clipped) + version pill */
+      .side-foot {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        border-top: 1px solid var(--line);
+      }
+      #side-cwd {
+        display: block;
+        color: var(--muted);
+        font:
+          400 10.5px/1.45 ui-monospace,
+          Menlo,
+          monospace;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .ver-pill {
+        width: 100%;
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 6px 10px;
+        text-align: center;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--muted);
+        font:
+          600 11px/1.35 ui-monospace,
+          Menlo,
+          monospace;
+      }
+      .ver-pill.avail {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-fg);
+      }
+      .ver-pill:active {
+        transform: translateY(1px);
+      }
+      /* ---------- console bar ---------- */
+      .main {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .top {
+        flex: none;
+        position: sticky;
+        top: 0;
+        z-index: 9;
+        background: var(--bg);
+        border-bottom: 1px solid var(--line);
+      }
+      .top-inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        column-gap: 10px;
+        row-gap: 6px;
+        max-width: 1480px;
+        margin-inline: auto;
+        width: 100%;
+        padding: 12px clamp(14px, 2.6vw, 36px);
+      }
+      .top h1 {
+        font:
+          700 17px/1.25 Charter,
+          "Iowan Old Style",
+          "Palatino Linotype",
+          Georgia,
+          serif;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+      .cwd {
+        flex: 1 1 180px;
+        min-width: 0;
+        color: var(--muted);
+        font:
+          400 11px/1.4 ui-monospace,
+          Menlo,
+          monospace;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .spacer {
+        flex: 1 1 0;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 4px 11px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--panel);
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--ok);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent);
+      }
+      @supports not (background: color-mix(in srgb, red 50%, blue)) {
+        .dot {
+          box-shadow: none;
+        }
+      }
+      .kbd {
+        font:
+          500 10.5px/1.5 ui-monospace,
+          Menlo,
+          monospace;
+        color: var(--muted);
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+        border-radius: 5px;
+        padding: 0 5px;
+        background: var(--panel);
+      }
+      .pal-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 34px;
+        padding: 5px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--muted);
+        font-size: 12.5px;
+        white-space: nowrap;
+      }
+      .pal-btn:hover {
+        color: var(--fg);
+        border-color: var(--muted);
+      }
+      /* ---------- content ---------- */
+      .content {
+        width: 100%;
+        max-width: 1240px;
+        margin-inline: auto;
+        padding: clamp(20px, 3vw, 40px) clamp(14px, 2.6vw, 36px) 110px;
+        flex: 1;
+      }
+      .page {
+        display: none;
+      }
+      .page.on {
+        display: block;
+        animation: rise 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .page.on {
+          animation: none;
+        }
+      }
+      .eyebrow {
+        margin: 0 0 6px;
+        font:
+          500 10px/1.4 ui-monospace,
+          Menlo,
+          monospace;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .eyebrow::before {
+        content: "";
+        display: inline-block;
+        width: 18px;
+        height: 1px;
+        background: var(--muted);
+        vertical-align: middle;
+        margin-right: 8px;
+      }
+      .lead {
+        font:
+          700 clamp(24px, 3.6vw, 34px) / 1.15 Charter,
+          "Iowan Old Style",
+          "Palatino Linotype",
+          Georgia,
+          serif;
+        letter-spacing: -0.025em;
+        margin: 0 0 8px;
+        text-wrap: balance;
+      }
+      .sub {
+        color: var(--muted);
+        margin: 0 0 26px;
+        line-height: 1.6;
+        max-width: 62ch;
+        font-size: 14px;
+        text-wrap: pretty;
+      }
+      .set-group {
+        margin: 30px 0 10px;
+        font:
+          500 10px/1.4 ui-monospace,
+          Menlo,
+          monospace;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .set-group::after {
+        content: "";
+        display: block;
+        margin-top: 6px;
+        height: 1px;
+        background: var(--line);
+      }
+      /* stat tiles */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));
+        gap: 10px;
+        margin-bottom: 22px;
+      }
+      .stat {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+        padding: 13px 15px;
+        box-shadow: var(--shadow);
+        min-width: 0;
+      }
+      .stat .v {
+        font:
+          700 clamp(17px, 2vw, 22px) / 1.2 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        letter-spacing: -0.02em;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .stat .v.good {
+        color: var(--ok);
+      }
+      .stat .v.bad {
+        color: var(--bad);
+      }
+      .stat .v.warn {
+        color: var(--warn);
+      }
+      .stat .k {
+        margin-top: 3px;
+        font:
+          500 10px/1.4 ui-monospace,
+          Menlo,
+          monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        overflow-wrap: anywhere;
+      }
+      /* panels + cards */
+      .panels {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 292px), 1fr));
+        gap: 12px;
+        align-items: start;
+        min-width: 0;
+      }
+      .after-panels {
+        margin-top: 12px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+        padding: 15px 16px;
+        box-shadow: var(--shadow);
+        min-width: 0;
+        transition:
+          border-color 0.16s ease,
+          transform 0.16s ease;
+      }
+      .card:hover {
+        border-color: var(--muted);
+      }
+      .card h3 {
+        margin: 0 0 4px;
+        font-size: 14.5px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+      .card p {
+        margin: 0 0 12px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .card p:last-child,
+      .card p:last-of-type {
+        margin-bottom: 0;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        min-width: 0;
+      }
+      /* form primitives */
+      select,
+      input[type="text"],
+      textarea {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        font: inherit;
+        color: var(--fg);
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 11px;
+        min-height: 38px;
+      }
+      select {
+        display: inline-block;
+        width: auto;
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      input.grow {
+        flex: 2 1 200px;
+        width: auto;
+        min-width: 0;
+      }
+      textarea {
+        min-height: 92px;
+        resize: vertical;
+        line-height: 1.5;
+      }
+      label.flag {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+        color: var(--muted);
+        min-height: 34px;
+      }
+      input[type="checkbox"] {
+        width: 17px;
+        height: 17px;
+        accent-color: var(--accent);
+        flex: none;
+      }
+      /* buttons: rectangles that wrap their label, never clip it */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        min-height: 38px;
+        padding: 7px 16px;
+        border-radius: 8px;
+        text-align: center;
+        background: var(--accent);
+        color: var(--accent-fg);
+        border: 1px solid var(--accent);
+        font-size: 13.5px;
+        font-weight: 600;
+        line-height: 1.2;
+        overflow-wrap: break-word;
+        transition:
+          transform 0.07s ease,
+          filter 0.14s ease;
+      }
+      .btn:hover {
+        filter: brightness(1.06);
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn:disabled {
+        opacity: 0.55;
+        cursor: wait;
+      }
+      .btn.ghost {
+        background: var(--panel);
+        color: var(--fg);
+        border-color: var(--line);
+      }
+      .btn.ghost:hover {
+        border-color: var(--muted);
+        filter: none;
+      }
+      .btn.small {
+        min-height: 32px;
+        padding: 5px 12px;
+        font-size: 12.5px;
+      }
+      .btn.danger {
+        background: var(--panel);
+        color: var(--bad);
+        border-color: var(--bad);
+      }
+      .btn.danger:hover {
+        filter: none;
+      }
+      .note {
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.55;
+        overflow-wrap: anywhere;
+      }
+      code.inline {
+        font-size: 12px;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        padding: 1px 6px;
+        border-radius: 5px;
+      }
+      /* command runs: ledger rows */
+      .run {
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+        margin: 10px 0;
+        background: var(--panel);
+        overflow: hidden;
+        min-width: 0;
+      }
+      .run header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+        align-items: baseline;
+        padding: 9px 13px;
+        border-bottom: 1px solid var(--line);
+        font-size: 12.5px;
+        min-height: 0;
+      }
+      .run header code {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        font-size: 12px;
+        background: none;
+        padding: 0;
+        border: 0;
+      }
+      .run .ok {
+        color: var(--ok);
+        font-weight: 700;
+      }
+      .run .bad {
+        color: var(--bad);
+        font-weight: 700;
+      }
+      .run .ms {
+        color: var(--muted);
+        font:
+          500 11px/1.6 ui-monospace,
+          Menlo,
+          monospace;
+      }
+      .run .mini {
+        margin-left: auto;
+        flex: none;
+        display: flex;
+        gap: 8px;
+      }
+      .run pre {
+        margin: 0;
+        padding: 13px 14px;
+        background: var(--code);
+        color: var(--code-fg);
+        font:
+          400 12.5px/1.6 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+        white-space: pre-wrap;
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 440px;
+        overflow-wrap: anywhere;
+      }
+      .linkbtn {
+        color: var(--muted);
+        font-size: 12px;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .linkbtn:hover {
+        color: var(--fg);
+      }
+      .spin {
+        width: 13px;
+        height: 13px;
+        flex: none;
+        display: inline-block;
+        vertical-align: -2px;
+        border: 2px solid var(--line);
+        border-top-color: var(--fg);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .spin {
+          animation-duration: 2.4s;
+        }
+      }
+      /* activity ledger */
+      .actwrap {
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        overflow: auto;
+        max-height: 65vh;
+      }
+      table.act {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+        min-width: 480px;
+      }
+      table.act th,
+      table.act td {
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      table.act tr:last-child td {
+        border-bottom: 0;
+      }
+      table.act th {
+        position: sticky;
+        top: 0;
+        background: var(--panel);
+        z-index: 1;
+        color: var(--muted);
+        font:
+          500 10px/1.4 ui-monospace,
+          Menlo,
+          monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      table.act td {
+        font:
+          400 12px/1.5 ui-monospace,
+          Menlo,
+          monospace;
+      }
+      .mono {
+        font-size: 11.5px;
+      }
+      /* themes grid */
+      .themes {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 196px), 1fr));
+        gap: 10px;
+        min-width: 0;
+      }
+      .theme {
+        border: 1.5px solid var(--line);
+        border-radius: var(--r);
+        overflow: hidden;
+        background: var(--panel);
+        text-align: left;
+        padding: 0;
+        min-width: 0;
+        transition:
+          border-color 0.15s,
+          transform 0.15s;
+      }
+      .theme:hover {
+        transform: translateY(-1px);
+        border-color: var(--muted);
+      }
+      .theme[aria-pressed="true"] {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
+      }
+      .theme .sw {
+        height: 64px;
+        display: flex;
+        align-items: flex-end;
+        gap: 6px;
+        padding: 9px;
+      }
+      .theme .sw i {
+        display: block;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        border: 1px solid rgba(128, 128, 128, 0.35);
+      }
+      .theme .nm {
+        display: block;
+        padding: 9px 12px 0;
+        font-size: 13.5px;
+        font-weight: 650;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+      }
+      .theme .ds {
+        display: block;
+        padding: 2px 12px 11px;
+        font-size: 11.5px;
+        color: var(--muted);
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+      }
+      /* settings rows */
+      .setrow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        padding: 11px 0;
+        border-top: 1px solid var(--line);
+        font-size: 13.5px;
+      }
+      .setrow:first-of-type {
+        border-top: 0;
+      }
+      .setrow .grow {
+        flex: 1 1 200px;
+        min-width: 0;
+      }
+      .setrow small {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 2px;
+        line-height: 1.45;
+      }
+      .switch {
+        margin-left: auto;
+        flex: none;
+      }
+      /* ---------- terminal ---------- */
+      .term {
+        border: 1px solid var(--line);
+        border-radius: var(--r);
+        overflow: hidden;
+        background: var(--code);
+        color: var(--code-fg);
+        box-shadow: var(--shadow);
+        min-width: 0;
+      }
+      .term-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 11px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .tdot {
+        width: 9px;
+        height: 9px;
+        flex: none;
+        border-radius: 50%;
+        background: var(--line);
+      }
+      .tname {
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        line-height: 1.35;
+        font:
+          500 11.5px/1.35 ui-monospace,
+          Menlo,
+          monospace;
+      }
+      .tbtn {
+        flex: none;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--muted);
+        font-size: 11.5px;
+        padding: 3px 10px;
+        min-height: 24px;
+        line-height: 1.3;
+        overflow-wrap: break-word;
+      }
+      .tbtn:hover {
+        color: var(--fg);
+        border-color: var(--muted);
+      }
+      .tbtn[aria-pressed="true"] {
+        color: var(--accent-fg);
+        background: var(--accent);
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      .term-out {
+        height: min(56vh, 470px);
+        min-height: 230px;
+        padding: 13px 14px;
+        font:
+          400 12.5px/1.62 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+        white-space: pre;
+        overflow: auto;
+        overflow-x: auto;
+        outline: none;
+        cursor: text;
+        tab-size: 8;
+      }
+      .term-out:focus {
+        box-shadow: inset 0 0 0 1.5px var(--accent);
+      }
+      .term-out .ln {
+        min-height: 1.62em;
+      }
+      .term-out .cur {
+        background: var(--code-fg);
+        color: var(--code);
+      }
+      .term-out .b {
+        font-weight: 700;
+      }
+      .term-out .d {
+        opacity: 0.6;
+      }
+      .term-out .g32 {
+        color: #4ade80;
+      }
+      .term-out .g35 {
+        color: #e879f9;
+      }
+      .term-out .g36 {
+        color: #67e8f9;
+      }
+      .term-kbd {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px;
+        border-top: 1px solid var(--line);
+      }
+      @media (pointer: coarse) {
+        .term-kbd {
+          display: flex;
+        }
+      }
+      .term-kbd input {
+        flex: 1;
+        min-width: 0;
+        background: none;
+        border: 0;
+        outline: none;
+        color: var(--code-fg);
+        font:
+          400 13px/1.5 ui-monospace,
+          Menlo,
+          monospace;
+        min-height: 0;
+        padding: 4px 0;
+      }
+      .term-kbd input::placeholder {
+        color: var(--muted);
+      }
+      .tprompt {
+        flex: none;
+        color: var(--accent);
+        font-weight: 700;
+      }
+      /* ---------- palette ---------- */
+      .pal {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        background: rgba(0, 0, 0, 0.42);
+        display: none;
+        padding: 11vh 16px 16px;
+        overflow: auto;
+      }
+      .pal.on {
+        display: block;
+      }
+      .pal-box {
+        max-width: 560px;
+        margin-inline: auto;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+      .pal-box input {
+        width: 100%;
+        border: 0;
+        background: none;
+        outline: none;
+        color: var(--fg);
+        font:
+          400 15px/1.5 Inter,
+          system-ui,
+          sans-serif;
+        padding: 15px 17px;
+      }
+      #pal-in::placeholder {
+        color: var(--muted);
+      }
+      .pal-list {
+        max-height: min(46vh, 340px);
+        overflow: auto;
+        border-top: 1px solid var(--line);
+      }
+      .pal-group {
+        padding: 10px 17px 3px;
+        font:
+          500 10px/1.4 ui-monospace,
+          Menlo,
+          monospace;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .pal-list button {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 12px;
+        width: 100%;
+        padding: 9px 17px;
+        text-align: left;
+        font-size: 13.5px;
+        line-height: 1.35;
+      }
+      .pal-list button .lbl {
+        flex: 1 1 auto;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .pal-list button small {
+        flex: none;
+        margin-left: auto;
+        color: var(--muted);
+        font:
+          400 11px/1.6 ui-monospace,
+          Menlo,
+          monospace;
+        overflow-wrap: anywhere;
+      }
+      .pal-list button.sel,
+      .pal-list button:hover {
+        background: var(--bg);
+      }
+      /* ---------- modal ---------- */
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        background: rgba(0, 0, 0, 0.42);
+        display: none;
+        overflow: auto;
+        padding: 16px;
+      }
+      .modal.on {
+        display: block;
+      }
+      .modal-box {
+        max-width: 540px;
+        margin: 8vh auto 16px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .modal-box header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 17px;
+        border-bottom: 1px solid var(--line);
+      }
+      .modal-box h2 {
+        margin: 0;
+        font:
+          700 16px/1.3 Charter,
+          "Iowan Old Style",
+          Georgia,
+          serif;
+        letter-spacing: -0.01em;
+      }
+      .modal-box .x {
+        margin-left: auto;
+        flex: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1;
+      }
+      .modal-box .x:hover {
+        color: var(--fg);
+        background: var(--bg);
+      }
+      .kv {
+        padding: 6px 17px 14px;
+      }
+      .kv .r {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 14px;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--line);
+        font-size: 12.5px;
+      }
+      .kv .r:last-child {
+        border-bottom: 0;
+      }
+      .kv .k {
+        flex: 0 0 118px;
+        color: var(--muted);
+        font: inherit;
+        line-height: 1.5;
+      }
+      .kv .v {
+        flex: 1 1 140px;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        font:
+          400 11.5px/1.55 ui-monospace,
+          Menlo,
+          monospace;
+      }
+      .modal-box footer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 13px 17px;
+        border-top: 1px solid var(--line);
+      }
+      /* ---------- attribute fallbacks / utilities ---------- */
+      body.compact .card {
+        padding: 10px 12px;
+      }
+      body.compact .stats {
+        gap: 8px;
+      }
+      body.compact .content {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+      body.rmotion *,
+      body.rmotion *::before,
+      body.rmotion *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+      .sronly {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      /* ---------- wide displays ---------- */
+      @media (min-width: 1520px) {
+        .content {
+          max-width: 1400px;
+        }
+      }
+      @media (min-width: 2000px) {
+        .content {
+          max-width: 1560px;
+          padding-top: clamp(20px, 2vw, 40px);
+        }
+        .panels {
+          gap: 14px;
+        }
+      }
+      /* very tall + narrow slivers: everything single-column */
+      @media (max-width: 560px) {
+        .panels,
+        .themes {
+          grid-template-columns: 1fr;
+        }
+        .stats {
+          grid-template-columns: repeat(
+            auto-fit,
+            minmax(min(100%, 140px), 1fr)
+          );
+        }
+        /* block flow here: text wraps unconditionally, no flex shrinking Games */
+        .top-inner {
+          display: block;
+        }
+        .top h1 {
+          margin: 0 0 3px;
+        }
+        .cwd {
+          display: block;
+          max-width: 100%;
+          margin-bottom: 8px;
+        }
+        .pill,
+        .pal-btn {
+          display: inline-flex;
+          margin: 0 8px 6px 0;
+        }
+      }
+      /* phone: sidebar becomes a bottom drawer rail */
+      @media (max-width: 760px) {
+        .app {
+          flex-direction: column;
+        }
+        .side {
+          order: 2;
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          top: auto;
+          width: auto;
+          height: auto;
+          z-index: 12;
+          border-right: 0;
+          border-top: 1px solid var(--line);
+          padding-bottom: env(safe-area-inset-bottom);
+        }
+        .brand {
+          padding: 9px 12px;
+          border-bottom: 1px solid var(--line);
+        }
+        .bname small {
+          white-space: nowrap;
+          overflow-wrap: normal;
+        }
+        .side-foot {
+          display: none;
+        }
+        .nav {
+          flex-direction: row;
+          overflow-x: auto;
+          overflow-y: hidden;
+          gap: 2px;
+          padding: 6px 8px;
+          scrollbar-width: none;
+        }
+        .nav::-webkit-scrollbar {
+          display: none;
+        }
+        .nav-group {
+          display: none;
+        }
+        .nav button {
+          flex: 0 0 auto;
+          width: auto;
+          min-width: 58px;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          padding: 6px 10px 7px;
+          border-radius: 9px;
+          text-align: center;
+        }
+        .nav button::before {
+          display: none;
+        }
+        .nav button .lbl {
+          flex: none;
+          font-size: 10px;
+          line-height: 1.15;
+          letter-spacing: -0.01em;
+          text-align: center;
+          max-width: 9ch;
+          margin-inline: auto;
+        }
+        .nav button .cnt {
+          display: none;
+        }
+        .main {
+          order: 1;
+        }
+        .content {
+          padding-bottom: 150px;
+        }
+      }
+      /* classic phones in landscape: keep the rail, shrink the console */
+      @media (max-width: 914px) and (max-height: 480px) and (orientation: landscape) {
+        .side .nav {
+          padding: 4px 6px;
+        }
+        .nav button {
+          min-width: 48px;
+        }
+        .term-out {
+          height: 38vh;
+          min-height: 150px;
+        }
+        .content {
+          padding-bottom: 96px;
+        }
+      }
+      /* ultra-wide: three-ish columns, cap the measure */
+      @media (min-width: 1400px) {
+        .panels {
+          grid-template-columns: repeat(
+            auto-fill,
+            minmax(min(100%, 340px), 1fr)
+          );
+        }
+      }
+      /* print: kill the chrome */
+      @media print {
+        .side,
+        .top,
+        .pal,
+        .modal {
+          display: none !important;
+        }
+        .content {
+          padding: 0;
+        }
+        body {
+          background: #fff;
+        }
+      }
+      /* collapsed rail (desktop): icons only, labels kept for screen readers */
+      @media (min-width: 761px) {
+        body.narrow .side {
+          width: 64px;
+        }
+        body.narrow .brand {
+          position: relative;
+          padding: 14px 8px;
+          justify-content: center;
+        }
+        body.narrow .bname {
+          display: none;
+        }
+        body.narrow .brand #side-toggle {
+          position: absolute;
+          top: 14px;
+          right: 8px;
+          transform: rotate(180deg);
+        }
+        body.narrow .nav {
+          padding: 8px 6px;
+        }
+        body.narrow .nav button {
+          justify-content: center;
+          padding: 9px 0;
+        }
+        body.narrow .nav button .lbl {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+          clip-path: inset(50%);
+          white-space: nowrap;
+        }
+        body.narrow .nav button .cnt {
+          display: none;
+        }
+        body.narrow .nav button::before {
+          left: auto;
+          right: 2px;
+          top: 24%;
+          bottom: 24%;
+        }
+        body.narrow .nav-group {
+          margin: 12px 0 2px;
+          text-align: center;
+          font-size: 0;
+        }
+        body.narrow .nav-group::after {
+          content: "···";
+          font-size: 9px;
+          letter-spacing: 0.08em;
+        }
+        body.narrow .side-foot {
+          padding: 8px;
+        }
+        body.narrow #side-cwd {
+          display: none;
+        }
+        body.narrow .ver-pill {
+          font-size: 9.5px;
+          min-height: 34px;
+          padding: 4px 3px;
+          line-height: 1.3;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="side" aria-label="primary">
+        <div class="brand">
+          <span class="mark" aria-hidden="true">ah</span>
+          <span class="bname"
+            ><b>agent-harness</b><small id="brand-ver">local gui</small></span
+          >
+          <button
+            id="side-toggle"
+            title="collapse sidebar"
+            aria-label="collapse sidebar"
+          >
+            ‹
+          </button>
+        </div>
+        <nav class="nav" id="nav" aria-label="pages">
+          <div class="nav-group">Workspace</div>
+          <button data-page="overview" aria-current="page">
+            <span class="ico" aria-hidden="true">◉</span
+            ><span class="lbl">Overview</span>
+          </button>
+          <button data-page="agents">
+            <span class="ico" aria-hidden="true">⚙</span
+            ><span class="lbl">Agents</span
+            ><span class="cnt" id="nav-agents"></span>
+          </button>
+          <button data-page="commands">
+            <span class="ico" aria-hidden="true">▸</span
+            ><span class="lbl">Commands</span>
+          </button>
+          <div class="nav-group">Library</div>
+          <button data-page="memory">
+            <span class="ico" aria-hidden="true">✎</span
+            ><span class="lbl">Memory</span>
+          </button>
+          <button data-page="skills">
+            <span class="ico" aria-hidden="true">✣</span
+            ><span class="lbl">Skills</span>
+          </button>
+          <button data-page="project">
+            <span class="ico" aria-hidden="true">▤</span
+            ><span class="lbl">Project</span>
+          </button>
+          <div class="nav-group">System</div>
+          <button data-page="activity">
+            <span class="ico" aria-hidden="true">≣</span
+            ><span class="lbl">Activity</span
+            ><span class="cnt" id="nav-act"></span>
+          </button>
+          <button data-page="settings">
+            <span class="ico" aria-hidden="true">✦</span
+            ><span class="lbl">Settings</span>
+          </button>
+          <button id="nav-update">
+            <span class="ico" aria-hidden="true">↻</span
+            ><span class="lbl">Update</span
+            ><span class="cnt" id="nav-upd"></span>
+          </button>
+          <button data-page="about">
+            <span class="ico" aria-hidden="true">ⓘ</span
+            ><span class="lbl">About</span>
+          </button>
+        </nav>
+        <div class="side-foot">
+          <button class="ver-pill" id="upd-pill" title="update status">
+            …
+          </button>
+          <span id="side-cwd"></span>
+        </div>
+      </aside>
+      <div class="main">
+        <header class="top">
+          <div class="top-inner">
+            <h1 id="page-title">Overview</h1>
+            <span class="cwd" id="cwd"></span>
+            <span class="spacer"></span>
+            <span class="pill"
+              ><span class="dot"></span
+              ><span id="srv-state">server live</span></span
+            >
+            <button class="pal-btn" id="pal-open" title="command palette">
+              ⌘K <span class="kbd">Ctrl K</span>
+            </button>
+          </div>
+        </header>
+        <main class="content">
+          <section class="page on" data-page="overview" aria-label="Overview">
+            <p class="eyebrow">Front page</p>
+            <h2 class="lead">Project health at a glance.</h2>
+            <p class="sub">
+              Live snapshot of this checkout, read from the harness server. No
+              CLI commands needed.
+            </p>
+            <div class="stats" id="stats"></div>
+            <div class="panels">
+              <div class="card">
+                <h3>Quick actions</h3>
+                <p>One click runs the matching harness command.</p>
+                <div class="row">
+                  <button class="btn small ghost" data-quick="status">
+                    status
+                  </button>
+                  <button class="btn small ghost" data-quick="doctor">
+                    check setup
+                  </button>
+                  <button class="btn small ghost" data-quick="upgrade --check">
+                    check updates
+                  </button>
+                  <button class="btn small ghost" data-goto="agents">
+                    ask an agent
+                  </button>
+                </div>
+              </div>
+              <div class="card">
+                <h3>Recent activity</h3>
+                <p>Latest runs from this browser session.</p>
+                <div id="recent"></div>
+              </div>
+            </div>
+          </section>
+          <section class="page" data-page="agents" aria-label="Agents">
+            <p class="eyebrow">Agents</p>
+            <h2 class="lead">Run a prompt.</h2>
+            <p class="sub" id="agents-note">
+              Non-interactive runs through an installed coding agent, in the
+              project above. Unavailable agents show why. agent-harness is not
+              affiliated with any agent vendor.
+            </p>
+            <div class="panels" id="agents-box"></div>
+          </section>
+          <section class="page" data-page="commands" aria-label="Commands">
+            <p class="eyebrow">Commands</p>
+            <h2 class="lead">A terminal, already running harness.</h2>
+            <p class="sub">
+              Menu runs the interactive harness; shell is a plain bash in this
+              project. Click inside and type.
+            </p>
+            <div class="term" id="term">
+              <div class="term-bar">
+                <span class="tdot"></span><span class="tdot"></span
+                ><span class="tdot"></span>
+                <span class="tname" id="term-name">harness — menu</span>
+                <button class="tbtn" id="term-menu" aria-pressed="true">
+                  menu
+                </button>
+                <button class="tbtn" id="term-shell" aria-pressed="false">
+                  shell
+                </button>
+                <button class="tbtn" id="term-restart">restart</button>
+              </div>
+              <div
+                class="term-out"
+                id="term-out"
+                tabindex="0"
+                aria-label="harness terminal. Click and type."
+              ></div>
+              <div class="term-kbd">
+                <span class="tprompt">❯</span>
+                <input
+                  type="text"
+                  id="term-kbd-in"
+                  placeholder="tap here for keyboard…"
+                  aria-label="terminal keyboard"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  spellcheck="false"
+                />
+              </div>
+            </div>
+          </section>
+          <section class="page" data-page="memory" aria-label="Memory">
+            <p class="eyebrow">Memory</p>
+            <h2 class="lead">What the harness remembers.</h2>
+            <p class="sub">
+              Read MEMORY.md, or append a note to it. Notes sync into the file
+              immediately.
+            </p>
+            <div class="panels">
+              <div class="card">
+                <h3>Add a note</h3>
+                <p>Appends one line to MEMORY.md in this project.</p>
+                <div class="row">
+                  <input
+                    class="grow"
+                    type="text"
+                    id="mem-note"
+                    placeholder="something worth remembering…"
+                    aria-label="memory note"
+                  />
+                  <button class="btn small" id="mem-add">sync note</button>
+                </div>
+              </div>
+            </div>
+            <div class="panels after-panels" id="mem-cards"></div>
+          </section>
+          <section class="page" data-page="skills" aria-label="Skills">
+            <p class="eyebrow">Skills</p>
+            <h2 class="lead">Extend the harness.</h2>
+            <p class="sub">
+              Search installed skills, check their health, or browse the full
+              list.
+            </p>
+            <div class="panels">
+              <div class="card">
+                <h3>Search skills</h3>
+                <p>Matches names and descriptions.</p>
+                <div class="row">
+                  <input
+                    class="grow"
+                    type="text"
+                    id="skill-q"
+                    placeholder="e.g. performance"
+                    aria-label="skill search"
+                  />
+                  <button class="btn small" id="skill-go">search</button>
+                  <button class="btn small ghost" id="skill-lint">
+                    lint all
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="panels after-panels" id="skill-cards"></div>
+          </section>
+          <section class="page" data-page="project" aria-label="Project">
+            <p class="eyebrow">Project</p>
+            <h2 class="lead">Read the project files.</h2>
+            <p class="sub">
+              Read-only viewers over the live project: snapshot, memory, skills.
+            </p>
+            <div class="panels" id="proj-cards"></div>
+          </section>
+          <section class="page" data-page="activity" aria-label="Activity">
+            <p class="eyebrow">Activity</p>
+            <h2 class="lead">What ran here.</h2>
+            <p class="sub">
+              Every command and agent run from this browser session, newest
+              first.
+            </p>
+            <div class="row" style="margin-bottom: 12px">
+              <button class="btn small ghost" id="act-clear">clear log</button>
+            </div>
+            <div class="actwrap" id="act-box">
+              <p class="note">Nothing run yet.</p>
+            </div>
+          </section>
+          <section class="page" data-page="about" aria-label="About">
+            <p class="eyebrow">About</p>
+            <h2 class="lead">This machine, this build.</h2>
+            <p class="sub">
+              System facts, release identity, credits and licenses. Read from
+              the live server.
+            </p>
+            <div class="row" style="margin-bottom: 12px">
+              <button class="btn small ghost" id="about-refresh">
+                refresh
+              </button>
+            </div>
+            <div class="panels" id="about-panels">
+              <p class="note">Loading…</p>
+            </div>
+          </section>
+          <section class="page" data-page="settings" aria-label="Settings">
+            <p class="eyebrow">Settings</p>
+            <h2 class="lead">Make it yours.</h2>
+            <p class="sub">
+              Theme applies instantly and is remembered in this browser.
+            </p>
+            <h3 class="set-group">Look and feel</h3>
+            <div class="card" style="margin-bottom: 12px">
+              <h3>Theme</h3>
+              <p>
+                Nineteen looks. Regular is the default. Applies instantly,
+                remembered in this browser.
+              </p>
+              <div class="themes" id="themes"></div>
+            </div>
+            <div class="panels">
+              <div class="card">
+                <h3>Appearance</h3>
+                <p>Density and motion for this browser.</p>
+                <div class="setrow">
+                  <span class="grow"
+                    >Compact cards<small
+                      >Tighter padding everywhere.</small
+                    ></span
+                  >
+                  <input
+                    class="switch"
+                    type="checkbox"
+                    id="set-compact"
+                    aria-label="compact cards"
+                  />
+                </div>
+                <div class="setrow">
+                  <span class="grow"
+                    >Reduce motion<small
+                      >Disables animations and transitions.</small
+                    ></span
+                  >
+                  <input
+                    class="switch"
+                    type="checkbox"
+                    id="set-motion"
+                    aria-label="reduce motion"
+                  />
+                </div>
+              </div>
+            </div>
+            <h3 class="set-group">Behavior</h3>
+            <div class="panels">
+              <div class="card">
+                <h3>Confirmations</h3>
+                <p>Ask before side effects happen.</p>
+                <div class="setrow">
+                  <span class="grow"
+                    >Confirm before running commands<small
+                      >bench, optimize and map can take a while.</small
+                    ></span
+                  >
+                  <input
+                    class="switch"
+                    type="checkbox"
+                    id="set-confirm-cmd"
+                    aria-label="confirm before running commands"
+                  />
+                </div>
+                <div class="setrow">
+                  <span class="grow"
+                    >Confirm before agent runs<small
+                      >Agent calls cost time and tokens.</small
+                    ></span
+                  >
+                  <input
+                    class="switch"
+                    type="checkbox"
+                    id="set-confirm-agent"
+                    aria-label="confirm before agent runs"
+                    checked
+                  />
+                </div>
+              </div>
+              <div class="card">
+                <h3>Navigation</h3>
+                <p>Where the GUI starts.</p>
+                <div class="setrow">
+                  <span class="grow"
+                    >Remember last page<small
+                      >Reopen on the page you left.</small
+                    ></span
+                  >
+                  <input
+                    class="switch"
+                    type="checkbox"
+                    id="set-remember"
+                    aria-label="remember last page"
+                  />
+                </div>
+              </div>
+            </div>
+            <h3 class="set-group">Data</h3>
+            <div class="panels">
+              <div class="card">
+                <h3>Activity log</h3>
+                <p>How much run history this browser keeps.</p>
+                <div class="setrow">
+                  <span class="grow">Keep last runs</span>
+                  <select id="set-keeplog" aria-label="runs to keep">
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100" selected>100</option>
+                  </select>
+                </div>
+                <div class="row" style="margin-top: 10px">
+                  <button class="btn small ghost" id="act-export">
+                    export json
+                  </button>
+                  <button class="btn small ghost" id="act-clear2">
+                    clear log
+                  </button>
+                </div>
+              </div>
+            </div>
+            <h3 class="set-group">System</h3>
+            <div class="panels">
+              <div class="card">
+                <h3>Server</h3>
+                <p id="srv-info">…</p>
+                <div class="row">
+                  <button class="btn small ghost" id="set-copy-url">
+                    copy url
+                  </button>
+                  <button class="btn small danger" id="quit">
+                    stop server
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section aria-label="Output" style="margin-top: 30px">
+            <div class="row" style="margin-bottom: 6px; align-items: baseline">
+              <h2 class="lead" style="font-size: 19px; margin: 0">Output</h2>
+              <span class="spacer"></span>
+              <button class="btn small ghost" id="clear">clear output</button>
+            </div>
+            <div id="out">
+              <p class="note">Nothing run yet. Pick a command above.</p>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+    <div class="pal" id="pal">
+      <div class="pal-box">
+        <input
+          id="pal-in"
+          type="text"
+          placeholder="Type a command or page…"
+          aria-label="command palette"
+        />
+        <div class="pal-list" id="pal-list"></div>
+      </div>
+    </div>
+    <div class="modal" id="upd-modal">
+      <div class="modal-box" role="dialog" aria-label="update info">
+        <header>
+          <h2><span aria-hidden="true">↻</span> Update</h2>
+          <button class="x" id="upd-close" aria-label="close">×</button>
+        </header>
+        <div class="kv" id="upd-rows"><p class="note">Loading…</p></div>
+        <footer>
+          <button class="btn small" id="upd-check">check for updates</button>
+          <button class="btn small ghost" id="upd-goto-out">view output</button>
+        </footer>
+      </div>
+    </div>
+    <script>
+      "use strict";
+      const AGENTS = [
+        {
+          id: "opencode",
+          t: "Opencode",
+          d: "Runs opencode run with your prompt in this project.",
+        },
+        {
+          id: "claude",
+          t: "Claude Code",
+          d: "Runs claude -p with your prompt in this project.",
+        },
+      ];
+      const THEMES = [
+        {
+          id: "regular",
+          t: "Regular",
+          d: "Clean light default.",
+          sw: ["#ffffff", "#f4f4f2", "#1f6feb"],
+        },
+        {
+          id: "dark",
+          t: "Dark",
+          d: "Low-light gray.",
+          sw: ["#1b1d21", "#131417", "#4c8dff"],
+        },
+        {
+          id: "midnight",
+          t: "Midnight",
+          d: "True black, OLED friendly.",
+          sw: ["#0a0a0a", "#000000", "#7c6cff"],
+        },
+        {
+          id: "contrast",
+          t: "High contrast",
+          d: "Maximum legibility.",
+          sw: ["#ffffff", "#000000", "#0000cc"],
+        },
+        {
+          id: "harvest",
+          t: "Harvest",
+          d: "Warm retro cream and burnt orange.",
+          sw: ["#fffdf0", "#fbf1c7", "#af3a03"],
+        },
+        {
+          id: "pine",
+          t: "Pine",
+          d: "Deep forest green dark.",
+          sw: ["#12291d", "#0d1f16", "#57c785"],
+        },
+        {
+          id: "tidal",
+          t: "Tidal",
+          d: "Deep ocean blue dark.",
+          sw: ["#0f1f38", "#0a1628", "#38bdf8"],
+        },
+        {
+          id: "dusk",
+          t: "Dusk",
+          d: "Muted violet dark.",
+          sw: ["#1e1629", "#150f1e", "#a78bfa"],
+        },
+        {
+          id: "ember",
+          t: "Ember",
+          d: "Smoky warm orange dark.",
+          sw: ["#241410", "#1a0f0a", "#fb923c"],
+        },
+        {
+          id: "espresso",
+          t: "Espresso",
+          d: "Roasted coffee brown dark.",
+          sw: ["#1e1812", "#14100c", "#d4a373"],
+        },
+        {
+          id: "storm",
+          t: "Storm",
+          d: "Blue-gray slate dark.",
+          sw: ["#181e27", "#11151c", "#7dd3fc"],
+        },
+        {
+          id: "glacier",
+          t: "Glacier",
+          d: "Icy blue light.",
+          sw: ["#ffffff", "#eef4f8", "#0284c7"],
+        },
+        {
+          id: "meadow",
+          t: "Meadow",
+          d: "Soft green light.",
+          sw: ["#ffffff", "#f0f7f1", "#16a34a"],
+        },
+        {
+          id: "blossom",
+          t: "Blossom",
+          d: "Soft pink light.",
+          sw: ["#ffffff", "#faf0f3", "#db2777"],
+        },
+        {
+          id: "dune",
+          t: "Dune",
+          d: "Warm sand light.",
+          sw: ["#fffdf7", "#f5efe4", "#9a3412"],
+        },
+        {
+          id: "birch",
+          t: "Birch",
+          d: "Neutral gray light.",
+          sw: ["#ffffff", "#f2f2f0", "#374151"],
+        },
+        {
+          id: "clay",
+          t: "Clay",
+          d: "Terracotta tint light.",
+          sw: ["#fffaf7", "#f7ece6", "#c2410c"],
+        },
+        {
+          id: "orchid",
+          t: "Orchid",
+          d: "Lavender tint light.",
+          sw: ["#ffffff", "#f3eff9", "#7c3aed"],
+        },
+        {
+          id: "moss",
+          t: "Moss",
+          d: "Olive green dark.",
+          sw: ["#1a1d11", "#12140c", "#a3e635"],
+        },
+      ];
+      const $ = (s) => document.querySelector(s);
+      // quote-safe too: the first future ${esc(x)} inside an attribute must not
+      // turn into an XSS
+      const esc = (s) =>
+        s
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      /* theme */
+      function setTheme(id) {
+        const ok = THEMES.some((t) => t.id === id);
+        const use = ok ? id : "regular";
+        document.documentElement.dataset.theme = use;
+        try {
+          localStorage.setItem("ah-theme", use);
+        } catch (e) {
+          /* private mode */
+        }
+        document
+          .querySelectorAll(".theme")
+          .forEach((b) =>
+            b.setAttribute(
+              "aria-pressed",
+              b.dataset.theme === use ? "true" : "false",
+            ),
+          );
+      }
+      function renderThemes() {
+        const box = $("#themes");
+        THEMES.forEach((t) => {
+          const b = document.createElement("button");
+          b.className = "theme";
+          b.dataset.theme = t.id;
+          b.innerHTML =
+            `<span class="sw" style="background:${t.sw[0]}">` +
+            t.sw.map((c) => `<i style="background:${c}"></i>`).join("") +
+            `</span><span class="nm">${esc(t.t)}</span><span class="ds">${esc(t.d)}</span>`;
+          b.addEventListener("click", () => setTheme(t.id));
+          box.appendChild(b);
+        });
+      }
+      /* nav */
+      const TITLES = {
+        overview: "Overview",
+        agents: "Agents",
+        commands: "Commands",
+        memory: "Memory",
+        skills: "Skills",
+        project: "Project",
+        activity: "Activity",
+        settings: "Settings",
+        about: "About",
+      };
+      function store(key, val) {
+        if (val === undefined) {
+          try {
+            return localStorage.getItem(key);
+          } catch (e) {
+            return null;
+          }
+        }
+        try {
+          if (val === null) localStorage.removeItem(key);
+          else localStorage.setItem(key, val);
+        } catch (e) {
+          /* private mode */
+        }
+      }
+      const SET = {
+        get compact() {
+          return store("ah-compact") === "1";
+        },
+        get motion() {
+          return store("ah-motion") === "1";
+        },
+        get confirmCmd() {
+          return store("ah-confirm-cmd") === "1";
+        },
+        get confirmAgent() {
+          return store("ah-confirm-agent") !== "0";
+        },
+        get remember() {
+          return store("ah-remember") === "1";
+        },
+        get keepLog() {
+          const v = parseInt(store("ah-keeplog") || "100", 10);
+          return v > 0 ? v : 100;
+        },
+      };
+      function applyPrefs() {
+        document.body.classList.toggle("compact", SET.compact);
+        document.body.classList.toggle("rmotion", SET.motion);
+      }
+      function goto(page) {
+        document
+          .querySelectorAll("#nav button")
+          .forEach((b) =>
+            b.setAttribute(
+              "aria-current",
+              b.dataset.page === page ? "page" : "false",
+            ),
+          );
+        document
+          .querySelectorAll(".page")
+          .forEach((s) => s.classList.toggle("on", s.dataset.page === page));
+        $("#page-title").textContent = TITLES[page] || page;
+        curPage = page;
+        try {
+          location.hash = page;
+        } catch (e) {
+          /* ignore */
+        }
+        if (SET.remember) store("ah-page", page);
+        if (page === "commands") termStart();
+        if (page === "about") renderAbout();
+        window.scrollTo(0, 0);
+      }
+      /* api */
+      async function api(path, body) {
+        const r = await fetch(path, {
+          method: body === undefined ? "GET" : "POST",
+          headers:
+            body === undefined ? {} : { "Content-Type": "application/json" },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+        if (!r.ok) throw new Error("http " + r.status);
+        return r.json();
+      }
+      /* activity */
+      let log = [];
+      function pushAct(cmd, ms, ok) {
+        log.unshift({ t: new Date().toISOString(), cmd, ms, ok });
+        while (log.length > SET.keepLog) log.length = SET.keepLog;
+        renderAct();
+      }
+      function actRow(a) {
+        return (
+          `<tr><td>${esc(new Date(a.t).toLocaleTimeString())}</td><td>${esc(a.cmd)}</td>` +
+          `<td>${a.ms >= 1000 ? (a.ms / 1000).toFixed(1) + "s" : a.ms + "ms"}</td>` +
+          `<td style="color:var(--${a.ok ? "ok" : "bad"});font-weight:700">${a.ok ? "ok" : "FAIL"}</td></tr>`
+        );
+      }
+      function renderAct() {
+        $("#nav-act").textContent = log.length ? String(log.length) : "";
+        $("#recent").innerHTML = log.length
+          ? `<div class="actwrap"><table class="act"><tbody>${log.slice(0, 5).map(actRow).join("")}</tbody></table></div>`
+          : `<p class="note">No runs yet this session.</p>`;
+        $("#act-box").innerHTML = log.length
+          ? `<table class="act"><thead><tr><th>time</th><th>command</th><th>took</th><th>result</th></tr></thead><tbody>${log.map(actRow).join("")}</tbody></table>`
+          : `<p class="note">Nothing run yet.</p>`;
+      }
+      /* command runs */
+      let n = 0;
+      function outBox() {
+        const box = $("#out");
+        const empty = box.querySelector(".note");
+        if (empty) empty.remove();
+        return box;
+      }
+      async function runCommand(cmd, args, btn, label) {
+        if (
+          SET.confirmCmd &&
+          !confirm(
+            `Run harness ${cmd}${args.length ? " " + args.join(" ") : ""}?`,
+          )
+        )
+          return;
+        const box = outBox();
+        const id = "run-" + ++n;
+        const shown =
+          label || "harness " + cmd + args.map((a) => " " + a).join("");
+        const div = document.createElement("div");
+        div.className = "run";
+        div.id = id;
+        div.innerHTML = `<header><span class="spin"></span><code>${esc(shown)}</code></header><pre>running…</pre>`;
+        box.prepend(div);
+        if (btn) btn.disabled = true;
+        const t0 = performance.now();
+        try {
+          const r = await api("/api/run", { cmd, args });
+          const ms = Math.round(performance.now() - t0);
+          div.querySelector("header").innerHTML =
+            `<span class="${r.ok ? "ok" : "bad"}">${r.ok ? "ok" : "FAIL"}</span><code>${esc(shown)}</code>` +
+            `<span class="ms">${ms}ms</span><span class="mini"><button class="linkbtn" data-copy="${id}">copy</button></span>`;
+          div.querySelector("pre").textContent = r.output || "(no output)";
+          pushAct(shown, ms, r.ok);
+          return !!r.ok;
+        } catch (e) {
+          div.querySelector("header").innerHTML =
+            `<span class="bad">error</span><code>${esc(shown)}</code>`;
+          div.querySelector("pre").textContent = String((e && e.message) || e);
+          pushAct(shown, 0, false);
+          return false;
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      }
+      document.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-copy]");
+        if (!b) return;
+        const pre = document.querySelector("#" + b.dataset.copy + " pre");
+        if (pre && navigator.clipboard)
+          navigator.clipboard.writeText(pre.textContent);
+        b.textContent = "copied";
+        setTimeout(() => {
+          b.textContent = "copy";
+        }, 1200);
+      });
+      function agentCard(a, available) {
+        const el = document.createElement("div");
+        el.className = "card";
+        el.innerHTML =
+          `<h3>${esc(a.t)}</h3><p>${esc(a.d)}</p>` +
+          `<textarea placeholder="a prompt for ${esc(a.id)}…" aria-label="prompt"></textarea>` +
+          `<div class="row" style="margin-top:10px"><button class="btn small"${available ? "" : " disabled"}>run${available ? "" : " (not installed)"}</button></div>`;
+        const btn = el.querySelector("button");
+        const box = el.querySelector("textarea");
+        box.addEventListener("keydown", (e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && available)
+            btn.click();
+        });
+        if (available)
+          btn.addEventListener("click", async () => {
+            const v = box.value.trim();
+            if (!v) {
+              box.focus();
+              return;
+            }
+            if (
+              SET.confirmAgent &&
+              !confirm(
+                `Ask ${a.id} (${v.length} chars)? Agent runs cost time and tokens.`,
+              )
+            )
+              return;
+            const out = outBox();
+            const id = "run-" + ++n;
+            const div = document.createElement("div");
+            div.className = "run";
+            div.id = id;
+            div.innerHTML = `<header><span class="spin"></span><code>${esc(a.id)} ← prompt (${v.length} chars)</code></header><pre>running — agents can take minutes…</pre>`;
+            out.prepend(div);
+            btn.disabled = true;
+            const t0 = performance.now();
+            try {
+              const r = await api("/api/agent", { agent: a.id, prompt: v });
+              const ms = Math.round(performance.now() - t0);
+              div.querySelector("header").innerHTML =
+                `<span class="${r.ok ? "ok" : "bad"}">${r.ok ? "ok" : "FAIL"}</span><code>${esc(a.id)} ← prompt (${v.length} chars)</code>` +
+                `<span class="ms">${(ms / 1000).toFixed(1)}s</span><span class="mini"><button class="linkbtn" data-copy="${id}">copy</button></span>`;
+              div.querySelector("pre").textContent = r.output || "(no output)";
+              pushAct(a.id + " ← prompt", ms, r.ok);
+            } catch (e) {
+              div.querySelector("header").innerHTML =
+                `<span class="bad">error</span><code>${esc(a.id)}</code>`;
+              div.querySelector("pre").textContent = String(
+                (e && e.message) || e,
+              );
+              pushAct(a.id + " ← prompt", 0, false);
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        return el;
+      }
+      /* project viewers */
+      const VIEWERS = [
+        {
+          cmd: "status",
+          t: "Snapshot",
+          d: "Init state, memory, skills, hooks, last benchmark.",
+          args: [],
+        },
+        {
+          cmd: "memory",
+          t: "Memory",
+          d: "Full MEMORY.md contents.",
+          args: ["show"],
+        },
+        {
+          cmd: "skill",
+          t: "Skills",
+          d: "Installed skills list.",
+          args: ["list"],
+        },
+      ];
+      function projCard(v) {
+        const el = document.createElement("div");
+        el.className = "card";
+        el.innerHTML =
+          `<h3>${esc(v.t)}</h3><p>${esc(v.d)}</p>` +
+          `<div class="row"><button class="btn small ghost">load</button></div><div class="view"></div>`;
+        const btn = el.querySelector("button");
+        const view = el.querySelector(".view");
+        btn.addEventListener("click", async () => {
+          btn.disabled = true;
+          view.innerHTML = `<p class="note"><span class="spin"></span> loading…</p>`;
+          const t0 = performance.now();
+          try {
+            const r = await api("/api/run", { cmd: v.cmd, args: v.args });
+            const ms = Math.round(performance.now() - t0);
+            view.innerHTML =
+              `<div class="run"><header><span class="${r.ok ? "ok" : "bad"}">${r.ok ? "ok" : "FAIL"}</span>` +
+              `<code>harness ${esc(v.cmd)}${v.args.map((a) => " " + esc(a)).join("")}</code><span class="ms">${ms}ms</span></header>` +
+              `<pre></pre></div>`;
+            view.querySelector("pre").textContent = r.output || "(no output)";
+            pushAct("view " + v.cmd, ms, r.ok);
+          } catch (e) {
+            view.innerHTML = `<p class="note">error: ${esc(String((e && e.message) || e))}</p>`;
+          } finally {
+            btn.disabled = false;
+          }
+        });
+        return el;
+      }
+      /* overview stats */
+      function renderStats(p) {
+        const init = p ? p.initialized : "?";
+        const mem =
+          p && typeof p.memTokens === "number"
+            ? "~" + p.memTokens + " tok"
+            : "missing";
+        const skills = p ? p.skills : "?";
+        const bench = p && p.lastBench ? p.lastBench + " ago" : "never";
+        const opt = p ? `${p.optimizationsOn}/${p.optimizationsTotal}` : "?";
+        const lm = !p
+          ? "?"
+          : p.localModels === null
+            ? "no ollama"
+            : `${p.localModels.runners} · ${p.localModels.mem}`;
+        $("#stats").innerHTML = [
+          ["Initialized", init, init === "yes" ? "good" : "warn"],
+          ["Memory", mem, ""],
+          ["Skills", skills, ""],
+          ["Last bench", bench, p && p.lastBench ? "" : "warn"],
+          ["Optimizations", opt, ""],
+          ["Local models", lm, ""],
+        ]
+          .map(
+            ([k, v, c]) =>
+              `<div class="stat"><div class="v${c ? " " + c : ""}">${esc(String(v))}</div><div class="k">${esc(k)}</div></div>`,
+          )
+          .join("");
+      }
+      /* palette */
+      const PAL = [
+        { t: "Go to Overview", h: "page", run: () => goto("overview") },
+        { t: "Go to Agents", h: "page", run: () => goto("agents") },
+        { t: "Go to Commands", h: "page", run: () => goto("commands") },
+        { t: "Go to Memory", h: "page", run: () => goto("memory") },
+        { t: "Go to Skills", h: "page", run: () => goto("skills") },
+        { t: "Go to Project", h: "page", run: () => goto("project") },
+        { t: "Go to Activity", h: "page", run: () => goto("activity") },
+        { t: "Go to Settings", h: "page", run: () => goto("settings") },
+        { t: "Go to About", h: "page", run: () => goto("about") },
+        {
+          t: "Run status",
+          h: "harness status",
+          run: () => runCommand("status", [], null),
+        },
+        {
+          t: "Run check setup",
+          h: "harness doctor",
+          run: () => runCommand("doctor", [], null),
+        },
+        {
+          t: "Run memory stats",
+          h: "harness memory stats",
+          run: () => runCommand("memory", ["stats"], null),
+        },
+        {
+          t: "Run lint skills",
+          h: "harness skill lint",
+          run: () => runCommand("skill", ["lint"], null),
+        },
+        {
+          t: "Run check for updates",
+          h: "harness upgrade --check",
+          run: () => runCommand("upgrade", ["--check"], null),
+        },
+        {
+          t: "Run optimize",
+          h: "harness optimize",
+          run: () => runCommand("optimize", [], null),
+        },
+        {
+          t: "Show update info",
+          h: "version · commit · build",
+          run: () => openUpdate(),
+        },
+      ];
+      function row(k, v) {
+        return `<div class="r"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`;
+      }
+      function aboutCard(title, rows) {
+        return (
+          `<div class="card"><h3>${esc(title)}</h3><div class="kv" style="padding:0">` +
+          rows.map(([k, v]) => row(k, v)).join("") +
+          `</div></div>`
+        );
+      }
+      let aboutLoading = false;
+      async function renderAbout() {
+        if (aboutLoading) return;
+        aboutLoading = true;
+        const box = $("#about-panels");
+        box.innerHTML = `<p class="note">Loading…</p>`;
+        try {
+          const u = await api("/api/update-info");
+          const s = await api("/api/status");
+          const sys = u.sys || {};
+          const lic = u.license || {};
+          const dash = (x) =>
+            x === null || x === undefined || x === "" ? "—" : String(x);
+          const cards = [
+            aboutCard("System information", [
+              ["platform", dash(sys.platform)],
+              ["arch", dash(sys.arch)],
+              ["kernel", dash(sys.release)],
+              ["memory", sys.totalGb ? sys.totalGb + " GB" : "—"],
+              ["cpus", dash(sys.cpus)],
+              ["node", dash(u.node)],
+              ["serving", s.cwd || "—"],
+            ]),
+            aboutCard("Release", [
+              ["version", dash(u.version)],
+              ["commit", dash(u.commit)],
+              ["short id", dash(u.short)],
+              ["branch", dash(u.branch)],
+              ["release date", dash(u.committed)],
+              ["message", dash(u.subject)],
+              ["server built", dash(u.built)],
+            ]),
+            `<div class="card"><h3>Credits</h3><p>agent-harness is written and maintained by ` +
+              `<a href="https://github.com/TheElephantCoder" style="color:var(--accent)">TheElephantCoder</a>, ` +
+              `open source on <a href="https://github.com/TheElephantCoder/agent-harness" style="color:var(--accent)">GitHub</a>. ` +
+              `Business inquiries: <a href="mailto:contact@theelephantcoder.com" style="color:var(--accent)">contact@theelephantcoder.com</a>.</p>` +
+              `<p>Agents on this machine: ${s.agents && s.agents.opencode ? "opencode" : "—"}, ` +
+              `${s.agents && s.agents.claude ? "claude" : "—"}. The agent CLIs are separate tools with their own licenses.</p></div>`,
+            `<div class="card"><h3>Licenses</h3><p>agent-harness itself is ${dash(lic.spdx) || "licensed as below"}:</p>` +
+              `<div class="run"><pre></pre></div></div>` +
+              `<div class="card"><h3>Not affiliated</h3>` +
+              `<p>agent-harness is an independent project by ` +
+              `<a href="https://github.com/TheElephantCoder" style="color:var(--accent)">@theelephantcoder</a>. ` +
+              `Neither agent-harness nor @theelephantcoder is affiliated with, endorsed by, ` +
+              `or sponsored by Anthropic, OpenCode, or any other agent vendor. Claude, Claude Code, ` +
+              `Opencode and all related marks are trademarks of their respective owners.</p></div>`,
+          ];
+          box.innerHTML = cards.join("");
+          const pres = box.querySelectorAll("pre");
+          if (pres.length)
+            pres[pres.length - 1].textContent =
+              lic.text || "(license file not shipped with this install)";
+        } catch (e) {
+          box.innerHTML = `<p class="note">Could not load about info: ${esc(String((e && e.message) || e))}</p>`;
+        }
+        aboutLoading = false;
+      }
+      async function openUpdate() {
+        $("#upd-modal").classList.add("on");
+        $("#upd-rows").innerHTML = `<p class="note">Loading…</p>`;
+        try {
+          const u = await api("/api/update-info");
+          paintPill(u);
+          const dash = (x) =>
+            x === null || x === undefined || x === "" ? "—" : String(x);
+          const state =
+            u.behind === true
+              ? "behind — update available"
+              : u.behind === false
+                ? "up to date"
+                : "unknown (could not reach github)";
+          $("#upd-rows").innerHTML =
+            row("harness version", dash(u.version)) +
+            row("commit", dash(u.commit)) +
+            row("short id", dash(u.short)) +
+            row("branch", dash(u.branch)) +
+            row("committed", dash(u.committed)) +
+            row("message", dash(u.subject)) +
+            row(
+              "worktree",
+              u.dirty === null
+                ? "—"
+                : u.dirty
+                  ? "dirty (uncommitted changes)"
+                  : "clean",
+            ) +
+            row("latest main", dash(u.latest)) +
+            row("status", state) +
+            row("node", dash(u.node)) +
+            row("server built", dash(u.built));
+        } catch (e) {
+          $("#upd-rows").innerHTML =
+            `<p class="note">Could not load update info: ${esc(String((e && e.message) || e))}</p>`;
+        }
+      }
+      function closeUpdate() {
+        $("#upd-modal").classList.remove("on");
+      }
+      function paintPill(u) {
+        const pill = $("#upd-pill");
+        const nav = $("#nav-upd");
+        const v = "v" + (u.version || "?");
+        if (u.behind === true && u.latest) {
+          pill.textContent = `↻ update available · ${v} → ${u.latest}`;
+          pill.classList.add("avail");
+          nav.textContent = "!";
+        } else if (u.behind === false) {
+          pill.textContent = `✓ ${v} up to date`;
+          pill.classList.remove("avail");
+          nav.textContent = "";
+        } else {
+          pill.textContent = `${v} · could not check`;
+          pill.classList.remove("avail");
+          nav.textContent = "";
+        }
+      }
+      function openPal() {
+        $("#pal").classList.add("on");
+        renderPal("");
+        $("#pal-in").value = "";
+        $("#pal-in").focus();
+      }
+      function closePal() {
+        $("#pal").classList.remove("on");
+      }
+      function renderPal(q) {
+        const box = $("#pal-list");
+        const query = q.toLowerCase();
+        const pages = PAL.filter(
+          (p) => p.h === "page" && p.t.toLowerCase().includes(query),
+        );
+        const cmds = PAL.filter(
+          (p) =>
+            p.h !== "page" &&
+            (p.t.toLowerCase().includes(query) ||
+              p.h.toLowerCase().includes(query)),
+        );
+        box.innerHTML = "";
+        let first = true;
+        for (const [label, items] of [
+          ["Pages", pages],
+          ["Commands", cmds],
+        ]) {
+          if (!items.length) continue;
+          const h = document.createElement("div");
+          h.className = "pal-group";
+          h.textContent = label;
+          box.appendChild(h);
+          items.forEach((p) => {
+            const b = document.createElement("button");
+            if (first) {
+              b.classList.add("sel");
+              first = false;
+            }
+            b.innerHTML = `<span class="lbl">${esc(p.t)}</span><small>${esc(p.h)}</small>`;
+            b.addEventListener("click", () => {
+              closePal();
+              p.run();
+            });
+            box.appendChild(b);
+          });
+        }
+        if (first)
+          box.innerHTML = `<p class="note" style="padding:12px 17px">No match.</p>`;
+      }
+      /* terminal tab: a live PTY session. Grid emulator for the ANSI subset the
+   CLI emits (SGR colors, cursor moves, erase line). 80x24 like the server. */
+      const VT_COLS = 80,
+        VT_ROWS = 24;
+      function vtBlank() {
+        const g = [];
+        for (let r = 0; r < VT_ROWS; r++) {
+          const row = [];
+          for (let c = 0; c < VT_COLS; c++) row.push({ ch: " ", cls: "" });
+          g.push(row);
+        }
+        return g;
+      }
+      const VT = {
+        grid: vtBlank(),
+        r: 0,
+        c: 0,
+        fg: 0,
+        bold: false,
+        dim: false,
+        scroll: [],
+      };
+      function vtCls() {
+        return (
+          (VT.bold ? "b" : "") +
+          (VT.dim ? " d" : "") +
+          (VT.fg ? " g" + VT.fg : "")
+        );
+      }
+      function vtNewline() {
+        VT.r++;
+        VT.c = 0;
+        if (VT.r >= VT_ROWS) {
+          VT.scroll.push(VT.grid.shift());
+          if (VT.scroll.length > 300) VT.scroll.shift();
+          const row = [];
+          for (let c = 0; c < VT_COLS; c++) row.push({ ch: " ", cls: "" });
+          VT.grid.push(row);
+          VT.r = VT_ROWS - 1;
+        }
+      }
+      function vtPut(ch) {
+        if (ch === "\n") {
+          vtNewline();
+          return;
+        }
+        if (ch === "\r") {
+          VT.c = 0;
+          return;
+        }
+        if (ch === "\b" || ch === "\x7f") {
+          VT.c = Math.max(0, VT.c - 1);
+          return;
+        }
+        if (ch === "\t") {
+          do {
+            vtPut(" ");
+          } while (VT.c % 8 !== 0);
+          return;
+        }
+        if (ch < " " || ch === "\x7f") return;
+        if (VT.c >= VT_COLS) vtNewline();
+        VT.grid[VT.r][VT.c] = { ch, cls: vtCls().trim() };
+        VT.c++;
+      }
+      function vtSgr(params) {
+        for (const p of params) {
+          if (p === 0) {
+            VT.fg = 0;
+            VT.bold = false;
+            VT.dim = false;
+          } else if (p === 1) VT.bold = true;
+          else if (p === 2) VT.dim = true;
+          else if (p === 22) {
+            VT.bold = false;
+            VT.dim = false;
+          } else if (p === 32 || p === 35 || p === 36) VT.fg = p;
+          else if (p === 39) VT.fg = 0;
+        }
+      }
+      function vtCsi(private_, nums, final) {
+        const n = nums.length ? nums[0] : 0;
+        const one = n || 1;
+        if (final === "A") VT.r = Math.max(0, VT.r - one);
+        else if (final === "B") VT.r = Math.min(VT_ROWS - 1, VT.r + one);
+        else if (final === "C") VT.c = Math.min(VT_COLS - 1, VT.c + one);
+        else if (final === "D") VT.c = Math.max(0, VT.c - one);
+        else if (final === "G")
+          VT.c = Math.min(VT_COLS - 1, Math.max(0, one - 1));
+        else if (final === "H" || final === "f") {
+          VT.r = Math.min(VT_ROWS - 1, Math.max(0, (nums[0] || 1) - 1));
+          VT.c = Math.min(VT_COLS - 1, Math.max(0, (nums[1] || 1) - 1));
+        } else if (final === "K") {
+          const row = VT.grid[VT.r];
+          const from = n === 1 ? 0 : VT.c;
+          const to = n === 1 ? VT.c : VT_COLS - 1;
+          for (let c = from; c <= to; c++) row[c] = { ch: " ", cls: "" };
+        } else if (final === "J" && n === 2) {
+          VT.grid = vtBlank();
+          VT.r = 0;
+          VT.c = 0;
+        } else if (final === "m") {
+          vtSgr(nums.length ? nums : [0]);
+        }
+        // anything else (?25l/h, s/u, …): ignored
+      }
+      function vtWrite(s) {
+        let i = 0;
+        while (i < s.length) {
+          const ch = s[i];
+          if (ch === "\x1b" && s[i + 1] === "[") {
+            const m = /^\x1b\[([?!]?)([0-9;]*)([@-~])/.exec(s.slice(i));
+            if (m) {
+              const nums =
+                m[2] === ""
+                  ? []
+                  : m[2].split(";").map((x) => parseInt(x || "0", 10));
+              vtCsi(m[1], nums, m[3]);
+              i += m[0].length;
+              continue;
+            }
+            i += 2; // unknown ESC [: skip
+            continue;
+          }
+          if (ch === "\x1b") {
+            i++;
+            continue;
+          } // lone ESC / charset switches: skip
+          vtPut(ch);
+          i++;
+        }
+      }
+      function vtRender() {
+        const out = $("#term-out");
+        const lines = VT.scroll.slice(-140).concat(VT.grid);
+        const cur = VT.scroll.length + VT.r;
+        let html = "";
+        for (let li = 0; li < lines.length; li++) {
+          const row = lines[li];
+          let run = "",
+            cls = null,
+            parts = "";
+          const flush = () => {
+            if (run) {
+              parts += cls
+                ? `<span class="${cls}">${esc(run)}</span>`
+                : esc(run);
+              run = "";
+            }
+          };
+          for (let c = 0; c < row.length; c++) {
+            const cell = row[c];
+            const isCur = li === cur && c === VT.c;
+            const cc = isCur
+              ? cell.cls
+                ? cell.cls + " cur"
+                : "cur"
+              : cell.cls;
+            if (cc !== cls) {
+              flush();
+              cls = cc;
+            }
+            run += cell.ch;
+          }
+          flush();
+          html += `<div class="ln">${parts || " "}</div>`;
+        }
+        out.innerHTML = html;
+        out.scrollTop = out.scrollHeight;
+      }
+      let termId = null,
+        termTimer = 0,
+        termMode = "menu",
+        curPage = "overview";
+      async function termPollOnce() {
+        if (!termId) return;
+        const r = await fetch(
+          "/api/term/poll?id=" + encodeURIComponent(termId),
+        ).then((x) => {
+          if (!x.ok) throw new Error("http " + x.status);
+          return x.json();
+        });
+        if (r.output) vtWrite(r.output);
+        vtRender();
+        if (r.exited) {
+          clearInterval(termTimer);
+          termTimer = 0;
+          termId = null;
+          vtWrite("\r\n[session ended — hit restart for a fresh one]\r\n");
+          vtRender();
+        }
+      }
+      async function termStart() {
+        if (termId || termTimer) return;
+        vtWrite("[connecting…]\r\n");
+        vtRender();
+        try {
+          const r = await api("/api/term/start", { mode: termMode });
+          termId = r.id;
+          termTimer = setInterval(() => {
+            if (curPage === "commands" && !document.hidden)
+              termPollOnce().catch(termDead);
+          }, 150);
+          termPollOnce().catch(termDead);
+        } catch (e) {
+          vtWrite(
+            "[could not start terminal: " +
+              String((e && e.message) || e) +
+              "]\r\n",
+          );
+          vtRender();
+        }
+      }
+      function termDead(e) {
+        clearInterval(termTimer);
+        termTimer = 0;
+        termId = null;
+        vtWrite(
+          "\r\n[lost the terminal session: " +
+            String((e && e.message) || e) +
+            "]\r\n",
+        );
+        vtRender();
+      }
+      function termKey(e) {
+        if (e.metaKey) return false; // let Cmd+R etc. through
+        let s = null;
+        if (e.ctrlKey && !e.altKey) {
+          const k = e.key.toLowerCase();
+          if (k === "c") s = "\x03";
+          else if (k === "d") s = "\x04";
+          else if (k === "l") s = "\x0c";
+          else if (k === "u") s = "\x15";
+          else if (k.length === 1 && k >= "a" && k <= "z")
+            s = String.fromCharCode(k.charCodeAt(0) - 96);
+          else return false;
+        } else if (e.key === "Enter") s = "\r";
+        else if (e.key === "Backspace") s = "\x7f";
+        else if (e.key === "Tab") s = "\t";
+        else if (e.key === "Escape") s = "\x1b";
+        else if (e.key === "ArrowUp") s = "\x1b[A";
+        else if (e.key === "ArrowDown") s = "\x1b[B";
+        else if (e.key === "ArrowRight") s = "\x1b[C";
+        else if (e.key === "ArrowLeft") s = "\x1b[D";
+        else if (e.key === "Home") s = "\x1b[H";
+        else if (e.key === "End") s = "\x1b[F";
+        else if (e.key === "PageUp") s = "\x1b[5~";
+        else if (e.key === "PageDown") s = "\x1b[6~";
+        else if (e.key === "Delete") s = "\x1b[3~";
+        else if (e.key.length === 1 && !e.altKey) s = e.key;
+        else if (e.key.length === 1 && e.altKey) s = "\x1b" + e.key;
+        else return false;
+        e.preventDefault();
+        if (!termId) termStart();
+        else api("/api/term/input", { id: termId, data: s }).catch(() => {});
+        return true;
+      }
+      async function termRestart() {
+        await termStop();
+        VT.grid = vtBlank();
+        VT.r = 0;
+        VT.c = 0;
+        VT.scroll = [];
+        vtRender();
+        termStart();
+      }
+      async function termStop() {
+        if (termTimer) {
+          clearInterval(termTimer);
+          termTimer = 0;
+        }
+        if (termId) {
+          try {
+            await api("/api/term/kill", { id: termId });
+          } catch (e) {
+            /* gone already */
+          }
+          termId = null;
+        }
+      }
+      async function termSetMode(mode) {
+        if (termMode === mode) return;
+        termMode = mode;
+        $("#term-menu").setAttribute(
+          "aria-pressed",
+          mode === "menu" ? "true" : "false",
+        );
+        $("#term-shell").setAttribute(
+          "aria-pressed",
+          mode === "shell" ? "true" : "false",
+        );
+        $("#term-name").textContent =
+          mode === "shell"
+            ? "bash — " + $("#cwd").textContent
+            : "harness — menu";
+        await termStop();
+        VT.grid = vtBlank();
+        VT.r = 0;
+        VT.c = 0;
+        VT.scroll = [];
+        vtRender();
+        termStart();
+      }
+      /* init */
+      (async function init() {
+        let saved = "regular";
+        try {
+          saved = localStorage.getItem("ah-theme") || "regular";
+        } catch (e) {
+          /* private mode */
+        }
+        renderThemes();
+        setTheme(saved);
+        document
+          .querySelectorAll("#nav button")
+          .forEach((b) =>
+            b.addEventListener("click", () => goto(b.dataset.page)),
+          );
+        document
+          .querySelectorAll("[data-goto]")
+          .forEach((b) =>
+            b.addEventListener("click", () => goto(b.dataset.goto)),
+          );
+        document.querySelectorAll("[data-quick]").forEach((b) =>
+          b.addEventListener("click", () => {
+            const [c, ...a] = b.dataset.quick.split(" ");
+            goto("commands");
+            runCommand(c, a, null);
+          }),
+        );
+        $("#pal-open").addEventListener("click", openPal);
+        $("#nav-update").addEventListener("click", openUpdate);
+        $("#upd-pill").addEventListener("click", openUpdate);
+        $("#upd-close").addEventListener("click", closeUpdate);
+        $("#upd-modal").addEventListener("click", (e) => {
+          if (e.target.id === "upd-modal") closeUpdate();
+        });
+        $("#upd-check").addEventListener("click", (e) => {
+          closeUpdate();
+          goto("commands");
+          runCommand("upgrade", ["--check"], e.target);
+        });
+        $("#upd-goto-out").addEventListener("click", () => {
+          closeUpdate();
+          window.scrollTo(0, document.body.scrollHeight);
+        });
+        $("#pal").addEventListener("click", (e) => {
+          if (e.target.id === "pal") closePal();
+        });
+        $("#pal-in").addEventListener("input", (e) =>
+          renderPal(e.target.value),
+        );
+        $("#pal-in").addEventListener("keydown", (e) => {
+          if (e.key === "Escape") closePal();
+          if (e.key === "Enter") {
+            const first = $("#pal-list button");
+            if (first) first.click();
+          }
+        });
+        document.addEventListener("keydown", (e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+            e.preventDefault();
+            openPal();
+          }
+          if (e.key === "Escape") closeUpdate();
+        });
+        const start = (location.hash || "").replace("#", "");
+        if (TITLES[start]) goto(start);
+        else if (SET.remember && TITLES[store("ah-page") || ""])
+          goto(store("ah-page"));
+        applyPrefs();
+        if (store("ah-narrow") === "1") document.body.classList.add("narrow");
+        $("#side-toggle").addEventListener("click", () => {
+          const on = document.body.classList.toggle("narrow");
+          store("ah-narrow", on ? "1" : null);
+        });
+        $("#set-compact").checked = SET.compact;
+        $("#set-motion").checked = SET.motion;
+        $("#set-confirm-cmd").checked = SET.confirmCmd;
+        $("#set-confirm-agent").checked = SET.confirmAgent;
+        $("#set-remember").checked = SET.remember;
+        $("#set-keeplog").value = String(SET.keepLog);
+        $("#set-compact").addEventListener("change", (e) => {
+          store("ah-compact", e.target.checked ? "1" : null);
+          applyPrefs();
+        });
+        $("#set-motion").addEventListener("change", (e) => {
+          store("ah-motion", e.target.checked ? "1" : null);
+          applyPrefs();
+        });
+        $("#set-confirm-cmd").addEventListener("change", (e) =>
+          store("ah-confirm-cmd", e.target.checked ? "1" : null),
+        );
+        $("#set-confirm-agent").addEventListener("change", (e) =>
+          store("ah-confirm-agent", e.target.checked ? "1" : "0"),
+        );
+        $("#set-remember").addEventListener("change", (e) =>
+          store("ah-remember", e.target.checked ? "1" : null),
+        );
+        $("#set-keeplog").addEventListener("change", (e) => {
+          store("ah-keeplog", e.target.value);
+          while (log.length > SET.keepLog) log.length = SET.keepLog;
+          renderAct();
+        });
+        $("#mem-add").addEventListener("click", (e) => {
+          const v = $("#mem-note").value.trim();
+          if (!v) {
+            $("#mem-note").focus();
+            return;
+          }
+          // one argv element: the server joins args, so word-splitting both
+          // truncated long notes (>19 words hit the argv cap) and lost the note
+          // whenever the field was cleared before the run resolved
+          runCommand("memory", ["sync", v], e.target).then((ok) => {
+            if (ok) $("#mem-note").value = "";
+          });
+        });
+        $("#mem-note").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") $("#mem-add").click();
+        });
+        $("#skill-go").addEventListener("click", (e) => {
+          const v = $("#skill-q").value.trim();
+          runCommand("skill", v ? ["search", v] : ["list"], e.target);
+        });
+        $("#skill-q").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") $("#skill-go").click();
+        });
+        $("#skill-lint").addEventListener("click", (e) =>
+          runCommand("skill", ["lint"], e.target),
+        );
+        $("#act-export").addEventListener("click", () => {
+          const blob = new Blob([JSON.stringify(log, null, 2)], {
+            type: "application/json",
+          });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "harness-activity.json";
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        });
+        const clearLog = () => {
+          log = [];
+          renderAct();
+        };
+        $("#act-clear2").addEventListener("click", clearLog);
+        $("#set-copy-url").addEventListener("click", (e) => {
+          if (navigator.clipboard)
+            navigator.clipboard.writeText(location.origin + "/");
+          e.target.textContent = "copied";
+          setTimeout(() => {
+            e.target.textContent = "copy url";
+          }, 1200);
+        });
+        const mb = $("#mem-cards");
+        [
+          {
+            cmd: "memory",
+            t: "Full memory",
+            d: "Complete MEMORY.md contents.",
+            args: ["show"],
+          },
+          {
+            cmd: "memory",
+            t: "Memory stats",
+            d: "Size, notes, token estimate.",
+            args: ["stats"],
+          },
+        ].forEach((v) => mb.appendChild(projCard(v)));
+        const sb = $("#skill-cards");
+        [
+          {
+            cmd: "skill",
+            t: "Installed skills",
+            d: "Every skill with a SKILL.md.",
+            args: ["list"],
+          },
+        ].forEach((v) => sb.appendChild(projCard(v)));
+        renderAct();
+        // static wiring lives outside the status try: one transient /api/status
+        // failure used to leave the terminal, agents and project tabs dead until
+        // a manual reload
+        const tout = $("#term-out");
+        tout.addEventListener("keydown", termKey);
+        tout.addEventListener("click", () => tout.focus());
+        const kbd = $("#term-kbd-in");
+        kbd.addEventListener("keydown", (e) => {
+          if (termKey(e)) kbd.value = "";
+        });
+        $("#term-restart").addEventListener("click", termRestart);
+        $("#term-menu").addEventListener("click", () => termSetMode("menu"));
+        $("#term-shell").addEventListener("click", () => termSetMode("shell"));
+        const pb = $("#proj-cards");
+        VIEWERS.forEach((v) => pb.appendChild(projCard(v)));
+        try {
+          const s = await api("/api/status");
+          $("#cwd").textContent = s.cwd;
+          $("#side-cwd").textContent = s.cwd;
+          $("#brand-ver").textContent = "v" + s.version + " · local gui";
+          document.title = "agent-harness gui — " + s.cwd;
+          renderStats(s.project || null);
+          const ab = $("#agents-box");
+          AGENTS.forEach((a) =>
+            ab.appendChild(agentCard(a, !!(s.agents && s.agents[a.id]))),
+          );
+          const have = ["opencode", "claude"].filter(
+            (k) => s.agents && s.agents[k],
+          ).length;
+          $("#nav-agents").textContent = have ? String(have) + "/2" : "";
+          if (!have)
+            $("#agents-note").textContent +=
+              " Neither agent binary was found on PATH — install one to use this section.";
+          $("#srv-info").textContent =
+            `Serving ${s.cwd} as harness ${s.version}. Agents on PATH: ` +
+            `${s.agents.opencode ? "opencode" : "—"}, ${s.agents.claude ? "claude" : "—"}.`;
+          api("/api/update-info")
+            .then(paintPill)
+            .catch(() => {
+              $("#upd-pill").textContent = "update info unavailable";
+            });
+        } catch (e) {
+          $("#srv-state").textContent = "server unreachable";
+          $("#out").innerHTML =
+            `<p class="note">Could not reach the harness server: ${esc(String((e && e.message) || e))}</p>`;
+        }
+        $("#clear").addEventListener("click", () => {
+          $("#out").innerHTML =
+            `<p class="note">Nothing run yet. Pick a command above.</p>`;
+        });
+        $("#act-clear").addEventListener("click", () => {
+          log = [];
+          renderAct();
+        });
+        $("#about-refresh").addEventListener("click", renderAbout);
+        $("#quit").addEventListener("click", async () => {
+          if (!confirm("Stop the local harness server?")) return;
+          try {
+            await api("/api/quit", {});
+          } catch (e) {
+            // api() throws on !ok: the server refused (a run is active) or died
+            // before answering - the fake "stopped" screen used to hide both
+            const still = await fetch("/api/status")
+              .then((r) => r.ok)
+              .catch(() => false);
+            if (still) {
+              $("#quit").textContent = "server busy - try again";
+              setTimeout(() => {
+                $("#quit").textContent = "stop server";
+              }, 2000);
+              return;
+            }
+            // server gone mid-quit: fall through to the stopped screen
+          }
+          document.body.innerHTML =
+            `<main class="content"><p class="eyebrow">Stopped</p>` +
+            `<h2 class="lead">Server is off.</h2><p class="sub">Re-run <code class="inline">harness gui</code> to start it again.</p></main>`;
+        });
+      })();
+    </script>
+  </body>
 </html>

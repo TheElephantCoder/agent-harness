@@ -9,7 +9,7 @@ PATTERN='(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|BEGIN PRIV
 if $STAGED; then
   FILES=$(git diff --cached --name-only 2>/dev/null || true)
 else
-  FILES=$(git ls-files 2>/dev/null || find . -type f -name "*.md" -o -name "*.ts" -o -name "*.py" 2>/dev/null | head -n 100 || true)
+  FILES=$(git ls-files 2>/dev/null || find . \( -name "*.md" -o -name "*.ts" -o -name "*.py" \) -a -type f 2>/dev/null | head -n 100 || true)
 fi
 
 # docs mention example secrets, don't flag them if allowlisted via pattern file
