@@ -3288,9 +3288,7 @@ function cmdCost(flags) {
     }
     const rest = r.files.length - r.shown;
     if (rest > 0) {
-        const restTok = r.files
-            .slice(r.shown)
-            .reduce((n, f) => n + f.tokens, 0);
+        const restTok = r.files.slice(r.shown).reduce((n, f) => n + f.tokens, 0);
         console.log(`  ... +${rest} more files, ~${fmtTok(restTok)} tokens (--all shows them)`);
     }
     if (r.skippedBinary + r.skippedLarge > 0) {
@@ -4159,9 +4157,7 @@ async function handleGui(req, res, page) {
     const originOk = origin === "" ||
         /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i.test(origin);
     const secSite = String(req.headers["sec-fetch-site"] ?? "").toLowerCase();
-    if (!loopback ||
-        !originOk ||
-        secSite === "cross-site") {
+    if (!loopback || !originOk || secSite === "cross-site") {
         return send(403, JSON.stringify({ ok: false, output: "forbidden" }));
     }
     if (req.method === "POST") {
