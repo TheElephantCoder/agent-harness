@@ -76,6 +76,7 @@ usage: harness <command> [options]
   optimize                                       prune memory, repair, report savings
   optimizations [enable|disable] [name|all]      list, toggle optimizations
   map                                            index repo to .harness/MAP.md
+  cost [path] [--all]                            token estimate per file vs load budgets
   skill <list|search|info|add|remove|verify|lint|update> ... list, search, show, fetch, check, refresh skills
   memory <show|prune|sync|edit|stats|search|backup> [note] show, prune, append, edit, inspect MEMORY.md
   instinct <list|enable|disable|test> [name]     list, toggle, run hooks
@@ -3156,6 +3157,148 @@ function cmdMap() {
     console.log(`[harness] ok - map: ${r.files} files, ${r.lines} lines, ~${fmtTok(r.tokens)} tokens -> .harness/MAP.md${r.omitted > 0 ? ` (${r.omitted} omitted, capped at ${MAP_MAX_FILES})` : ""}`);
     return true;
 }
+// ---------- cost estimator ----------
+// cost = would this fit where I want to load it? rows use the same
+// 4-chars-per-token basis as bench and memory stats; budgets cited are
+// the ones the tool itself enforces (2k memory, 50k skills).
+export const COST_MAX_ROWS = 12;
+const COST_MAX_BYTES = 512 * 1024;
+export function costReport(root, target, all) {
+    const abs = path.resolve(root, target);
+    const files = [];
+    let skippedBinary = 0;
+    let skippedLarge = 0;
+    const addFile = (abs) => {
+        const text = readText(abs);
+        if (text === null) {
+            skippedBinary += 1;
+            return;
+        }
+        files.push({ rel: path.relative(root, abs), tokens: estTokens(text) });
+    };
+    const walk = (dir) => {
+        let entries = [];
+        try {
+            entries = fs.readdirSync(dir).sort();
+        }
+        catch {
+            return;
+        }
+        for (const e of entries) {
+            if (e.startsWith("."))
+                continue;
+            const abs = path.join(dir, e);
+            let st = null;
+            try {
+                // lstat, not stat: symlink cycles would recurse forever, and a
+                // symlinked file would be counted twice. linked content stays out.
+                st = fs.lstatSync(abs);
+            }
+            catch {
+                continue;
+            }
+            if (st.isSymbolicLink())
+                continue;
+            if (st.isDirectory()) {
+                if (MAP_SKIP_DIRS.has(e))
+                    continue;
+                walk(abs);
+            }
+            else if (st.size > COST_MAX_BYTES) {
+                skippedLarge += 1;
+            }
+            else {
+                // NUL byte in the head = binary: it never loads as context, so it
+                // has no honest token cost.
+                let head;
+                try {
+                    const fd = fs.openSync(abs, "r");
+                    try {
+                        head = Buffer.alloc(8192);
+                        const n = fs.readSync(fd, head, 0, 8192, 0);
+                        head = head.subarray(0, n);
+                    }
+                    finally {
+                        fs.closeSync(fd);
+                    }
+                }
+                catch {
+                    skippedBinary += 1;
+                    continue;
+                }
+                if (head.includes(0)) {
+                    skippedBinary += 1;
+                }
+                else {
+                    addFile(abs);
+                }
+            }
+        }
+    };
+    let st = null;
+    try {
+        st = fs.lstatSync(abs);
+    }
+    catch {
+        return { files: [], total: 0, shown: 0, skippedBinary, skippedLarge };
+    }
+    if (st.isFile()) {
+        // single file: cost it even when it is dot-named or oversize-capped
+        if (st.size > COST_MAX_BYTES)
+            skippedLarge += 1;
+        else
+            addFile(abs);
+    }
+    else if (st.isDirectory()) {
+        walk(abs);
+    }
+    files.sort((a, b) => b.tokens - a.tokens || a.rel.localeCompare(b.rel));
+    const total = files.reduce((n, f) => n + f.tokens, 0);
+    return {
+        files,
+        total,
+        shown: all ? files.length : Math.min(files.length, COST_MAX_ROWS),
+        skippedBinary,
+        skippedLarge,
+    };
+}
+function costBudgetLine(total) {
+    const ratio = (base) => `${((total / base) * 100).toFixed(total / base < 0.1 ? 1 : 0)}%`;
+    const times = (base) => `${(total / base).toFixed(1)}x`;
+    return `  ~${fmtTok(total)} total - ${times(2000)} the 2k memory budget - ${ratio(50000)} of the 50k skills budget - ${ratio(200000)} of a 200k context`;
+}
+function cmdCost(flags) {
+    const bad = flags.find((f) => f.startsWith("--") && f !== "--all");
+    if (bad) {
+        console.log(`[harness] cost - unknown flag ${bad} (harness cost [path] [--all])`);
+        return false;
+    }
+    const target = flags.find((f) => !f.startsWith("--")) ?? ".";
+    const r = costReport(process.cwd(), target, flags.includes("--all"));
+    if (r.files.length === 0) {
+        console.log(`[harness] cost - ${target}: nothing text-readable here` +
+            (r.skippedBinary + r.skippedLarge > 0
+                ? ` (${r.skippedBinary} binary, ${r.skippedLarge} oversize skipped)`
+                : ""));
+        return true;
+    }
+    console.log(`[harness] cost - ${target} (${r.files.length} file${r.files.length === 1 ? "" : "s"})`);
+    for (const f of r.files.slice(0, r.shown)) {
+        console.log(`  ~${fmtTok(f.tokens)}  ${f.rel}`);
+    }
+    const rest = r.files.length - r.shown;
+    if (rest > 0) {
+        const restTok = r.files
+            .slice(r.shown)
+            .reduce((n, f) => n + f.tokens, 0);
+        console.log(`  ... +${rest} more files, ~${fmtTok(restTok)} tokens (--all shows them)`);
+    }
+    if (r.skippedBinary + r.skippedLarge > 0) {
+        console.log(`  ... ${r.skippedBinary} binary, ${r.skippedLarge} oversize file${r.skippedLarge === 1 ? "" : "s"} skipped`);
+    }
+    console.log(costBudgetLine(r.total));
+    return true;
+}
 const OPTIMIZATIONS = [
     {
         name: "slim-agents",
@@ -3326,6 +3469,9 @@ async function runCommand(cmd, flags) {
         }
         case "map": {
             return cmdMap();
+        }
+        case "cost": {
+            return cmdCost(flags);
         }
         case "optimize": {
             return cmdOptimize();

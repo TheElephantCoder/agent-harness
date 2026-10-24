@@ -158,6 +158,35 @@ Same output byte-for-byte on repeat runs. `init` writes (and `--migrate`
 refreshes) the map automatically; `AGENTS.md` points agents at it before
 exploring. Re-run `map` (or `init --migrate`) after restructuring.
 
+## cost
+
+Token estimate per file (or a whole directory) against the load budgets
+harness already enforces. Answers "should this live in memory, in a skill,
+or stay on disk?" before you paste it into context:
+
+```bash
+harness cost                     # whole repo, largest files first
+harness cost docs/               # one directory
+harness cost notes/big.md        # one file
+harness cost --all               # no 12-row cap
+```
+
+Sample output:
+
+```
+[harness] cost - docs (3 files)
+  ~2.1k  docs/cli.md
+  ~0.9k  docs/benchmarks.md
+  ~0.4k  docs/apt.md
+  ~3.4k total - 1.7x the 2k memory budget - 7% of the 50k skills budget - 1.7% of a 200k context
+```
+
+Same 4-chars-per-token basis as `bench` and the memory stats. Binary files
+(NUL byte in the first 8KB) and files over 512KB are skipped and counted in
+a trailer - they never load as context, so they have no honest token cost.
+Dotfiles, symlinks, and vendor dirs (`node_modules`, `dist`, `.git`,
+`.harness`, `coverage`) stay out, same as `map`.
+
 ## skill / instinct / memory / adapter
 
 ```bash

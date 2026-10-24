@@ -5,6 +5,7 @@ import * as path from "node:path";
 import {
   MAP_MAX_FILES,
   buildMap,
+  costReport,
   cmpVersions,
   estTokens,
   fmtMem,
@@ -272,6 +273,48 @@ describe("buildMap", () => {
       fs.writeFileSync(path.join(dir, "a.ts"), "export const x = 1;\n");
       const r = buildMap(dir);
       expect(r.files).toBe(1);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("costReport", () => {
+  it("costs text files, skips binary, oversize, dotfiles and vendor dirs", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-cost-"));
+    try {
+      fs.writeFileSync(path.join(dir, "big.md"), "x".repeat(400)); // 100 tok
+      fs.writeFileSync(path.join(dir, "small.toml"), "y".repeat(80)); // 20 tok
+      fs.writeFileSync(path.join(dir, "bin.dat"), Buffer.from([0x61, 0x00, 0x62]));
+      fs.writeFileSync(path.join(dir, ".hidden"), "z".repeat(40));
+      fs.mkdirSync(path.join(dir, "node_modules"));
+      fs.writeFileSync(path.join(dir, "node_modules", "dep.md"), "d".repeat(40));
+      const big = path.join(dir, "huge.log");
+      fs.writeFileSync(big, "a".repeat(600 * 1024));
+      const r = costReport(dir, ".", false);
+      expect(r.files.map((f) => f.rel)).toEqual(["big.md", "small.toml"]);
+      expect(r.total).toBe(120);
+      expect(r.skippedBinary).toBe(1);
+      expect(r.skippedLarge).toBe(1);
+      // single-file mode: exact cost even for an oversize-capped file
+      const one = costReport(dir, "big.md", false);
+      expect(one.files).toHaveLength(1);
+      expect(one.total).toBe(100);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+  it("caps rows at 12 and lifts the cap with --all", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-cost-"));
+    try {
+      for (let i = 0; i < 15; i++) {
+        fs.writeFileSync(path.join(dir, `f${i}.md`), "x".repeat(40));
+      }
+      const capped = costReport(dir, ".", false);
+      expect(capped.shown).toBe(12);
+      expect(capped.files).toHaveLength(15);
+      const all = costReport(dir, ".", true);
+      expect(all.shown).toBe(15);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

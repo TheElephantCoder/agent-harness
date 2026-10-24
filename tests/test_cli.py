@@ -98,6 +98,33 @@ def test_secret_patterns_shape():
     assert not any(p.search("AKIA short") for p in cli.SECRET_RE)
 
 
+def test_cost_rows(tmp_path):
+    (tmp_path / "big.md").write_text("x" * 400)  # 100 tokens
+    (tmp_path / "small.toml").write_text("y" * 80)  # 20 tokens
+    (tmp_path / "bin.dat").write_bytes(b"a\x00b")
+    (tmp_path / ".hidden").write_text("z" * 40)
+    nm = tmp_path / "node_modules"
+    nm.mkdir()
+    (nm / "dep.md").write_text("d" * 40)
+    (tmp_path / "huge.log").write_text("a" * (600 * 1024))
+    r = cli.cost_rows(str(tmp_path), ".", all=False)
+    assert [row["rel"] for row in r["rows"]] == ["big.md", "small.toml"]
+    assert r["total"] == 120
+    assert r["binary"] == 1
+    assert r["large"] == 1
+    one = cli.cost_rows(str(tmp_path), "big.md")
+    assert len(one["rows"]) == 1 and one["total"] == 100
+
+
+def test_cost_rows_cap(tmp_path):
+    for i in range(15):
+        (tmp_path / f"f{i}.md").write_text("x" * 40)
+    capped = cli.cost_rows(str(tmp_path), ".")
+    assert capped["shown"] == 12 and len(capped["rows"]) == 15
+    everything = cli.cost_rows(str(tmp_path), ".", all=True)
+    assert everything["shown"] == 15
+
+
 def test_map_symbols():
     assert cli.map_symbols("export function foo() {}\nexport const bar = 1;") == ["foo()", "bar"]
     assert cli.map_symbols("def hello():\n  pass") == ["hello()"]

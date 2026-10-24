@@ -1776,6 +1776,110 @@ def cmd_map(args=None):
     print(f"[harness] ok - map: {r['files']} files, {r['lines']} lines, ~{fmt_tok(r['tokens'])} tokens -> .harness/MAP.md" + (f" ({r['omitted']} omitted, capped at {MAP_MAX_FILES})" if r['omitted'] else ""))
     return True
 
+# ---------- cost estimator ----------
+
+# cost = would this fit where I want to load it? rows use the same
+# 4-chars-per-token basis as bench and memory stats; budgets cited are
+# the ones the tool itself enforces (2k memory, 50k skills).
+COST_MAX_ROWS = 12
+COST_MAX_BYTES = 512 * 1024
+
+def cost_rows(root, target, all=False):
+    abs_path = os.path.abspath(os.path.join(root, target))
+    rows = []
+    skipped = {"binary": 0, "large": 0}
+
+    def add_file(p):
+        text = read_text(p)
+        if text is None:
+            skipped["binary"] += 1
+            return
+        rows.append({"rel": os.path.relpath(p, root), "tokens": est_tokens(text)})
+
+    def walk(d):
+        try:
+            entries = sorted(os.listdir(d))
+        except OSError:
+            return
+        for e in entries:
+            if e.startswith("."):
+                continue
+            p = os.path.join(d, e)
+            try:
+                # lstat, not stat: symlink cycles would recurse forever, and a
+                # symlinked file would be counted twice. linked content stays out.
+                st = os.lstat(p)
+            except OSError:
+                continue
+            if os.path.islink(p):
+                continue
+            if os.path.isdir(p):
+                if e not in MAP_SKIP_DIRS:
+                    walk(p)
+            elif st.st_size > COST_MAX_BYTES:
+                skipped["large"] += 1
+            else:
+                # NUL byte in the head = binary: it never loads as context,
+                # so it has no honest token cost.
+                try:
+                    with open(p, "rb") as f:
+                        head = f.read(8192)
+                except OSError:
+                    skipped["binary"] += 1
+                    continue
+                if b"\x00" in head:
+                    skipped["binary"] += 1
+                else:
+                    add_file(p)
+
+    is_file = os.path.isfile(abs_path)
+    if is_file:
+        if os.path.getsize(abs_path) > COST_MAX_BYTES:
+            skipped["large"] += 1
+        else:
+            add_file(abs_path)
+    elif os.path.isdir(abs_path):
+        walk(abs_path)
+    else:
+        return {"rows": [], "total": 0, "shown": 0, **skipped}
+    rows.sort(key=lambda r: (-r["tokens"], r["rel"]))
+    total = sum(r["tokens"] for r in rows)
+    return {"rows": rows, "total": total,
+            "shown": len(rows) if all else min(len(rows), COST_MAX_ROWS), **skipped}
+
+def _cost_budget_line(total):
+    def ratio(base):
+        pct = total / base * 100
+        return f"{pct:.1f}%" if pct < 10 else f"{pct:.0f}%"
+    return (f"  ~{fmt_tok(total)} total - {total / 2000:.1f}x the 2k memory budget - "
+            f"{ratio(50000)} of the 50k skills budget - {ratio(200000)} of a 200k context")
+
+def cmd_cost(arg_list=None):
+    arg_list = list(arg_list or [])
+    bad = next((f for f in arg_list if f.startswith("--") and f != "--all"), None)
+    if bad:
+        print(f"[harness] cost - unknown flag {bad} (harness cost [path] [--all])")
+        return False
+    target = next((f for f in arg_list if not f.startswith("--")), ".")
+    r = cost_rows(os.getcwd(), target, "--all" in arg_list)
+    if not r["rows"]:
+        skip_note = (f" ({r['binary']} binary, {r['large']} oversize skipped)"
+                     if r["binary"] + r["large"] else "")
+        print(f"[harness] cost - {target}: nothing text-readable here{skip_note}")
+        return True
+    n = len(r["rows"])
+    print(f"[harness] cost - {target} ({n} file{'s' if n != 1 else ''})")
+    for row in r["rows"][:r["shown"]]:
+        print(f"  ~{fmt_tok(row['tokens'])}  {row['rel']}")
+    rest = n - r["shown"]
+    if rest:
+        rest_tok = sum(row["tokens"] for row in r["rows"][r["shown"]:])
+        print(f"  ... +{rest} more files, ~{fmt_tok(rest_tok)} tokens (--all shows them)")
+    if r["binary"] + r["large"]:
+        print(f"  ... {r['binary']} binary, {r['large']} oversize file{'s' if r['large'] != 1 else ''} skipped")
+    print(_cost_budget_line(r["total"]))
+    return True
+
 OPTIMIZATIONS = [
     {"name": "slim-agents", "scope": "ram",
      "desc": "install slim AGENTS.md (~180 tok) instead of full (~490 tok)"},
@@ -2801,6 +2905,10 @@ def main():
     # flag before dispatch gets a say, so normalize it to `security audit`.
     if len(sys.argv) > 2 and sys.argv[1] == "security" and sys.argv[2].startswith("--"):
         sys.argv.insert(2, "audit")
+    # same quirk for `cost --all`: a leading flag dies under REMAINDER unless
+    # a positional comes first - the default path is "."
+    if len(sys.argv) > 2 and sys.argv[1] == "cost" and sys.argv[2].startswith("--"):
+        sys.argv.insert(2, ".")
 
     a = sub.add_parser("init")
     a.add_argument("--harness", default="auto")
@@ -2823,7 +2931,7 @@ def main():
     u = sub.add_parser("upgrade")
     u.add_argument("--check", action="store_true")
 
-    for name in ["skill", "memory", "instinct", "research", "security", "optimize", "optimizations", "adapter", "map", "status", "version"]:
+    for name in ["skill", "memory", "instinct", "research", "security", "optimize", "optimizations", "adapter", "map", "cost", "status", "version"]:
         s = sub.add_parser(name)
         s.add_argument("args", nargs=argparse.REMAINDER)
 
@@ -2953,6 +3061,10 @@ def main():
         return
     if args.cmd == "optimizations":
         if not cmd_optimizations(list(args.args or [])):
+            sys.exit(1)
+        return
+    if args.cmd == "cost":
+        if not cmd_cost(list(args.args or [])):
             sys.exit(1)
         return
     if args.cmd == "status":
