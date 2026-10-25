@@ -1151,6 +1151,7 @@ def cmd_memory_prune():
                 print(f"[harness] ok - memory ~{fmt_tok(r['before'])} - over budget but kept (recent-notes floor; archive manually)")
         else:
             print(f"[harness] ok - memory ~{fmt_tok(r['before'])} -> ~{fmt_tok(r['after'])}, {r['moved']} lines archived")
+    refresh_manifest_sha(cwd, os.path.relpath(mem, cwd))
     if opts.get("archive-rotate", True) is not False:
         base, _ext = os.path.splitext(mem)
         archive = base + ".archive.md"
@@ -2117,6 +2118,30 @@ def verify_added_skill(cwd, a):
         return f"{a.get('name')} (modified)"
     return None
 
+def refresh_manifest_sha(cwd, rel):
+    """The tool's own writes must keep the manifest hash fresh, or doctor
+    reports the file as modified after every sync/prune."""
+    try:
+        man_file = os.path.join(cwd, ".harness", "config.json")
+        text = read_text(man_file)
+        if text is None:
+            return
+        man = json.loads(text)
+        if not isinstance(man, dict) or not isinstance(man.get("files"), list):
+            return
+        sha = sha256(read_text(os.path.join(cwd, rel)) or "")
+        for f in man["files"]:
+            if isinstance(f, dict) and f.get("path") == rel:
+                f["sha"] = sha
+                break
+        else:
+            man["files"].append({"path": rel, "sha": sha})
+        with open(man_file, "w", encoding="utf-8") as f:
+            json.dump(man, f, indent=2)
+    except (ValueError, OSError):
+        # manifest problems are doctor's job, not ours
+        pass
+
 def cmd_memory_sync(note):
     note = (note or "").strip()
     if not note:
@@ -2133,6 +2158,7 @@ def cmd_memory_sync(note):
     except OSError:
         print("[harness] FAIL - memory: could not write MEMORY.md")
         return False
+    refresh_manifest_sha(os.getcwd(), "MEMORY.md")
     if read_optimizations(os.getcwd()).get("prune-memory", True) is False:
         t = est_tokens(read_text(mem_file) or "")
         print(f"[harness] ok - memory synced (~{fmt_tok(t)}, pruning off)")
@@ -2141,6 +2167,7 @@ def cmd_memory_sync(note):
     if not r:
         print("[harness] FAIL - memory: could not prune MEMORY.md")
         return False
+    refresh_manifest_sha(os.getcwd(), "MEMORY.md")
     extra = f", {r['moved']} lines archived" if r["moved"] else ""
     print(f"[harness] ok - memory synced (~{fmt_tok(r['after'])}{extra})")
     return True

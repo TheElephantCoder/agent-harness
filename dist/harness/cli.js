@@ -2471,6 +2471,7 @@ function cmdMemoryPrune() {
         else {
             console.log(`[harness] ok - memory ~${fmtTok(r.before)} -> ~${fmtTok(r.after)}, ${r.moved} lines archived`);
         }
+        refreshManifestSha(cwd, path.relative(cwd, mem));
     }
     if (opts["archive-rotate"] !== false) {
         const base = mem.slice(0, -path.extname(mem).length);
@@ -2584,6 +2585,30 @@ export function slugify(s) {
         .replace(/-+$/, "")
         .slice(0, 40) || "note");
 }
+// the tool's own writes must keep the manifest hash fresh, or doctor
+// reports the file as modified after every sync/prune
+function refreshManifestSha(cwd, rel) {
+    try {
+        const manFile = path.join(cwd, ".harness", "config.json");
+        const text = readText(manFile);
+        if (text === null)
+            return;
+        const man = JSON.parse(text);
+        if (typeof man !== "object" || man === null || !Array.isArray(man.files))
+            return;
+        const sha = sha256(readText(path.join(cwd, rel)) ?? "");
+        const files = man.files;
+        const entry = files.find((f) => typeof f === "object" && f !== null && f.path === rel);
+        if (entry)
+            entry.sha = sha;
+        else
+            files.push({ path: rel, sha });
+        fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+    }
+    catch {
+        // manifest problems are doctor's job, not ours
+    }
+}
 function cmdMemorySync(note) {
     const memFile = path.join(process.cwd(), "MEMORY.md");
     if (readText(memFile) === null) {
@@ -2598,6 +2623,7 @@ function cmdMemorySync(note) {
         console.log("[harness] FAIL - memory: could not write MEMORY.md");
         return false;
     }
+    refreshManifestSha(process.cwd(), "MEMORY.md");
     const opts = readOptimizations(process.cwd());
     if (opts["prune-memory"] === false) {
         const t = estTokens(readText(memFile) ?? "");
@@ -2609,6 +2635,7 @@ function cmdMemorySync(note) {
         console.log("[harness] FAIL - memory: could not prune MEMORY.md");
         return false;
     }
+    refreshManifestSha(process.cwd(), "MEMORY.md");
     console.log(`[harness] ok - memory synced (~${fmtTok(r.after)}${r.moved > 0 ? `, ${r.moved} lines archived` : ""})`);
     return true;
 }

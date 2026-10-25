@@ -98,6 +98,23 @@ def test_secret_patterns_shape():
     assert not any(p.search("AKIA short") for p in cli.SECRET_RE)
 
 
+def test_memory_sync_refreshes_manifest_sha(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".harness").mkdir()
+    (tmp_path / "MEMORY.md").write_text("seed")
+    before = cli.sha256("seed")
+    man = {"version": cli.VERSION, "harness": [], "files": [{"path": "MEMORY.md", "sha": before}]}
+    (tmp_path / ".harness" / "config.json").write_text(json.dumps(man))
+    assert cli.cmd_memory_sync("fresh note")
+    m = json.loads((tmp_path / ".harness" / "config.json").read_text())
+    entry = next(f for f in m["files"] if f["path"] == "MEMORY.md")
+    now = cli.sha256((tmp_path / "MEMORY.md").read_text())
+    assert entry["sha"] == now and now != before
+    # corrupt manifest must not crash the sync
+    (tmp_path / ".harness" / "config.json").write_text("not json")
+    assert cli.cmd_memory_sync("second note")
+
+
 def test_cost_rows(tmp_path):
     (tmp_path / "big.md").write_text("x" * 400)  # 100 tokens
     (tmp_path / "small.toml").write_text("y" * 80)  # 20 tokens
