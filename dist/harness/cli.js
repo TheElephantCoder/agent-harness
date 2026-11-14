@@ -2594,7 +2594,9 @@ function refreshManifestSha(cwd, rel) {
         if (text === null)
             return;
         const man = JSON.parse(text);
-        if (typeof man !== "object" || man === null || !Array.isArray(man.files))
+        if (typeof man !== "object" ||
+            man === null ||
+            !Array.isArray(man.files))
             return;
         const sha = sha256(readText(path.join(cwd, rel)) ?? "");
         const files = man.files;
@@ -3196,6 +3198,28 @@ export function costReport(root, target, all) {
     let skippedBinary = 0;
     let skippedLarge = 0;
     const addFile = (abs) => {
+        // NUL byte in the head = binary: it never loads as context, so it
+        // has no honest token cost.
+        let head;
+        try {
+            const fd = fs.openSync(abs, "r");
+            try {
+                head = Buffer.alloc(8192);
+                const n = fs.readSync(fd, head, 0, 8192, 0);
+                head = head.subarray(0, n);
+            }
+            finally {
+                fs.closeSync(fd);
+            }
+        }
+        catch {
+            skippedBinary += 1;
+            return;
+        }
+        if (head.includes(0)) {
+            skippedBinary += 1;
+            return;
+        }
         const text = readText(abs);
         if (text === null) {
             skippedBinary += 1;
@@ -3235,30 +3259,7 @@ export function costReport(root, target, all) {
                 skippedLarge += 1;
             }
             else {
-                // NUL byte in the head = binary: it never loads as context, so it
-                // has no honest token cost.
-                let head;
-                try {
-                    const fd = fs.openSync(abs, "r");
-                    try {
-                        head = Buffer.alloc(8192);
-                        const n = fs.readSync(fd, head, 0, 8192, 0);
-                        head = head.subarray(0, n);
-                    }
-                    finally {
-                        fs.closeSync(fd);
-                    }
-                }
-                catch {
-                    skippedBinary += 1;
-                    continue;
-                }
-                if (head.includes(0)) {
-                    skippedBinary += 1;
-                }
-                else {
-                    addFile(abs);
-                }
+                addFile(abs);
             }
         }
     };
@@ -3270,7 +3271,7 @@ export function costReport(root, target, all) {
         return { files: [], total: 0, shown: 0, skippedBinary, skippedLarge };
     }
     if (st.isFile()) {
-        // single file: cost it even when it is dot-named or oversize-capped
+        // Explicit files may be dot-named; size and binary checks still apply.
         if (st.size > COST_MAX_BYTES)
             skippedLarge += 1;
         else

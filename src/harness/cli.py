@@ -1791,6 +1791,16 @@ def cost_rows(root, target, all=False):
     skipped = {"binary": 0, "large": 0}
 
     def add_file(p):
+        # NUL byte in the head = binary, for direct paths and walks alike.
+        try:
+            with open(p, "rb") as f:
+                head = f.read(8192)
+        except OSError:
+            skipped["binary"] += 1
+            return
+        if b"\x00" in head:
+            skipped["binary"] += 1
+            return
         text = read_text(p)
         if text is None:
             skipped["binary"] += 1
@@ -1820,18 +1830,7 @@ def cost_rows(root, target, all=False):
             elif st.st_size > COST_MAX_BYTES:
                 skipped["large"] += 1
             else:
-                # NUL byte in the head = binary: it never loads as context,
-                # so it has no honest token cost.
-                try:
-                    with open(p, "rb") as f:
-                        head = f.read(8192)
-                except OSError:
-                    skipped["binary"] += 1
-                    continue
-                if b"\x00" in head:
-                    skipped["binary"] += 1
-                else:
-                    add_file(p)
+                add_file(p)
 
     is_file = os.path.isfile(abs_path)
     if is_file:

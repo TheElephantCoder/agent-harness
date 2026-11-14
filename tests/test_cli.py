@@ -133,6 +133,16 @@ def test_cost_rows(tmp_path):
     assert len(one["rows"]) == 1 and one["total"] == 100
 
 
+def test_cost_rows_binary_file(tmp_path):
+    for data in (b"a\x00b", b"\xff\x00\xfe"):
+        (tmp_path / "sample.bin").write_bytes(data)
+        for target in ("sample.bin", "."):
+            r = cli.cost_rows(str(tmp_path), target)
+            assert r["rows"] == []
+            assert r["total"] == 0
+            assert r["binary"] == 1
+
+
 def test_cost_rows_cap(tmp_path):
     for i in range(15):
         (tmp_path / f"f{i}.md").write_text("x" * 40)

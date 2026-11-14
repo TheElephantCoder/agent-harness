@@ -369,6 +369,25 @@ describe("costReport", () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+  it("skips binary files for direct paths and directory scans", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-cost-"));
+    try {
+      for (const bytes of [
+        [0x61, 0x00, 0x62],
+        [0xff, 0x00, 0xfe],
+      ]) {
+        fs.writeFileSync(path.join(dir, "sample.bin"), Buffer.from(bytes));
+        for (const target of ["sample.bin", "."]) {
+          const r = costReport(dir, target, false);
+          expect(r.files).toEqual([]);
+          expect(r.total).toBe(0);
+          expect(r.skippedBinary).toBe(1);
+        }
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
   it("caps rows at 12 and lifts the cap with --all", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "harness-cost-"));
     try {
