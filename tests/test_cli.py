@@ -321,3 +321,24 @@ def test_cost_skips_named_pipes(tmp_path):
         assert result.returncode == 0, result.stderr
         assert "normal.txt" in result.stdout
         assert "events.pipe" not in result.stdout
+
+
+def test_map_skips_named_pipes(tmp_path):
+    import subprocess
+    from pathlib import Path
+
+    import pytest
+
+    if not hasattr(os, "mkfifo"):
+        pytest.skip("named pipes are unavailable")
+    os.mkfifo(tmp_path / "events.ts")
+    (tmp_path / "source.ts").write_text("export const count = 1;")
+    root = Path(__file__).resolve().parents[1]
+    for command in ([sys.executable, str(root / "src/harness/cli.py")],
+                    ["node", str(root / "dist/harness/cli.js")]):
+        subprocess.run([*command, "map"], cwd=tmp_path, timeout=3, check=True)
+        report = tmp_path / ".harness/MAP.md"
+        text = report.read_text()
+        assert "source.ts: count" in text
+        assert "events.ts" not in text
+        report.unlink()

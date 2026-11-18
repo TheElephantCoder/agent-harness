@@ -1725,19 +1725,15 @@ def build_map(cwd):
                 continue
             abs_path = os.path.join(d, e)
             try:
-                # lstat, not stat: a symlink cycle would recurse forever, and
-                # a symlinked file would index twice. linked content stays out.
-                if os.path.islink(abs_path):
-                    continue
-                is_dir = os.path.isdir(abs_path)
-                size = os.path.getsize(abs_path)
+                info = os.lstat(abs_path)
             except OSError:
                 continue
-            if is_dir:
+            if stat.S_ISDIR(info.st_mode):
                 if e in MAP_SKIP_DIRS:
                     continue
                 walk(abs_path)
-            elif os.path.splitext(e)[1] in MAP_EXTS and size <= 200000:
+            elif (stat.S_ISREG(info.st_mode) and os.path.splitext(e)[1] in MAP_EXTS
+                  and info.st_size <= 200000):
                 text = read_text(abs_path)
                 if text is not None:
                     rows.append({"rel": os.path.relpath(abs_path, cwd), "syms": map_symbols(text)})

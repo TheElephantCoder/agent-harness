@@ -3367,7 +3367,11 @@ export function buildMap(cwd: string): {
       if (st.isDirectory()) {
         if (MAP_SKIP_DIRS.has(e)) continue;
         walk(abs);
-      } else if (MAP_EXTS.has(path.extname(e)) && st.size <= 200000) {
+      } else if (
+        st.isFile() &&
+        MAP_EXTS.has(path.extname(e)) &&
+        st.size <= 200000
+      ) {
         const text = readText(abs);
         if (text !== null)
           rows.push({ rel: path.relative(cwd, abs), syms: mapSymbols(text) });
