@@ -3255,6 +3255,9 @@ export function costReport(root, target, all) {
                     continue;
                 walk(abs);
             }
+            else if (!st.isFile()) {
+                continue;
+            }
             else if (st.size > COST_MAX_BYTES) {
                 skippedLarge += 1;
             }

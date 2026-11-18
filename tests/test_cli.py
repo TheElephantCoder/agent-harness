@@ -296,3 +296,28 @@ def test_cmd_status_initialized(tmp_path, monkeypatch, capsys):
     assert "MEMORY.md: ~" in out
     assert "research findings: 2" in out
     assert "cold-start 41.2ms" in out
+
+
+def test_cost_skips_named_pipes(tmp_path):
+    import subprocess
+    from pathlib import Path
+
+    import pytest
+
+    if not hasattr(os, "mkfifo"):
+        pytest.skip("named pipes are unavailable")
+    os.mkfifo(tmp_path / "events.pipe")
+    (tmp_path / "normal.txt").write_text("x" * 400)
+    root = Path(__file__).resolve().parents[1]
+    commands = [
+        [sys.executable, str(root / "src/harness/cli.py")],
+        ["node", str(root / "dist/harness/cli.js")],
+    ]
+    for command in commands:
+        result = subprocess.run(
+            [*command, "cost", str(tmp_path)],
+            capture_output=True, text=True, timeout=3, check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "normal.txt" in result.stdout
+        assert "events.pipe" not in result.stdout

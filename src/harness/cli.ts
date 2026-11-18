@@ -3504,6 +3504,8 @@ export function costReport(
       if (st.isDirectory()) {
         if (MAP_SKIP_DIRS.has(e)) continue;
         walk(abs);
+      } else if (!st.isFile()) {
+        continue;
       } else if (st.size > COST_MAX_BYTES) {
         skippedLarge += 1;
       } else {

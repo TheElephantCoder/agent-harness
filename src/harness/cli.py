@@ -9,6 +9,7 @@ import re
 import shlex
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import threading
@@ -1827,6 +1828,8 @@ def cost_rows(root, target, all=False):
             if os.path.isdir(p):
                 if e not in MAP_SKIP_DIRS:
                     walk(p)
+            elif not stat.S_ISREG(st.st_mode):
+                continue
             elif st.st_size > COST_MAX_BYTES:
                 skipped["large"] += 1
             else:
