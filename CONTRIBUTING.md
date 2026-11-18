@@ -7,10 +7,32 @@ Thanks for stopping by.
 ```bash
 git clone https://github.com/TheElephantCoder/agent-harness.git
 cd agent-harness
-npm install
+npm ci
 pip install -e ".[dev]"  # only if you use the python shim
 harness doctor
 ```
+
+## Development checks
+
+Use Node 20.19+ (or Node 22.12+) for development tooling. The published CLI
+continues to support Node 20+.
+
+```bash
+npm run build
+npm run lint
+npm test
+python -m pytest tests/ -q
+npm audit
+```
+
+Tests use Node's built-in test runner and assertions, with `tsx` loading
+TypeScript. Oxlint explicitly enables the rules previously used from
+`typescript-eslint/recommended`, including the existing underscore exceptions
+for unused parameters and caught errors. Prettier remains the formatter.
+
+This toolchain removes the unpatched `picomatch` dependency described in
+[GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf),
+rather than excluding development dependencies from the audit.
 
 ## Adding a skill
 

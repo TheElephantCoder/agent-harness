@@ -4281,14 +4281,22 @@ async function handleGui(req, res, page) {
                     output: "[harness] upgrade runs only in the terminal (it reinstalls this binary); upgrade --check works here",
                 }));
             }
-            const r = await Promise.race([
-                captureRunSingleton(parsed.cmd, argv),
-                new Promise((resolve) => setTimeout(() => resolve({
-                    ok: false,
-                    output: "[harness] timed out after 10 minutes",
-                }), 600000)),
-            ]);
-            return send(200, JSON.stringify(r));
+            let timer;
+            try {
+                const r = await Promise.race([
+                    captureRunSingleton(parsed.cmd, argv),
+                    new Promise((resolve) => {
+                        timer = setTimeout(() => resolve({
+                            ok: false,
+                            output: "[harness] timed out after 10 minutes",
+                        }), 600000);
+                    }),
+                ]);
+                return send(200, JSON.stringify(r));
+            }
+            finally {
+                clearTimeout(timer);
+            }
         }
         if (req.method === "POST" && url.pathname === "/api/agent") {
             let parsed;
@@ -4338,7 +4346,7 @@ const TERM_MAX_SESSIONS = 3;
 const TERM_BUF_CAP = 1024 * 1024;
 function termSpawn(mode) {
     // Real PTY via the stdlib-only python bridge (node has no built-in pty,
-    // and node-pty would need a native build). argv[1] is unreliable (vitest
+    // and node-pty would need a native build). argv[1] is unreliable (test
     // workers, bin symlinks), so both paths resolve through the package root.
     const root = selfRoot();
     const entry = root ? path.join(root, "dist", "harness", "cli.js") : "";
@@ -4534,7 +4542,7 @@ async function main() {
         process.exit(1);
     }
 }
-// only auto-run as a CLI, never on import (vitest imports this module).
+// only auto-run as a CLI, never on import (tests import this module).
 // argv[1] can be a bin symlink, so compare realpaths, not strings.
 const invokedAsCli = (() => {
     try {
