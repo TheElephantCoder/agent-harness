@@ -61,8 +61,9 @@ def test_callout_installs_update_in_checkout(tmp_path, frontend, columns, key):
         '    assert "/compare/" in req.full_url\n'
         '    return Response(b\'{"status":"ahead"}\')\n'
         'urllib.request.urlopen = compare\n')
-    env = dict(os.environ, PYTHONPATH=str(tmp_path), TERM="xterm-256color", HARNESS_REDUCED_MOTION="1")
-    for name in ("NO_COLOR", "HARNESS_EMBEDDED_TERMINAL", "COLUMNS", "LINES"):
+    env = dict(os.environ, XDG_CACHE_HOME=str(tmp_path / "cache"), PYTHONPATH=str(tmp_path), TERM="xterm-256color", HARNESS_REDUCED_MOTION="1")
+    for name in ("NO_COLOR", "HARNESS_EMBEDDED_TERMINAL", "COLUMNS", "LINES",
+                 "NO_UPDATE_NOTIFIER", "CI", "CODEX_CI", "CLAUDECODE", "CURSOR_AGENT"):
         env.pop(name, None)
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, columns, 0, 0))
@@ -133,3 +134,35 @@ def test_dirty_checkout_stays_untouched(tmp_path):
     subprocess.run(["git", "add", "edit"], cwd=tmp_path, check=True)
     assert not update_notice.update_checkout(tmp_path)
     assert local.read_text() == "local work"
+
+@pytest.mark.parametrize("quiet", ["NO_UPDATE_NOTIFIER", "CI", "CODEX_CI", "CLAUDECODE", "CURSOR_AGENT"])
+def test_quiet_session_skips_automatic_check(tmp_path, monkeypatch, quiet):
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    monkeypatch.setenv(quiet, "1")
+    monkeypatch.setattr(update_notice, "available", lambda *_: pytest.fail("unexpected network check"))
+    assert not update_notice.should_offer("npm", "/install", "1.0.0")
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.skipif(os.name != "posix", reason="the full-screen menu uses POSIX terminal locking")
+def test_concurrent_terminals_share_daily_check(tmp_path, monkeypatch):
+    for name in ("CI", "NO_UPDATE_NOTIFIER", "CODEX_CI", "CLAUDECODE", "CURSOR_AGENT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    clock = 100000
+    monkeypatch.setattr(update_notice.time, "time", lambda: clock)
+    install = ("npm", "/install", "1.0.0")
+    calls = []
+
+    def check(*args):
+        calls.append(args)
+        assert not update_notice.should_offer(*args)
+        return True
+
+    monkeypatch.setattr(update_notice, "available", check)
+    assert update_notice.should_offer(*install)
+    clock += 86399
+    assert not update_notice.should_offer(*install)
+    clock += 1
+    assert update_notice.should_offer(*install)
+    assert calls == [install, install]

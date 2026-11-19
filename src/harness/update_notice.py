@@ -1,9 +1,12 @@
 """Update discovery for the interactive menu and fast-forward source installs."""
+import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 
 if __package__:
     from .cli import cmp_versions, fetch_text
@@ -57,6 +60,39 @@ def available(kind, root, version):
         return False
 
 
+def should_offer(kind, root, version):
+    """Check once per day per installation, outside CI and agent sessions."""
+    if os.environ.get("NO_UPDATE_NOTIFIER") or any(
+        os.environ.get(name, "").lower() not in ("", "0", "false")
+        for name in ("CI", "CODEX_CI", "CLAUDECODE", "CURSOR_AGENT")
+    ):
+        return False
+
+    # Only the POSIX full-screen picker requests optional update notices.
+    import fcntl
+    try:
+        cache_base = os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache"
+        directory = Path(cache_base) / "agent-harness"
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        install = root or sys.prefix
+        key = hashlib.sha256(os.fsencode(f"{kind}:{install}")).hexdigest()[:16]
+        with (directory / f"update-{key}").open("a+b") as stamp:
+            # Parallel terminals should neither wait nor issue duplicate checks.
+            fcntl.flock(stamp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            stamp.seek(0)
+            saved = stamp.read(32).strip()
+            now = int(time.time())
+            if saved.isdigit() and 0 <= now - int(saved) < 86400:
+                return False
+            offer = available(kind, root, version)
+            stamp.seek(0)
+            stamp.truncate()
+            stamp.write(str(now).encode("ascii"))
+            return offer
+    except (OSError, RuntimeError):
+        return False
+
+
 def update_checkout(root):
     try:
         if not official_main(root):
@@ -76,7 +112,7 @@ def update_checkout(root):
 
 if __name__ == "__main__":
     if sys.argv[1] == "check":
-        sys.exit(0 if available(*sys.argv[2:]) else 1)
+        sys.exit(0 if should_offer(*sys.argv[2:]) else 1)
     if sys.argv[1] == "update-checkout":
         sys.exit(0 if update_checkout(sys.argv[2]) else 1)
     sys.exit(2)

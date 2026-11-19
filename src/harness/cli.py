@@ -2891,14 +2891,14 @@ def launch_shell():
             import terminal_menu as panel
         _panel = panel
         if __package__:
-            from .update_notice import available
+            from .update_notice import should_offer
         else:
-            from update_notice import available
+            from update_notice import should_offer
 
         notice = _update_ready
 
         def check_update():
-            if available("pip", self_root(), VERSION):
+            if should_offer("pip", self_root(), VERSION):
                 notice.set()
 
         threading.Thread(target=check_update, daemon=True).start()

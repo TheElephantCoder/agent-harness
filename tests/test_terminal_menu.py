@@ -25,7 +25,7 @@ def test_settings_click_toggle_and_restore(tmp_path, frontend, columns, legacy):
            else [sys.executable, str(root / "src/harness/cli.py")])
     master, slave = pty.openpty()
     attributes = termios.tcgetattr(slave)
-    env = dict(os.environ, TERM="xterm-256color")
+    env = dict(os.environ, TERM="xterm-256color", NO_UPDATE_NOTIFIER="1")
     for name in ("NO_COLOR", "HARNESS_EMBEDDED_TERMINAL", "LINES", "COLUMNS"):
         env.pop(name, None)
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, columns, 0, 0))
