@@ -20,7 +20,6 @@ def colors(ink, paper):
 
 BASE = colors(240, 0)
 MUTED = colors(172, 0)
-ACTIVE = colors(255, 42)
 CLEAR = BASE + CSI + "H" + CSI + "2J"
 ENTER = CSI + "?1049h" + CLEAR
 LEAVE = CSI + "?1006l" + CSI + "?1000l" + CSI + "?25h" + CSI + "0m" + CSI + "?1049l"
@@ -40,52 +39,123 @@ def fit(text, width):
     return "".join(out) + " " * (width - used)
 
 
-def frame(title, options, details, index, size, version):
+NAME = "agent-harness"
+PANEL = colors(215, 19)
+FOCUS = colors(255, 47)
+HOME = "What do you want to do?"
+SECTIONS = ("Project", "Tools", "Application")
+SECTION_ACTIONS = (
+    ("Project status", "Check setup", "Set up this project", "Map this repo", "Run benchmark", "Optimize this project", "Settings"),
+    ("Skills", "Memory", "Instincts", "Research", "Security", "Adapters"),
+    ("Local models", "Web GUI", "Upgrade", "Quit"),
+)
+
+
+def section_actions(options, section):
+    return [options.index(label) for label in SECTION_ACTIONS[section] if label in options]
+
+
+def frame(title, options, details, index, size, version, query="", palette=False, section=0):
     width, height = max(1, size.columns), max(1, size.lines)
-    cols = 2 if width >= 72 and len(options) > 8 else 1
-    first = 5 if height >= 12 else 2 if height >= 5 else 0
-    capacity = max(1, height - first - (4 if height >= 12 else 1))
-    rows = min(capacity, math.ceil(len(options) / cols))
-    start = index // (rows * cols) * rows * cols
-    pad = min(3 if width >= 40 else 1, (width - 1) // 2)
-    inner = max(1, width - 2 * pad)
-    cell = inner // cols
+    home = title == HOME
+    landing = home and not (palette or query)
+    inner = min(76 if landing else 62, max(1, width - (4 if width >= 8 else 0)))
+    pad = (width - inner) // 2
+    footer = 4 if height >= 14 else 1 if height >= 4 else 0
+    header = 2 if height >= 6 else 0
+    rows = min(len(options), 9, max(1, height - header - footer))
+    top = max(0, (height - header - rows - footer) // 2)
+    first = top + header
+    start = min(max(0, index - rows + 1), len(options) - rows)
     canvas = [BASE + " " * width for _ in range(height)]
     hits = {}
-    def line(y, text, style=BASE):
+
+    def line(y, text, style=BASE, centered=False):
         if 0 <= y < height:
-            canvas[y] = BASE + " " * pad + style + fit(text, inner) + BASE + " " * pad
-    if first:
-        line(0, f"◢◣  agent-harness   /   v{version}")
-        if first >= 5 and width >= 60:
-            line(0, f"◢◣  agent-harness   /   v{version}     ·     {os.path.basename(os.getcwd()) or os.sep}")
-    if first >= 5:
-        line(2, title)
-        line(3, "─" * inner, MUTED)
-    elif first:
-        line(1, title)
+            if centered:
+                text = " " * max(0, (inner - len(text)) // 2) + text
+            canvas[y] = BASE + " " * pad + style + fit(text, inner) + BASE + " " * (width - pad - inner)
+
+    def status():
+        project = os.path.basename(os.getcwd()) or os.sep
+        release = f"v{version}"
+        line(height - 1, fit(project, max(0, inner - len(release) - 1)) + " " + release, MUTED)
+
+    if landing:
+        sidebar = inner >= 66
+        roomy = height >= 15
+        brand_height = 2 if roomy else 0
+        tools_height = 3 if roomy else 1 if height >= 4 else 0
+        heading_height = 2 if height >= 8 else 0
+        available = max(1, height - brand_height - heading_height - tools_height)
+        body = min(max(map(len, SECTION_ACTIONS)), available)
+        top = max(0, (height - brand_height - heading_height - body - tools_height) // 2)
+        first = top + brand_height + heading_height
+        nav = 19 if sidebar else 0
+        if brand_height:
+            line(top, NAME, centered=True)
+        if heading_height:
+            if sidebar:
+                line(first-1, fit("  Workspace", nav) + "  " + SECTIONS[section] + " actions", MUTED)
+            else:
+                line(first-2, "  " + SECTIONS[section] + " actions", MUTED)
+                tabs = [BASE, " " * pad]
+                offset = 0
+                for n, name in enumerate(SECTIONS):
+                    label = ("›" if n == section else " ") + name + " "
+                    if offset + len(label) > inner:
+                        break
+                    tabs.extend([FOCUS if n == section else BASE, label])
+                    for x in range(offset, offset + len(label)):
+                        hits[first, pad + x + 1] = ("section", n)
+                    offset += len(label)
+                tabs.extend([BASE, " " * (width - pad - offset)])
+                canvas[first-1] = "".join(tabs)
+        start = min(max(0, index - body + 1), max(0, len(options)-body))
+        for row in range(body):
+            parts = [BASE, " " * pad]
+            if sidebar:
+                name = SECTIONS[row] if row < len(SECTIONS) else ""
+                selected = row == section
+                parts.extend([FOCUS if selected else BASE, fit(("› " if selected else "  ") + name, nav-2), BASE, "  "])
+                if name:
+                    for x in range(nav-2):
+                        hits[first+row+1, pad+x+1] = ("section", row)
+            item = row + start
+            selected = item == index
+            label = ("▸ " if selected else "  ") + options[item] if item < len(options) else ""
+            parts.extend([FOCUS if selected else PANEL, fit(label, inner-nav), BASE, " " * (width-pad-inner)])
+            canvas[first+row] = "".join(parts)
+            if item < len(options):
+                for x in range(nav, inner):
+                    hits[first+row+1, pad+x+1] = item
+        if tools_height:
+            hint = "Tab section   ↑↓ move   Enter open   Type to search" if inner >= 51 else "Tab group   ↑↓ move   ↵ open" if inner >= 28 else "Tab group  ↵ open"
+            line(first + body + (1 if roomy else 0), hint, MUTED)
+        if roomy:
+            status()
+        return encode(canvas), hits, pad, inner, body
+
+    if header:
+        line(first - 2, "  " + ("Commands" if home else title), MUTED)
+        line(first - 1, "┃  " + (query + "▏" if query else "Type to filter…"), PANEL)
     for row in range(rows):
-        parts = [BASE, " " * pad]
-        for col in range(cols):
-            i = start + col * rows + row
-            if i >= len(options):
-                break
-            label = f"{'▸' if i == index else ' '} {i + 1:2}  {options[i]}"
-            parts.extend([ACTIVE if i == index else BASE, fit(label, cell)])
-            hits[row + first + 1, col] = i
-        occupied = min(cols, len(options) - start - row)
-        parts.extend([BASE, " " * (width - pad - occupied * cell)])
-        canvas[row + first] = "".join(parts)
-    if height >= 12:
+        i = start + row
+        line(first + row, ("┃  " if index == i else "   ") + options[i], FOCUS if index == i else PANEL)
+        for x in range(pad + 1, pad + inner + 1):
+            hits[first + row + 1, x] = i
+    if footer:
+        line(first + rows, "↑↓ move   Enter open   Esc back", MUTED)
+    if footer >= 4:
         if index < len(details):
             for offset, part in enumerate(textwrap.wrap(details[index], inner)[:2]):
-                line(height - 3 + offset, part, MUTED)
-        else:
-            line(height - 3, "─" * inner, MUTED)
-    if height > 2:
-        line(height - 1, "↑↓ move   Enter select   type a number   Esc back" if width >= 56 else "↑↓ move  Enter select  Esc back", MUTED)
-    output = "".join(f"{CSI}{y};1H{line}" for y, line in enumerate(canvas, 1))
-    return output, hits, pad, cell, rows
+                line(first + rows + 1 + offset, part, BASE)
+        status()
+    return encode(canvas), hits, pad, inner, rows
+
+
+def encode(canvas):
+    return "".join(f"{CSI}{y};1H{content}" for y, content in enumerate(canvas, 1))
 
 
 def pick(title, options, details=(), initial=0, version=""):
@@ -93,33 +163,37 @@ def pick(title, options, details=(), initial=0, version=""):
     saved = termios.tcgetattr(fd)
     index = max(0, min(initial, len(options) - 1))
     last = None
-    digits = ""
-    deadline = 0
+    query = ""
+    palette = False
+    section = 0
+    matches = section_actions(options, section) if title == HOME else list(range(len(options)))
     try:
         tty.setraw(fd)
         sys.stdout.write(CSI + "?25l" + CSI + "?1000h" + CSI + "?1006h")
         while True:
             size = shutil.get_terminal_size()
-            if last != (index, size):
-                output, hits, pad, cell, rows = frame(title, options, details, index, size, version)
-                sys.stdout.write(output)
+            if last != (index, size, query, palette, section):
+                labels = [options[i] for i in matches] or ["No matching commands"]
+                descriptions = [details[i] if i < len(details) else "" for i in matches]
+                output, hits, pad, cell, rows = frame(title, labels, descriptions, index, size, version, query, palette, section)
+                sys.stdout.write(CSI + "?2026h" + output + CSI + "?2026l")
                 sys.stdout.flush()
-                last = (index, size)
-            wait = max(0, min(.15, deadline - time.monotonic())) if digits else .15
+                last = (index, size, query, palette, section)
+            wait = .15
             if not select.select([fd], [], [], wait)[0]:
-                if digits and time.monotonic() >= deadline:
-                    return int(digits) - 1
                 continue
             key = os.read(fd, 1)
-            if key.isdigit():
-                n = int(digits + key.decode())
-                if 1 <= n <= len(options):
-                    digits = str(n)
-                    deadline = time.monotonic() + .45
-                    if n * 10 > len(options):
-                        return n - 1
+            if title == HOME and key == b"\x10":
+                palette = True
+                matches = list(range(len(options)))
+                index = 0
                 continue
-            digits = ""
+            if key in (b"\x7f", b"\x08") or (len(key) == 1 and 32 <= key[0] <= 126):
+                query = query[:-1] if key in (b"\x7f", b"\x08") else (query + key.decode())[:80]
+                matches = [i for i, label in enumerate(options) if query.casefold() in label.casefold()]
+                index = 0
+                palette = True
+                continue
             if key == b"\x1b":
                 seq = b""
                 while len(seq) < 32 and select.select([fd], [], [], .05)[0]:
@@ -127,20 +201,39 @@ def pick(title, options, details=(), initial=0, version=""):
                     if len(seq) >= 2 and 64 <= seq[-1] <= 126:
                         break
                 if not seq:
+                    if query or (title == HOME and palette):
+                        palette = False
+                        query = ""
+                        index = 0
+                        matches = section_actions(options, section) if title == HOME else list(range(len(options)))
+                        continue
                     return -1
                 mouse = re.fullmatch(rb"\[<0;(\d+);(\d+)m", seq)
                 if mouse:
                     x, y = map(int, mouse.groups())
-                    hit = hits.get((y, (x - pad - 1) // max(1, cell)))
-                    if hit is not None:
-                        return hit
-                key = {b"[A": b"k", b"[B": b"j", b"[C": b"l", b"[D": b"h"}.get(seq, b"?")
-            if key in (b"q", b"\x03", b"\x04", b""):
+                    hit = hits.get((y, x))
+                    if isinstance(hit, tuple):
+                        section = hit[1]
+                        matches = section_actions(options, section)
+                        index = 0
+                    elif isinstance(hit, int) and matches:
+                        return matches[hit]
+                    continue
+                key = {b"[A": b"k", b"[B": b"j", b"[C": b"l", b"[D": b"h", b"[Z": b"backtab"}.get(seq, b"?")
+            if key in (b"\x03", b"\x04", b""):
                 return -1
             if key in (b"\r", b"\n"):
-                return index
+                if matches:
+                    return matches[index]
+                continue
+            if title == HOME and not palette and key in (b"\t", b"backtab", b"h", b"l"):
+                section = (section + (1 if key in (b"\t", b"l") else -1)) % len(SECTIONS)
+                matches = section_actions(options, section)
+                index = 0
+                continue
             step = {b"k": -1, b"j": 1, b"h": -rows, b"l": rows}.get(key, 0)
-            index = (index + step) % len(options)
+            if step:
+                index = (index + step) % max(1, len(matches))
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, saved)
         sys.stdout.write(CSI + "?1006l" + CSI + "?1000l" + CSI + "?25h" + CLEAR)

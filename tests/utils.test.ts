@@ -208,11 +208,11 @@ describe("gui server", () => {
         const clean = strip(menu);
         assert.ok(clean.includes("What do you want to do?"));
         assert.ok(clean.includes("Web GUI"));
-        assert.ok(clean.includes("type a number"));
+        assert.ok(clean.includes("esc back"));
         await fetch(`${base}/api/term/input`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: started.id, data: "17" }),
+          body: JSON.stringify({ id: started.id, data: "q" }),
         });
         let bye = "";
         for (let i = 0; i < 40 && !strip(bye).includes("bye."); i++) {

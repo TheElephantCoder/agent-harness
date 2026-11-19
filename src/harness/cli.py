@@ -73,22 +73,25 @@ def welcome(width=None):
     credit = center_line("by TheElephantCoder", width)
     return "\n".join([rule, "", art, "", title, "", sub, credit, ""]) + "\n" + divider
 
-def pick_numbered(title, options):
+def pick_by_name(title, options, details=()):
     print(bold(title))
     for i, o in enumerate(options):
-        print(f"  {i + 1}. {o}")
+        print(f"  {o} — {details[i]}" if i < len(details) and details[i] else f"  {o}")
     try:
-        answer = input("❯ ")
+        answer = input("Command name ❯ ")
     except EOFError:
         print()
         return -1
-    try:
-        n = int(answer.strip())
-    except ValueError:
+    query = answer.strip().casefold()
+    if not query:
         return -1
-    if n < 1 or n > len(options):
-        return -1
-    return n - 1
+    matches = []
+    for i, label in enumerate(options):
+        if label.casefold() == query:
+            return i
+        if query in label.casefold():
+            matches.append(i)
+    return matches[0] if len(matches) == 1 else -1
 
 def pick_arrows(title, options):
     import select as selectmod
@@ -98,18 +101,16 @@ def pick_arrows(title, options):
     old = termios.tcgetattr(fd)
     index = 0
     rendered = 0
-    # first digit of a two-digit option number, with its timestamp.
-    pending, pending_at = 0, 0.0
-    hint = "↑↓ to move · enter to select · type a number"
+    hint = "↑↓ to move · enter to select · esc back"
     try:
         tty.setraw(fd)
         while True:
             lines = [bold(title)]
             for i, o in enumerate(options):
                 if i == index:
-                    lines.append(bold(f"❯ {i + 1}. {o}"))
+                    lines.append(bold(f"❯ {o}"))
                 else:
-                    lines.append(f"  {i + 1}. {o}")
+                    lines.append(f"  {o}")
             lines.append(hint)
             if rendered:
                 sys.stdout.write(f"\x1b[{rendered}A")
@@ -117,19 +118,6 @@ def pick_arrows(title, options):
                 sys.stdout.write("\x1b[G\x1b[K" + l + "\n")
             sys.stdout.flush()
             rendered = len(lines)
-            if pending:
-                wait = 0.45 - (time.monotonic() - pending_at)
-                if wait <= 0:
-                    sys.stdout.write("\n")
-                    return pending - 1
-                r, _, _ = selectmod.select([fd], [], [], wait)
-                if not r:
-                    sys.stdout.write("\n")
-                    return pending - 1
-            # unbuffered reads: sys.stdin.read() may prefetch bytes into a
-            # userspace buffer that select() cannot see, which desyncs the
-            # pending-digit window (first digit eaten, second invisible).
-            # os.read takes exactly what is there, keeping both in sync.
             try:
                 raw = os.read(fd, 1)
             except OSError:
@@ -145,7 +133,6 @@ def pick_arrows(title, options):
                 sys.stdout.write("\n")
                 return index
             if ch == "\x1b":
-                pending = 0
                 # lone Escape must not hang waiting for bytes that never
                 # come; arrow bytes arrive together, well inside the window.
                 # os.read may split them, so gather up to 2 with a budget.
@@ -165,36 +152,19 @@ def pick_arrows(title, options):
                     index = (index - 1) % len(options)
                 elif nxt == "[B":
                     index = (index + 1) % len(options)
-                elif nxt:
+                elif not nxt:
+                    return -1
+                else:
                     # Home/Delete/right-arrow etc: ignore the sequence, do
                     # not interpret it as "quit the whole app".
                     pass
             elif ch in ("k",):
-                pending = 0
                 index = (index - 1) % len(options)
             elif ch in ("j",):
-                pending = 0
                 index = (index + 1) % len(options)
             elif ch in ("q",):
                 sys.stdout.write("\n")
                 return -1
-            elif ch in "0123456789":
-                d = int(ch)
-                if pending and time.monotonic() - pending_at < 0.45:
-                    two = pending * 10 + d
-                    first = pending
-                    pending = 0
-                    if 1 <= two <= len(options):
-                        sys.stdout.write("\n")
-                        return two - 1
-                    if 1 <= first <= len(options):
-                        sys.stdout.write("\n")
-                        return first - 1
-                elif d >= 1 and d <= len(options) and (d * 10 > len(options) or len(options) < 10):
-                    sys.stdout.write("\n")
-                    return d - 1
-                elif d >= 1 and d * 10 <= len(options):
-                    pending, pending_at = d, time.monotonic()
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
@@ -211,7 +181,7 @@ def pick(title, options, details=(), initial=0):
             return pick_arrows(title, options)
         except Exception:
             pass
-    return pick_numbered(title, options)
+    return pick_by_name(title, options, details)
 
 def ask_question(prompt):
     try:

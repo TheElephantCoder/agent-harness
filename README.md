@@ -184,7 +184,7 @@ harness adapter <list|add|remove> [name]
 harness upgrade [--check]
 ```
 
-Run `harness` with no args on a terminal to open the interactive menu over every command (Quit or Ctrl-C to leave).
+Run `harness` to open the workspace. Tab and Shift+Tab switch between Project, Tools, and Application. Use the arrow keys to highlight an action and Enter to open it. Type part of any command name to search across all three sections. Esc goes back.
 
 `harness --help` has the rest. Also [`docs/cli.md`](docs/cli.md).
 

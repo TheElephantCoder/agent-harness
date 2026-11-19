@@ -99,40 +99,49 @@ function useColor() {
         !process.env.NO_COLOR &&
         process.env.TERM !== "dumb");
 }
-// Ghostty keeps inverse cells opaque even with background-opacity-cells.
-// Supply the theme background as the foreground, then reverse the pair.
 let panelScript = null;
 let backedOut = false;
 let activePicker = null;
 function bold(text) {
     return useColor() ? `\x1b[1m${text}\x1b[0m` : text;
 }
-async function selectFallback(title, options) {
+async function selectFallback(title, options, details) {
     console.log(bold(title));
     options.forEach((o, i) => {
-        console.log(`  ${i + 1}. ${o}`);
+        console.log(details[i] ? `  ${o} — ${details[i]}` : `  ${o}`);
     });
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
+        terminal: false,
     });
     const answer = await new Promise((resolve) => {
-        rl.question("❯ ", (a) => {
-            rl.close();
+        rl.question("Command name ❯ ", (a) => {
             resolve(a);
+            rl.close();
         });
+        rl.once("close", () => resolve(""));
     });
-    const n = parseInt(answer.trim(), 10);
-    if (Number.isNaN(n) || n < 1 || n > options.length) {
+    const query = answer.trim().toLowerCase();
+    if (!query)
         return -1;
-    }
-    return n - 1;
+    const exact = options.findIndex((o) => o.toLowerCase() === query);
+    if (exact >= 0)
+        return exact;
+    const matches = options.filter((o) => o.toLowerCase().includes(query));
+    return matches.length === 1 ? options.indexOf(matches[0]) : -1;
 }
 async function selectOption(title, options, details = [], initial = 0) {
     if (panelScript && options.length <= 253) {
         const picker = spawn("python3", [
             panelScript,
-            JSON.stringify({ title, options, details, initial, version: VERSION }),
+            JSON.stringify({
+                title,
+                options,
+                details,
+                initial,
+                version: VERSION,
+            }),
         ], { stdio: "inherit" });
         activePicker = picker;
         const status = await new Promise((resolve) => {
@@ -150,32 +159,21 @@ async function selectOption(title, options, details = [], initial = 0) {
     // so narrow screens get the numbered fallback instead of torn redraws.
     if (guiMode)
         return -1;
-    if (!process.stdin.isTTY || !process.stdout.isTTY || termWidth() < 45) {
-        return selectFallback(title, options);
+    if (!process.stdin.isTTY ||
+        !process.stdout.isTTY ||
+        termWidth() < 45) {
+        return selectFallback(title, options, details);
     }
     return new Promise((resolve) => {
         let index = 0;
         let rendered = 0;
         let finished = false;
-        // first digit of a two-digit option number, with its commit timer.
-        let pendingDigit = 0;
-        let pendingTimer = null;
-        const clearPending = () => {
-            if (pendingTimer) {
-                clearTimeout(pendingTimer);
-                pendingTimer = null;
-            }
-            pendingDigit = 0;
-        };
         const stdin = process.stdin;
-        const hint = "↑↓ to move · enter to select · type a number";
+        const hint = "↑↓ to move · enter to select · esc back";
         const draw = () => {
             let out = `${bold(title)}\n`;
             options.forEach((o, i) => {
-                out +=
-                    i === index
-                        ? `${bold(`❯ ${i + 1}. ${o}`)}\n`
-                        : `  ${i + 1}. ${o}` + "\n";
+                out += i === index ? `${bold(`❯ ${o}`)}\n` : `  ${o}` + "\n";
             });
             out += `${hint}\n`;
             const lines = out.split("\n").length;
@@ -191,7 +189,6 @@ async function selectOption(title, options, details = [], initial = 0) {
             if (finished)
                 return;
             finished = true;
-            clearPending();
             stdin.setRawMode(false);
             stdin.removeAllListeners("keypress");
             stdin.pause();
@@ -215,13 +212,11 @@ async function selectOption(title, options, details = [], initial = 0) {
                 return;
             }
             if (key.name === "up" || key.name === "k") {
-                clearPending();
                 index = (index - 1 + options.length) % options.length;
                 draw();
                 return;
             }
             if (key.name === "down" || key.name === "j") {
-                clearPending();
                 index = (index + 1) % options.length;
                 draw();
                 return;
@@ -230,43 +225,6 @@ async function selectOption(title, options, details = [], initial = 0) {
                 process.stdout.write("\n");
                 done(-1);
                 return;
-            }
-            // digits select immediately when unambiguous (d*10 exceeds the
-            // option count); otherwise the first digit waits 450ms for a second.
-            // out-of-range digits are ignored so a typo cannot escape a submenu.
-            const d = parseInt(key.sequence, 10);
-            if (!Number.isNaN(d) && d >= 0 && d <= 9) {
-                if (pendingTimer) {
-                    const first = pendingDigit;
-                    clearPending();
-                    const two = first * 10 + d;
-                    if (two >= 1 && two <= options.length) {
-                        process.stdout.write("\n");
-                        done(two - 1);
-                        return;
-                    }
-                    if (first >= 1 && first <= options.length) {
-                        process.stdout.write("\n");
-                        done(first - 1);
-                        return;
-                    }
-                    return;
-                }
-                if (d >= 1 &&
-                    d <= options.length &&
-                    (d * 10 > options.length || options.length < 10)) {
-                    process.stdout.write("\n");
-                    done(d - 1);
-                    return;
-                }
-                if (d >= 1 && d * 10 <= options.length) {
-                    pendingDigit = d;
-                    pendingTimer = setTimeout(() => {
-                        pendingTimer = null;
-                        process.stdout.write("\n");
-                        done(d - 1);
-                    }, 450);
-                }
             }
         });
         draw();
@@ -4564,7 +4522,7 @@ async function cmdGui(flags) {
 async function main() {
     if (process.argv.length <= 2) {
         // HARNESS_INTERACTIVE=1 forces the menu loop with piped stdio (used by
-        // the gui terminal tab); without a TTY the pickers fall back to numbered
+        // the gui terminal tab); without a TTY the pickers fall back to
         // line mode on their own.
         if (process.stdin.isTTY || process.env.HARNESS_INTERACTIVE === "1") {
             await interactive();
