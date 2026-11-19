@@ -99,6 +99,7 @@ function useColor() {
         !process.env.NO_COLOR &&
         process.env.TERM !== "dumb");
 }
+let startupPending = true;
 let panelScript = null;
 let backedOut = false;
 let activePicker = null;
@@ -141,8 +142,10 @@ async function selectOption(title, options, details = [], initial = 0) {
                 details,
                 initial,
                 version: VERSION,
+                startup: startupPending,
             }),
         ], { stdio: "inherit" });
+        startupPending = false;
         activePicker = picker;
         const status = await new Promise((resolve) => {
             picker.once("error", () => resolve(null));

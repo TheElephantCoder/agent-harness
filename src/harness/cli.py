@@ -27,6 +27,7 @@ def use_color():
     return bool(sys.stdout.isatty()) and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
 
 _panel = None
+_startup_pending = True
 _backed_out = False
 
 def bold(text):
@@ -169,9 +170,10 @@ def pick_arrows(title, options):
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 def pick(title, options, details=(), initial=0):
-    global _backed_out
+    global _backed_out, _startup_pending
     if _panel:
-        choice = _panel.pick(title, options, details, initial, VERSION)
+        choice = _panel.pick(title, options, details, initial, VERSION, startup=_startup_pending)
+        _startup_pending = False
         _backed_out = choice < 0 or options[choice] == "Back"
         return choice
     # arrow redraw math assumes no line wraps (longest line is 44 cells),

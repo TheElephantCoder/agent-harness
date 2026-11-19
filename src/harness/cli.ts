@@ -133,6 +133,7 @@ function useColor(): boolean {
   );
 }
 
+let startupPending = true;
 let panelScript: string | null = null;
 let backedOut = false;
 let activePicker: ReturnType<typeof spawn> | null = null;
@@ -187,10 +188,12 @@ async function selectOption(
           details,
           initial,
           version: VERSION,
+          startup: startupPending,
         }),
       ],
       { stdio: "inherit" },
     );
+    startupPending = false;
     activePicker = picker;
     const status = await new Promise<number | null>((resolve) => {
       picker.once("error", () => resolve(null));
