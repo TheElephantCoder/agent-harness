@@ -82,3 +82,16 @@ def test_settings_toggle_and_restore(tmp_path, frontend):
             proc.wait()
         os.close(master)
         os.close(slave)
+
+
+@pytest.mark.parametrize("frontend", ["node", "python"])
+def test_plain_menu_accepts_command_name_without_control_sequences(tmp_path, frontend):
+    root = Path(__file__).resolve().parents[1]
+    command = (["node", str(root / "dist/harness/cli.js")] if frontend == "node"
+               else [sys.executable, str(root / "src/harness/cli.py")])
+    result = subprocess.run([*command, "--plain"], input="quit\n", text=True,
+                            cwd=tmp_path, capture_output=True, timeout=5, check=True)
+    assert "Project status" in result.stdout
+    assert "Command name" in result.stdout
+    assert "bye." in result.stdout
+    assert "\x1b" not in result.stdout

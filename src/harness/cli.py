@@ -23,8 +23,10 @@ VERSION = "0.3.1"
 RESET = "\x1b[0m"
 BOLD = "\x1b[1m"
 
+_plain_menu = False
+
 def use_color():
-    return bool(sys.stdout.isatty()) and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
+    return not _plain_menu and bool(sys.stdout.isatty()) and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
 
 _panel = None
 _startup_pending = True
@@ -178,7 +180,7 @@ def pick(title, options, details=(), initial=0):
         return choice
     # arrow redraw math assumes no line wraps (longest line is 44 cells),
     # so narrow screens get the numbered fallback instead of torn redraws.
-    if sys.stdin.isatty() and sys.stdout.isatty() and os.name != "nt" and term_width() >= 45:
+    if not _plain_menu and sys.stdin.isatty() and sys.stdout.isatty() and os.name != "nt" and term_width() >= 45:
         try:
             return pick_arrows(title, options)
         except Exception:
@@ -2879,7 +2881,7 @@ def launch_shell():
         sys.stdout.write(_panel.ENTER)
         sys.stdout.flush()
     else:
-        print(welcome())
+        print("agent-harness" if _plain_menu else welcome())
     try:
         while not show_menu():
             pass
@@ -2912,6 +2914,7 @@ def cmd_gui(args=None):
     return False
 
 def main():
+    global _plain_menu
     p = argparse.ArgumentParser(prog="harness", description="harness - agent harness perf layer by TheElephantCoder")
     p.add_argument("--version", "-v", action="store_true")
     sub = p.add_subparsers(dest="cmd")
@@ -2952,12 +2955,17 @@ def main():
     g = sub.add_parser("gui")
     g.add_argument("--port")
 
+    p.add_argument("--plain", action="store_true", help="line-by-line interactive menu for screen readers")
+    p.add_argument("--reduced-motion", action="store_true", help="skip the interactive startup animation")
     args = p.parse_args()
+    _plain_menu = args.plain
+    if args.reduced_motion:
+        os.environ["HARNESS_REDUCED_MOTION"] = "1"
     if args.version:
         print(f"harness {VERSION}")
         return
     if not args.cmd:
-        if sys.stdin.isatty():
+        if sys.stdin.isatty() or args.plain or args.reduced_motion:
             launch_shell()
         else:
             p.print_help()

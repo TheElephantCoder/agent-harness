@@ -186,6 +186,8 @@ harness upgrade [--check]
 
 Run `harness` to open the workspace. Tab and Shift+Tab switch between Project, Tools, and Application. Use the arrow keys to highlight an action and Enter to open it. Type part of any command name to search across all three sections. Esc goes back.
 
+Use `harness --reduced-motion` to skip the animated wordmark. For screen readers, `harness --plain` prints the menus and Settings descriptions as ordinary terminal lines. Enter a command by name or by a unique part of its name.
+
 `harness --help` has the rest. Also [`docs/cli.md`](docs/cli.md).
 
 ## How it fits together

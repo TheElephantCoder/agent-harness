@@ -75,6 +75,8 @@ usage: harness <command> [options]
   gui [--port <n>]                               local web gui on 127.0.0.1
 
 options:
+  --plain           line-by-line interactive menu for screen readers
+  --reduced-motion  skip the interactive startup animation
   -h, --help
   -v, --version
 
@@ -95,10 +97,12 @@ function parseArgs(argv) {
     return { cmd, flags };
 }
 function useColor() {
-    return (!!process.stdout.isTTY &&
+    return (!plainMenu &&
+        !!process.stdout.isTTY &&
         !process.env.NO_COLOR &&
         process.env.TERM !== "dumb");
 }
+let plainMenu = false;
 let startupPending = true;
 let panelScript = null;
 let backedOut = false;
@@ -162,7 +166,8 @@ async function selectOption(title, options, details = [], initial = 0) {
     // so narrow screens get the numbered fallback instead of torn redraws.
     if (guiMode)
         return -1;
-    if (!process.stdin.isTTY ||
+    if (plainMenu ||
+        !process.stdin.isTTY ||
         !process.stdout.isTTY ||
         termWidth() < 45) {
         return selectFallback(title, options, details);
@@ -241,6 +246,7 @@ async function askQuestion(prompt) {
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
+        terminal: plainMenu ? false : undefined,
     });
     try {
         const answer = await new Promise((resolve) => {
@@ -664,7 +670,7 @@ async function interactive() {
         process.stdout.write("\x1b[?1049h\x1b[38;2;240;240;240;48;2;0;0;0m\x1b[2J\x1b[H");
     }
     else
-        console.log(welcome());
+        console.log(plainMenu ? "agent-harness" : welcome());
     try {
         while (!(await showMenu())) {
             /* return to the workspace */
@@ -4523,6 +4529,14 @@ async function cmdGui(flags) {
     return true;
 }
 async function main() {
+    if (process.argv.length === 3 &&
+        ["--plain", "--reduced-motion"].includes(process.argv[2])) {
+        plainMenu = process.argv[2] === "--plain";
+        if (!plainMenu)
+            process.env.HARNESS_REDUCED_MOTION = "1";
+        await interactive();
+        return;
+    }
     if (process.argv.length <= 2) {
         // HARNESS_INTERACTIVE=1 forces the menu loop with piped stdio (used by
         // the gui terminal tab); without a TTY the pickers fall back to
