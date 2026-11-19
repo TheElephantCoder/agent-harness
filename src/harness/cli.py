@@ -26,29 +26,8 @@ BOLD = "\x1b[1m"
 def use_color():
     return bool(sys.stdout.isatty()) and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
 
-_menu_colors = ""
-
-def ghostty_menu_colors():
-    if not use_color() or not (os.environ.get("TERM_PROGRAM") == "ghostty" or os.environ.get("TERM") == "xterm-ghostty"):
-        return ""
-    bundled = "/Applications/Ghostty.app/Contents/MacOS/ghostty"
-    binary = bundled if sys.platform == "darwin" and os.path.isfile(bundled) else "ghostty"
-    try:
-        result = subprocess.run([binary, "+show-config", "--changes-only=false"], stdin=subprocess.DEVNULL,
-                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=0.5, check=True)
-        output = result.stdout
-    except (OSError, subprocess.SubprocessError):
-        output = b""
-    match = re.search(rb"^background = #([0-9a-f]{6})$", output, re.I | re.M)
-    rgb = bytes.fromhex(match[1].decode("ascii") if match else "282c34")
-    values = [channel / 255 for channel in rgb]
-    r, g, b = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in values]
-    luminance = .2126*r + .7152*g + .0722*b
-    ink = 0 if (luminance + .05) / .05 >= 1.05 / (luminance + .05) else 255
-    return f"\x1b[7;38;2;{rgb[0]};{rgb[1]};{rgb[2]};48;2;{ink};{ink};{ink}m"
-
-def menu_text(text):
-    return f"{_menu_colors}{text}{RESET}" if _menu_colors else text
+_panel = None
+_backed_out = False
 
 def bold(text):
     return f"{BOLD}{text}{RESET}" if use_color() else text
@@ -89,17 +68,17 @@ def welcome(width=None):
     title = f"agent-harness v{VERSION}"
     if width >= 31:
         title = "Welcome to " + title
-    title = center_line(menu_text(bold(title)), width)
-    sub = center_line(menu_text("Let's get started."), width)
-    credit = center_line(menu_text("by TheElephantCoder"), width)
+    title = center_line(bold(title), width)
+    sub = center_line("Let's get started.", width)
+    credit = center_line("by TheElephantCoder", width)
     return "\n".join([rule, "", art, "", title, "", sub, credit, ""]) + "\n" + divider
 
 def pick_numbered(title, options):
-    print(menu_text(bold(title)))
+    print(bold(title))
     for i, o in enumerate(options):
-        print(menu_text(f"  {i + 1}. {o}"))
+        print(f"  {i + 1}. {o}")
     try:
-        answer = input(menu_text("❯ "))
+        answer = input("❯ ")
     except EOFError:
         print()
         return -1
@@ -135,7 +114,7 @@ def pick_arrows(title, options):
             if rendered:
                 sys.stdout.write(f"\x1b[{rendered}A")
             for l in lines:
-                sys.stdout.write("\x1b[G\x1b[K" + menu_text(l) + "\n")
+                sys.stdout.write("\x1b[G\x1b[K" + l + "\n")
             sys.stdout.flush()
             rendered = len(lines)
             if pending:
@@ -219,7 +198,12 @@ def pick_arrows(title, options):
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
-def pick(title, options):
+def pick(title, options, details=(), initial=0):
+    global _backed_out
+    if _panel:
+        choice = _panel.pick(title, options, details, initial, VERSION)
+        _backed_out = choice < 0 or options[choice] == "Back"
+        return choice
     # arrow redraw math assumes no line wraps (longest line is 44 cells),
     # so narrow screens get the numbered fallback instead of torn redraws.
     if sys.stdin.isatty() and sys.stdout.isatty() and os.name != "nt" and term_width() >= 45:
@@ -231,7 +215,7 @@ def pick(title, options):
 
 def ask_question(prompt):
     try:
-        return input(menu_text(prompt + " ")).strip()
+        return input(prompt + " ").strip()
     except (EOFError, OSError):
         print()
         return ""
@@ -254,7 +238,7 @@ def show_menu():
         "Project status",
         "Run benchmark",
         "Optimize this project",
-        "Manage optimizations",
+        "Settings",
         "Map this repo",
         "Skills",
         "Memory",
@@ -281,7 +265,8 @@ def show_menu():
     elif picked == 4:
         cmd_optimize()
     elif picked == 5:
-        show_optimizations_menu()
+        show_settings()
+        return False
     elif picked == 6:
         cmd_map()
     elif picked == 7:
@@ -302,7 +287,8 @@ def show_menu():
         local_models_menu()
     elif picked == 15:
         cmd_gui()
-    print("╌" * term_width())
+    if _panel and not _backed_out:
+        ask_question("Press Enter to return to the menu.")
     return False
 
 
@@ -474,19 +460,19 @@ def adapter_menu():
         if n:
             cmd_adapter_remove(n)
 
-def show_optimizations_menu():
+def show_settings():
+    initial = 0
     while True:
         opts = read_optimizations(os.getcwd())
-        print("[harness] optimizations (all on by default):")
-        names = [o["name"] for o in OPTIMIZATIONS]
-        for i, o in enumerate(OPTIMIZATIONS):
-            print(f"  {i + 1}. {o['name']} [{o['scope']}] {'on' if opts[o['name']] else 'off'} - {o['desc']}")
-        print(f"  {len(names) + 1}. Back")
-        picked = pick("Toggle which?", [f"toggle {n}" for n in names] + ["Back"])
-        if picked is None or picked < 0 or picked >= len(names):
+        labels = [f"{'[on] ' if opts[o['name']] else '[off]'}  {o['name']}" for o in OPTIMIZATIONS]
+        picked = pick("Settings", labels + ["Back"], [o["desc"] for o in OPTIMIZATIONS], initial)
+        if picked < 0 or picked >= len(labels):
             return
-        name = names[picked]
-        cmd_optimizations(["disable" if opts[name] else "enable", name])
+        initial = picked
+        name = OPTIMIZATIONS[picked]["name"]
+        if not cmd_optimizations(["disable" if opts[name] else "enable", name]) and _panel:
+            ask_question("Press Enter to return to Settings.")
+
 
 def read_text(p):
     try:
@@ -2907,13 +2893,32 @@ def cmd_skill_verify(namesel):
     return True
 
 def launch_shell():
-    global _menu_colors
-    _menu_colors = ghostty_menu_colors()
-    print(welcome())
-    while True:
-        if show_menu():
-            break
-    print(menu_text("bye."))
+    global _panel
+    if use_color() and sys.stdin.isatty() and os.name == "posix":
+        if __package__:
+            from . import terminal_menu as panel
+        else:
+            import terminal_menu as panel
+        _panel = panel
+    def terminate(_signum, _frame):
+        raise SystemExit(143)
+    if _panel:
+        previous = signal.signal(signal.SIGTERM, terminate)
+        sys.stdout.write(_panel.ENTER)
+        sys.stdout.flush()
+    else:
+        print(welcome())
+    try:
+        while not show_menu():
+            pass
+    finally:
+        if _panel:
+            sys.stdout.write(_panel.LEAVE)
+            sys.stdout.flush()
+            signal.signal(signal.SIGTERM, previous)
+            _panel = None
+    print("bye.")
+
 
 def cmd_gui(args=None):
     """The web gui lives in the node build. Hand off to it when node and

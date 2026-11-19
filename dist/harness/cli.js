@@ -46,9 +46,9 @@ export function welcome(width = termWidth()) {
     const titleText = width < 31
         ? `agent-harness v${VERSION}`
         : `Welcome to agent-harness v${VERSION}`;
-    const title = centerLine(menuText(bold(titleText)), width);
-    const sub = centerLine(menuText("Let's get started."), width);
-    const credit = centerLine(menuText("by TheElephantCoder"), width);
+    const title = centerLine(bold(titleText), width);
+    const sub = centerLine("Let's get started.", width);
+    const credit = centerLine("by TheElephantCoder", width);
     return ([rule, "", art, "", title, "", sub, credit, ""].join("\n") + "\n" + divider);
 }
 function help() {
@@ -101,50 +101,23 @@ function useColor() {
 }
 // Ghostty keeps inverse cells opaque even with background-opacity-cells.
 // Supply the theme background as the foreground, then reverse the pair.
-let menuColors = "";
-function ghosttyMenuColors() {
-    if (!useColor() ||
-        !(process.env.TERM_PROGRAM === "ghostty" ||
-            process.env.TERM === "xterm-ghostty"))
-        return "";
-    const bundled = "/Applications/Ghostty.app/Contents/MacOS/ghostty";
-    const bin = process.platform === "darwin" && fs.existsSync(bundled)
-        ? bundled
-        : "ghostty";
-    const config = spawnSync(bin, ["+show-config", "--changes-only=false"], {
-        encoding: "utf8",
-        timeout: 500,
-        stdio: ["ignore", "pipe", "ignore"],
-    });
-    // A remote shell or a slow config lookup may have no local theme data.
-    const hex = /^background = #([0-9a-f]{6})$/im.exec(config.stdout ?? "")?.[1] ??
-        "282c34";
-    const rgb = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
-    const [r, g, b] = rgb.map((value) => {
-        const v = value / 255;
-        return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-    });
-    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    const ink = (luminance + 0.05) / 0.05 >= 1.05 / (luminance + 0.05) ? 0 : 255;
-    return `\x1b[7;38;2;${rgb.join(";")};48;2;${ink};${ink};${ink}m`;
-}
-function menuText(text) {
-    return menuColors ? `${menuColors}${text}\x1b[0m` : text;
-}
+let panelScript = null;
+let backedOut = false;
+let activePicker = null;
 function bold(text) {
     return useColor() ? `\x1b[1m${text}\x1b[0m` : text;
 }
 async function selectFallback(title, options) {
-    console.log(menuText(bold(title)));
+    console.log(bold(title));
     options.forEach((o, i) => {
-        console.log(menuText(`  ${i + 1}. ${o}`));
+        console.log(`  ${i + 1}. ${o}`);
     });
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
     });
     const answer = await new Promise((resolve) => {
-        rl.question(menuText("❯ "), (a) => {
+        rl.question("❯ ", (a) => {
             rl.close();
             resolve(a);
         });
@@ -155,7 +128,24 @@ async function selectFallback(title, options) {
     }
     return n - 1;
 }
-async function selectOption(title, options) {
+async function selectOption(title, options, details = [], initial = 0) {
+    if (panelScript && options.length <= 253) {
+        const picker = spawn("python3", [
+            panelScript,
+            JSON.stringify({ title, options, details, initial, version: VERSION }),
+        ], { stdio: "inherit" });
+        activePicker = picker;
+        const status = await new Promise((resolve) => {
+            picker.once("error", () => resolve(null));
+            picker.once("close", resolve);
+        });
+        activePicker = null;
+        if (status !== null && status >= 0 && status <= options.length) {
+            const choice = status - 1;
+            backedOut = choice < 0 || options[choice] === "Back";
+            return choice;
+        }
+    }
     // arrow redraw math assumes no line wraps (longest line is 44 cells),
     // so narrow screens get the numbered fallback instead of torn redraws.
     if (guiMode)
@@ -193,7 +183,7 @@ async function selectOption(title, options) {
                 process.stdout.write(`\x1b[${rendered}A`);
             }
             out.split("\n").forEach((l) => {
-                process.stdout.write("\x1b[G\x1b[K" + (l ? menuText(l) : "") + "\n");
+                process.stdout.write("\x1b[G\x1b[K" + l + "\n");
             });
             rendered = lines;
         };
@@ -293,7 +283,7 @@ async function askQuestion(prompt) {
     });
     try {
         const answer = await new Promise((resolve) => {
-            rl.question(menuText(`${prompt} `), (a) => {
+            rl.question(`${prompt} `, (a) => {
                 resolve(a.trim());
             });
             rl.on("close", () => resolve(""));
@@ -333,7 +323,7 @@ async function showMenu() {
         "Project status",
         "Run benchmark",
         "Optimize this project",
-        "Manage optimizations",
+        "Settings",
         "Map this repo",
         "Skills",
         "Memory",
@@ -365,7 +355,8 @@ async function showMenu() {
         await runCommand("optimize", []);
     }
     else if (picked === 5) {
-        await showOptimizationsMenu();
+        await showSettings();
+        return false;
     }
     else if (picked === 6) {
         await runCommand("map", []);
@@ -397,7 +388,8 @@ async function showMenu() {
     else if (picked === 15) {
         await runCommand("gui", []);
     }
-    console.log("╌".repeat(termWidth()));
+    if (panelScript && !backedOut)
+        await askQuestion("Press Enter to return to the menu.");
     return false;
 }
 function reportUnload(freed) {
@@ -659,40 +651,70 @@ async function adapterMenu() {
             await runCommand("adapter", ["remove", n]);
     }
 }
-async function showOptimizationsMenu() {
+async function showSettings() {
+    let initial = 0;
     for (;;) {
-        const opts = readOptimizations(process.cwd());
-        console.log("[harness] optimizations (all on by default):");
-        const names = OPTIMIZATIONS.map((o) => o.name);
-        names.forEach((n, i) => {
-            const o = OPTIMIZATIONS[i];
-            console.log(`  ${i + 1}. ${n} [${o.scope}] ${opts[n] ? "on" : "off"} - ${o.desc}`);
-        });
-        console.log(`  ${names.length + 1}. Back`);
-        const picked = await selectOption("Toggle which?", [
-            ...names.map((n) => `toggle ${n}`),
-            "Back",
-        ]);
-        if (picked < 0 || picked >= names.length)
+        const values = readOptimizations(process.cwd());
+        const labels = OPTIMIZATIONS.map((o) => `${values[o.name] ? "[on] " : "[off]"}  ${o.name}`);
+        const picked = await selectOption("Settings", [...labels, "Back"], OPTIMIZATIONS.map((o) => o.desc), initial);
+        if (picked < 0 || picked >= labels.length)
             return;
-        const name = names[picked];
-        if (opts[name]) {
-            cmdOptimizations(["disable", name]);
-        }
-        else {
-            cmdOptimizations(["enable", name]);
-        }
+        initial = picked;
+        const name = OPTIMIZATIONS[picked].name;
+        if (!cmdOptimizations([values[name] ? "disable" : "enable", name]) &&
+            panelScript)
+            await askQuestion("Press Enter to return to Settings.");
     }
 }
 async function interactive() {
-    menuColors = ghosttyMenuColors();
-    console.log(welcome());
-    for (;;) {
-        const quit = await showMenu();
-        if (quit)
-            break;
+    const root = selfRoot();
+    if (root &&
+        process.platform !== "win32" &&
+        !process.env.HARNESS_EMBEDDED_TERMINAL &&
+        useColor() &&
+        process.stdin.isTTY &&
+        haveBin("python3")) {
+        const script = path.join(root, "src", "harness", "terminal_menu.py");
+        if (fs.existsSync(script))
+            panelScript = script;
     }
-    console.log(menuText("bye."));
+    const restore = () => {
+        if (!panelScript)
+            return;
+        panelScript = null;
+        fs.writeSync(1, "\x1b[?1006l\x1b[?1000l\x1b[?25h\x1b[0m\x1b[?1049l");
+    };
+    const terminate = () => {
+        if (activePicker) {
+            activePicker.once("close", () => {
+                restore();
+                process.exit(143);
+            });
+            activePicker.kill("SIGTERM");
+        }
+        else {
+            restore();
+            process.exit(143);
+        }
+    };
+    if (panelScript) {
+        process.once("exit", restore);
+        process.once("SIGTERM", terminate);
+        process.stdout.write("\x1b[?1049h\x1b[38;2;240;240;240;48;2;0;0;0m\x1b[2J\x1b[H");
+    }
+    else
+        console.log(welcome());
+    try {
+        while (!(await showMenu())) {
+            /* return to the workspace */
+        }
+    }
+    finally {
+        restore();
+        process.removeListener("exit", restore);
+        process.removeListener("SIGTERM", terminate);
+    }
+    console.log("bye.");
 }
 // same tarball the README install uses; registry publish is still pending,
 // so self-update reinstalls from here instead of `npm update -g`.
@@ -4382,7 +4404,9 @@ function termSpawn(mode) {
         cwd: process.cwd(),
         env: {
             ...process.env,
-            ...(shell ? {} : { HARNESS_INTERACTIVE: "1" }),
+            ...(shell
+                ? {}
+                : { HARNESS_INTERACTIVE: "1", HARNESS_EMBEDDED_TERMINAL: "1" }),
         },
         stdio: ["pipe", "pipe", "pipe"],
     });
