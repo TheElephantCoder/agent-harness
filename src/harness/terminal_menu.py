@@ -202,7 +202,9 @@ def frame(title, options, details, index, size, version, phase=1.0, query="", pa
                     for x in range(nav, inner):
                         hits[first+row+1, pad+x+1] = item
             if tools_height:
-                hint = "Tab section   ↑↓ move   Enter open   Type to search" if inner >= 51 else "Tab group   ↑↓ move   ↵ open" if inner >= 28 else "Tab group  ↵ open"
+                hint = ("Click or Enter to open   Tab section   ↑↓ move   Type to search" if inner >= 63
+                        else "Click or ↵ open   Tab group   Type to search" if inner >= 44
+                        else "Click or ↵ open   Tab group" if inner >= 27 else "Click or ↵ open")
                 line(first + body + (1 if roomy else 0), hint, MUTED)
             if roomy:
                 status()
@@ -217,7 +219,11 @@ def frame(title, options, details, index, size, version, phase=1.0, query="", pa
         for x in range(pad + 1, pad + inner + 1):
             hits[first + row + 1, x] = i
     if footer:
-        line(first + rows, "↑↓ move   Enter open   Esc back", MUTED)
+        back = "‹ Back"
+        hint = "    Click or Enter to open   ↑↓ move   Esc back"
+        line(first + rows, back + hint, MUTED)
+        for x in range(min(inner, len(back))):
+            hits[first + rows + 1, pad + x + 1] = "back"
     if footer >= 4:
         if index < len(details):
             for offset, part in enumerate(textwrap.wrap(details[index], inner)[:2]):
@@ -238,6 +244,7 @@ def pick(title, options, details=(), initial=0, version="", startup=False):
     query = ""
     palette = False
     section = 0
+    pressed = None
     matches = section_actions(options, section) if title == HOME else list(range(len(options)))
     try:
         tty.setraw(fd)
@@ -281,6 +288,50 @@ def pick(title, options, details=(), initial=0, version="", startup=False):
                     seq += os.read(fd, 1)
                     if len(seq) >= 2 and 64 <= seq[-1] <= 126:
                         break
+                mouse = re.fullmatch(rb"\[<(\d+);(\d+);(\d+)([Mm])", seq)
+                if mouse or seq == b"[M":
+                    if mouse:
+                        button, x, y = map(int, mouse.groups()[:3])
+                        release = mouse[4] == b"m"
+                    else:
+                        # Classic xterm reports use three encoded bytes and a
+                        # generic release code rather than SGR coordinates.
+                        packet = bytearray()
+                        while len(packet) < 3 and select.select([fd], [], [], .05)[0]:
+                            chunk = os.read(fd, 3 - len(packet))
+                            if not chunk:
+                                break
+                            packet.extend(chunk)
+                        if len(packet) != 3:
+                            pressed = None
+                            continue
+                        button, x, y = (c - 32 for c in packet)
+                        release = button == 3
+                        if release:
+                            button = 0
+                    hit = hits.get((y, x))
+                    if button in (64, 65) and not release:
+                        if isinstance(hit, int) and matches:
+                            index = min(max(0, index + (1 if button == 65 else -1)), len(matches) - 1)
+                        pressed = None
+                        continue
+                    if not release:
+                        pressed = hit if button == 0 else None
+                        continue
+                    clicked = button == 0 and pressed == hit
+                    pressed = None
+                    if not clicked or hit is None:
+                        continue
+                    if hit == "back":
+                        seq = b""
+                    elif isinstance(hit, tuple):
+                        section = hit[1]
+                        matches = section_actions(options, section)
+                        index = 0
+                    elif matches:
+                        return matches[hit]
+                    if seq:
+                        continue
                 if not seq:
                     if query or (title == HOME and palette):
                         palette = False
@@ -289,17 +340,6 @@ def pick(title, options, details=(), initial=0, version="", startup=False):
                         matches = section_actions(options, section) if title == HOME else list(range(len(options)))
                         continue
                     return -1
-                mouse = re.fullmatch(rb"\[<0;(\d+);(\d+)m", seq)
-                if mouse:
-                    x, y = map(int, mouse.groups())
-                    hit = hits.get((y, x))
-                    if isinstance(hit, tuple):
-                        section = hit[1]
-                        matches = section_actions(options, section)
-                        index = 0
-                    elif isinstance(hit, int) and matches:
-                        return matches[hit]
-                    continue
                 key = {b"[A": b"k", b"[B": b"j", b"[C": b"l", b"[D": b"h", b"[Z": b"backtab"}.get(seq, b"?")
             if key in (b"\x03", b"\x04", b""):
                 return -1
