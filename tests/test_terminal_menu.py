@@ -93,7 +93,10 @@ def test_settings_click_toggle_and_restore(tmp_path, frontend, columns, legacy):
         os.write(master, b"\x10")
         read_until(b"Type to filter")
         os.write(master, b"17\r")
-        read_until(b"No matching commands")
+        empty = read_until(b"No matching commands")
+        assert b"Enter to open" not in empty[empty.index(b"No matching commands"):]
+        click(empty, "Clear search")
+        read_until(b"Set up this project")
         assert proc.poll() is None
         os.write(master, b"\x1b")
         read_until(b"Type to search")

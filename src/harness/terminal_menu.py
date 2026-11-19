@@ -129,7 +129,7 @@ def frame(title, options, details, index, size, version, phase=1.0, query="", pa
     mark = WORDMARK if inner >= len(WORDMARK[0]) and height >= 16 else (NAME,)
     footer = 4 if height >= 14 else 1 if height >= 4 else 0
     header = 2 if height >= 6 else 0
-    rows = min(len(options), 9, max(1, height - header - footer))
+    rows = min(max(1, len(options)), 9, max(1, height - header - footer))
     top = max(0, (height - header - rows - footer) // 2)
     first = top + header
     start = min(max(0, index - rows + 1), len(options) - rows)
@@ -238,15 +238,25 @@ def frame(title, options, details, index, size, version, phase=1.0, query="", pa
 
     if header:
         line(first - 2, "  " + ("Commands" if home else title), MUTED)
-        line(first - 1, "┃  " + (query + "▏" if query else "Type to filter…"), PANEL)
-    for row in range(rows):
+        # Keep the insertion point visible as the query grows on narrow screens.
+        tail = query[-max(1, inner - 4):]
+        line(first - 1, "┃  " + (tail + "▏" if query else "Type to filter…"), PANEL)
+    if not options:
+        line(first, "No matching commands", BASE)
+    for row in range(min(rows, len(options))):
         i = start + row
         line(first + row, ("┃  " if index == i else "   ") + options[i], FOCUS if index == i else PANEL)
         for x in range(pad + 1, pad + inner + 1):
             hits[first + row + 1, x] = i
     if footer:
         back = "‹ Back"
-        hint = "    Click or Enter to open   ↑↓ move   Esc back"
+        if options:
+            hint = "    Click or Enter to open   ↑↓ move   Esc back"
+        else:
+            hint = "    Clear search"
+            start_x = len(back) + 4
+            for x in range(start_x, min(inner, len(back + hint))):
+                hits[first + rows + 1, pad + x + 1] = "clear"
         line(first + rows, back + hint, MUTED)
         for x in range(min(inner, len(back))):
             hits[first + rows + 1, pad + x + 1] = "back"
@@ -288,7 +298,7 @@ def pick(title, options, details=(), initial=0, version="", startup=False, updat
                 update = update_ready()
             state = (index, size, phase, query, palette, section, update)
             if last != state:
-                labels = [options[i] for i in matches] or ["No matching commands"]
+                labels = [options[i] for i in matches]
                 descriptions = [details[i] if i < len(details) else "" for i in matches]
                 output, hits, pad, cell, rows = frame(title, labels, descriptions, index, size, version, phase, query, palette, section, update)
                 sys.stdout.write(CSI + "?2026h" + output + CSI + "?2026l")
@@ -359,6 +369,11 @@ def pick(title, options, details=(), initial=0, version="", startup=False, updat
                         continue
                     if hit == "upgrade":
                         return options.index("Upgrade")
+                    if hit == "clear":
+                        query = ""
+                        index = 0
+                        matches = list(range(len(options)))
+                        continue
                     if hit == "back":
                         seq = b""
                     elif isinstance(hit, tuple):
