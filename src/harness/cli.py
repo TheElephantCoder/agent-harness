@@ -29,6 +29,7 @@ def use_color():
     return not _plain_menu and bool(sys.stdout.isatty()) and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
 
 _panel = None
+_update_ready = threading.Event()
 _startup_pending = True
 _backed_out = False
 
@@ -174,7 +175,7 @@ def pick_arrows(title, options):
 def pick(title, options, details=(), initial=0):
     global _backed_out, _startup_pending
     if _panel:
-        choice = _panel.pick(title, options, details, initial, VERSION, startup=_startup_pending)
+        choice = _panel.pick(title, options, details, initial, VERSION, startup=_startup_pending, update_ready=_update_ready.is_set)
         _startup_pending = False
         _backed_out = choice < 0 or options[choice] == "Back"
         return choice
@@ -206,6 +207,7 @@ def pick_adapter(title):
     return names[picked]
 
 def show_menu():
+    global _update_ready
     options = [
         "Set up this project",
         "Check setup",
@@ -256,7 +258,8 @@ def show_menu():
     elif picked == 12:
         adapter_menu()
     elif picked == 13:
-        cmd_upgrade()
+        if cmd_upgrade():
+            _update_ready = threading.Event()
     elif picked == 14:
         local_models_menu()
     elif picked == 15:
@@ -2004,7 +2007,13 @@ def cmd_upgrade(args=None):
     if bool(getattr(args, "check", False)) or getattr(args, "args", [""])[0:1] == ["--check"]:
         return cmd_upgrade_check()
     root = self_root()
-    if root and os.path.isdir(os.path.join(root, ".git")):
+    if root and os.path.exists(os.path.join(root, ".git")):
+        if _panel:
+            if __package__:
+                from .update_notice import update_checkout
+            else:
+                from update_notice import update_checkout
+            return update_checkout(root)
         print("[harness] source checkout - run: git pull")
         return True
     here = os.path.realpath(__file__)
@@ -2874,6 +2883,18 @@ def launch_shell():
         else:
             import terminal_menu as panel
         _panel = panel
+        if __package__:
+            from .update_notice import available
+        else:
+            from update_notice import available
+
+        notice = _update_ready
+
+        def check_update():
+            if available("pip", self_root(), VERSION):
+                notice.set()
+
+        threading.Thread(target=check_update, daemon=True).start()
     def terminate(_signum, _frame):
         raise SystemExit(143)
     if _panel:

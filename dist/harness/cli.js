@@ -105,6 +105,7 @@ function useColor() {
 let plainMenu = false;
 let startupPending = true;
 let panelScript = null;
+let updateCheck = null;
 let backedOut = false;
 let activePicker = null;
 function bold(text) {
@@ -138,6 +139,7 @@ async function selectFallback(title, options, details) {
 }
 async function selectOption(title, options, details = [], initial = 0) {
     if (panelScript && options.length <= 253) {
+        const showUpdate = title === "What do you want to do?" && updateCheck !== null;
         const picker = spawn("python3", [
             panelScript,
             JSON.stringify({
@@ -147,8 +149,17 @@ async function selectOption(title, options, details = [], initial = 0) {
                 initial,
                 version: VERSION,
                 startup: startupPending,
+                update_pipe: showUpdate,
             }),
-        ], { stdio: "inherit" });
+        ], { stdio: showUpdate ? ["inherit", "inherit", "inherit", "pipe"] : "inherit" });
+        const notice = picker.stdio[3];
+        if (showUpdate && notice && "end" in notice) {
+            notice.on("error", () => { }); // the menu may close before the check finishes
+            void updateCheck?.then((available) => {
+                if (!notice.destroyed)
+                    notice.end(available ? "1" : "0");
+            });
+        }
         startupPending = false;
         activePicker = picker;
         const status = await new Promise((resolve) => {
@@ -347,7 +358,8 @@ async function showMenu() {
         await adapterMenu();
     }
     else if (picked === 13) {
-        await runCommand("upgrade", []);
+        if (await runCommand("upgrade", []))
+            updateCheck = null;
     }
     else if (picked === 14) {
         await localModelsMenu();
@@ -664,7 +676,15 @@ async function interactive() {
             process.exit(143);
         }
     };
-    if (panelScript) {
+    let checker = null;
+    if (panelScript && root) {
+        const script = path.join(path.dirname(panelScript), "update_notice.py");
+        checker = spawn("python3", [script, "check", "npm", root, VERSION], { stdio: "ignore" });
+        const child = checker;
+        updateCheck = new Promise((resolve) => {
+            child.once("error", () => resolve(false));
+            child.once("close", (code) => resolve(code === 0));
+        });
         process.once("exit", restore);
         process.once("SIGTERM", terminate);
         process.stdout.write("\x1b[?1049h\x1b[38;2;240;240;240;48;2;0;0;0m\x1b[2J\x1b[H");
@@ -677,6 +697,8 @@ async function interactive() {
         }
     }
     finally {
+        checker?.kill();
+        updateCheck = null;
         restore();
         process.removeListener("exit", restore);
         process.removeListener("SIGTERM", terminate);
@@ -911,6 +933,10 @@ async function cmdUpgradeCheck() {
 async function selfUpgrade() {
     const root = selfRoot();
     if (root && fs.existsSync(path.join(root, ".git"))) {
+        if (panelScript) {
+            const script = path.join(path.dirname(panelScript), "update_notice.py");
+            return spawnSync("python3", [script, "update-checkout", root], { stdio: "inherit" }).status === 0;
+        }
         console.log("[harness] source checkout - run: git pull");
         return true;
     }

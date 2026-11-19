@@ -186,6 +186,8 @@ harness upgrade [--check]
 
 Run `harness` to open the workspace. Click a section, then click anywhere on an action row to open it. In submenus, click a setting to toggle it or click **‹ Back** to return. The scroll wheel moves through long lists. Tab and Shift+Tab switch between Project, Tools, and Application. Use the arrow keys to highlight an action and Enter to open it. Type part of any command name to search across all three sections. Esc goes back.
 
+When a newer version is available, click the **Update available** callout on the home screen or press **Ctrl+U**. Restart `harness` after a successful update. npm and Python installs use their existing updater. Official source checkouts update by fast-forwarding a clean `main` branch.
+
 Use `harness --reduced-motion` to skip the animated wordmark. For screen readers, `harness --plain` prints the menus and Settings descriptions as ordinary terminal lines. Enter a command by name or by a unique part of its name.
 
 `harness --help` has the rest. Also [`docs/cli.md`](docs/cli.md).

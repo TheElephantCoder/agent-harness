@@ -139,6 +139,7 @@ function useColor(): boolean {
 let plainMenu = false;
 let startupPending = true;
 let panelScript: string | null = null;
+let updateCheck: Promise<boolean> | null = null;
 let backedOut = false;
 let activePicker: ReturnType<typeof spawn> | null = null;
 
@@ -182,6 +183,7 @@ async function selectOption(
   initial = 0,
 ): Promise<number> {
   if (panelScript && options.length <= 253) {
+    const showUpdate = title === "What do you want to do?" && updateCheck !== null;
     const picker = spawn(
       "python3",
       [
@@ -193,10 +195,18 @@ async function selectOption(
           initial,
           version: VERSION,
           startup: startupPending,
+          update_pipe: showUpdate,
         }),
       ],
-      { stdio: "inherit" },
+      { stdio: showUpdate ? ["inherit", "inherit", "inherit", "pipe"] : "inherit" },
     );
+    const notice = picker.stdio[3];
+    if (showUpdate && notice && "end" in notice) {
+      notice.on("error", () => {}); // the menu may close before the check finishes
+      void updateCheck?.then((available) => {
+        if (!notice.destroyed) notice.end(available ? "1" : "0");
+      });
+    }
     startupPending = false;
     activePicker = picker;
     const status = await new Promise<number | null>((resolve) => {
@@ -379,7 +389,7 @@ async function showMenu(): Promise<boolean> {
   } else if (picked === 12) {
     await adapterMenu();
   } else if (picked === 13) {
-    await runCommand("upgrade", []);
+    if (await runCommand("upgrade", [])) updateCheck = null;
   } else if (picked === 14) {
     await localModelsMenu();
   } else if (picked === 15) {
@@ -688,7 +698,15 @@ async function interactive() {
       process.exit(143);
     }
   };
-  if (panelScript) {
+  let checker: ReturnType<typeof spawn> | null = null;
+  if (panelScript && root) {
+    const script = path.join(path.dirname(panelScript), "update_notice.py");
+    checker = spawn("python3", [script, "check", "npm", root, VERSION], { stdio: "ignore" });
+    const child = checker;
+    updateCheck = new Promise((resolve) => {
+      child.once("error", () => resolve(false));
+      child.once("close", (code) => resolve(code === 0));
+    });
     process.once("exit", restore);
     process.once("SIGTERM", terminate);
     process.stdout.write(
@@ -700,6 +718,8 @@ async function interactive() {
       /* return to the workspace */
     }
   } finally {
+    checker?.kill();
+    updateCheck = null;
     restore();
     process.removeListener("exit", restore);
     process.removeListener("SIGTERM", terminate);
@@ -972,6 +992,10 @@ async function cmdUpgradeCheck(): Promise<boolean> {
 async function selfUpgrade(): Promise<boolean> {
   const root = selfRoot();
   if (root && fs.existsSync(path.join(root, ".git"))) {
+    if (panelScript) {
+      const script = path.join(path.dirname(panelScript), "update_notice.py");
+      return spawnSync("python3", [script, "update-checkout", root], { stdio: "inherit" }).status === 0;
+    }
     console.log("[harness] source checkout - run: git pull");
     return true;
   }

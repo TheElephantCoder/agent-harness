@@ -120,7 +120,7 @@ def section_actions(options, section):
     return [options.index(label) for label in SECTION_ACTIONS[section] if label in options]
 
 
-def frame(title, options, details, index, size, version, phase=1.0, query="", palette=False, section=0):
+def frame(title, options, details, index, size, version, phase=1.0, query="", palette=False, section=0, update=False):
     width, height = max(1, size.columns), max(1, size.lines)
     home = title == HOME
     landing = home and not (palette or query)
@@ -154,9 +154,11 @@ def frame(title, options, details, index, size, version, phase=1.0, query="", pa
         brand_height = len(brand) + 1 if roomy else 0
         tools_height = 3 if roomy else 1 if height >= 4 else 0
         heading_height = 2 if height >= 8 else 0
-        available = max(1, height - brand_height - heading_height - tools_height)
+        # Keep click targets stationary if discovery finishes after the first frame.
+        card_rows = 4 if height >= 18 and inner >= 30 else 0
+        available = max(1, height - brand_height - heading_height - tools_height - card_rows)
         body = min(max(map(len, SECTION_ACTIONS)), available)
-        top = max(0, (height - brand_height - heading_height - body - tools_height) // 2)
+        top = max(0, (height - brand_height - heading_height - body - tools_height - card_rows) // 2)
         first = top + brand_height + heading_height
         nav = 19 if sidebar else 0
         if brand_height:
@@ -208,6 +210,30 @@ def frame(title, options, details, index, size, version, phase=1.0, query="", pa
                 line(first + body + (1 if roomy else 0), hint, MUTED)
             if roomy:
                 status()
+            if update and tools_height:
+                if card_rows:
+                    card_width = min(inner, 53)
+                    start_y = height - card_rows - 1
+                    border = f"{CSI}0;38;2;145;142;255;48;2;0;0;0m"
+                    badge = f"{CSI}0;1;38;2;16;16;22;48;2;160;157;255m"
+                    inside = card_width - 2
+                    body_text = "Click to update  ·  Ctrl+U" if inside >= 28 else "Click to update"
+                    card = [
+                        border + "╭" + "─" * inside + "╮",
+                        border + "│ " + badge + " INFO " + BASE + fit("  Update available", inside - 7) + border + "│",
+                        border + "│" + MUTED + fit(" " + body_text, inside) + border + "│",
+                        border + "╰" + "─" * inside + "╯",
+                    ]
+                    for n, content in enumerate(card):
+                        canvas[start_y+n] = BASE + " " * pad + content + BASE + " " * (width-pad-card_width)
+                else:
+                    start_y = first + body + (1 if roomy else 0)
+                    text = "Update available · Click or Ctrl+U" if inner >= 34 else "Click to update"
+                    line(start_y, text, FOCUS)
+                    card_width = min(len(text), inner)
+                for y in range(start_y, start_y + (card_rows or 1)):
+                    for x in range(pad + 1, pad + card_width + 1):
+                        hits[y + 1, x] = "upgrade"
         return encode(canvas), hits, pad, inner, body
 
     if header:
@@ -236,7 +262,7 @@ def encode(canvas):
     return "".join(f"{CSI}{y};1H{content}" for y, content in enumerate(canvas, 1))
 
 
-def pick(title, options, details=(), initial=0, version="", startup=False):
+def pick(title, options, details=(), initial=0, version="", startup=False, update_ready=None, update_pipe=False):
     fd = sys.stdin.fileno()
     saved = termios.tcgetattr(fd)
     index = max(0, min(initial, len(options) - 1))
@@ -245,6 +271,7 @@ def pick(title, options, details=(), initial=0, version="", startup=False):
     palette = False
     section = 0
     pressed = None
+    update = False
     matches = section_actions(options, section) if title == HOME else list(range(len(options)))
     try:
         tty.setraw(fd)
@@ -254,13 +281,19 @@ def pick(title, options, details=(), initial=0, version="", startup=False):
         while True:
             size = shutil.get_terminal_size()
             phase = min(1.0, (time.monotonic() - started) / INTRO_SECONDS) if animate and size.columns >= len(NAME) + 4 and size.lines >= 8 else 1.0
-            if last != (index, size, phase, query, palette, section):
+            if update_pipe and select.select([3], [], [], 0)[0]:
+                update = os.read(3, 1) == b"1"
+                update_pipe = False
+            elif update_ready:
+                update = update_ready()
+            state = (index, size, phase, query, palette, section, update)
+            if last != state:
                 labels = [options[i] for i in matches] or ["No matching commands"]
                 descriptions = [details[i] if i < len(details) else "" for i in matches]
-                output, hits, pad, cell, rows = frame(title, labels, descriptions, index, size, version, phase, query, palette, section)
+                output, hits, pad, cell, rows = frame(title, labels, descriptions, index, size, version, phase, query, palette, section, update)
                 sys.stdout.write(CSI + "?2026h" + output + CSI + "?2026l")
                 sys.stdout.flush()
-                last = (index, size, phase, query, palette, section)
+                last = state
             wait = .15
             if phase < 1:
                 wait = 1 / 30
@@ -271,6 +304,8 @@ def pick(title, options, details=(), initial=0, version="", startup=False):
                 animate = False
                 continue
             key = os.read(fd, 1)
+            if title == HOME and update and not palette and key == b"\x15":
+                return options.index("Upgrade")
             if title == HOME and key == b"\x10":
                 palette = True
                 matches = list(range(len(options)))
@@ -322,6 +357,8 @@ def pick(title, options, details=(), initial=0, version="", startup=False):
                     pressed = None
                     if not clicked or hit is None:
                         continue
+                    if hit == "upgrade":
+                        return options.index("Upgrade")
                     if hit == "back":
                         seq = b""
                     elif isinstance(hit, tuple):
