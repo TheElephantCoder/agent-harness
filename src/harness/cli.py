@@ -909,7 +909,11 @@ def cmd_status():
 def cmd_doctor(args=None):
     root = self_root()
     if not root:
-        missing_data("doctor")
+        if getattr(args, "json", False):
+            print(json.dumps({"ok": False, "failures": [missing_data_message("doctor")],
+                              "warnings": [], "version": VERSION}))
+        else:
+            missing_data("doctor")
         return False
     fix = bool(getattr(args, "fix", False))
     strict = bool(getattr(args, "strict", False))
@@ -1946,12 +1950,15 @@ def cmd_optimizations(args=None):
     print(f"[harness] ok - optimizations {sub}d: {', '.join(names)}")
     return True
 
-def missing_data(cmd):
+def missing_data_message(cmd):
     here = os.path.realpath(__file__)
     if "site-packages" in here or "dist-packages" in here:
-        print(f"[harness] {cmd} - pip installs ship the CLI only: run from a source checkout or npm install for project files (pip still handles upgrade)")
+        return f"[harness] {cmd} - pip installs ship the CLI only: run from a source checkout or npm install for project files (pip still handles upgrade)"
     else:
-        print(f"[harness] {cmd} - cannot locate install")
+        return f"[harness] {cmd} - cannot locate install"
+
+def missing_data(cmd):
+    print(missing_data_message(cmd))
 
 def cmp_versions(a, b):
     pa = [(int(n) if n.isdigit() else 0) for n in str(a).split(".")]

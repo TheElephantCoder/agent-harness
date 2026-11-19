@@ -2216,7 +2216,13 @@ function cmdStatus() {
 function cmdDoctor(flags) {
     const root = selfRoot();
     if (!root) {
-        console.log("[harness] doctor - cannot locate install");
+        const reason = "[harness] doctor - cannot locate install";
+        if (flags.includes("--json")) {
+            console.log(JSON.stringify({ ok: false, failures: [reason], warnings: [], version: VERSION }));
+        }
+        else {
+            console.error(reason);
+        }
         return false;
     }
     const fix = flags.includes("--fix");
@@ -4091,7 +4097,7 @@ async function runCommand(cmd, flags) {
         case "gui":
             return cmdGui(flags);
         default:
-            console.error(`[harness] unknown command: ${cmd}`);
+            console.error(`[harness] unknown command: ${cmd}\nRun harness --help to list commands.`);
             return false;
     }
 }
@@ -4576,10 +4582,8 @@ async function main() {
     }
     const { cmd, flags } = parseArgs(process.argv);
     const ok = await runCommand(cmd, flags);
-    if (!ok) {
-        help();
-        process.exit(1);
-    }
+    if (!ok)
+        process.exitCode = 1;
 }
 // only auto-run as a CLI, never on import (tests import this module).
 // argv[1] can be a bin symlink, so compare realpaths, not strings.
