@@ -62,32 +62,20 @@ function centerLine(line: string, width: number): string {
   const pad = Math.max(0, Math.floor((width - plain.length) / 2));
   return " ".repeat(pad) + line;
 }
-function paintArt(line: string): string {
-  return line
-    .split("")
-    .map((ch) => {
-      if (ch === "◆") return paint(ANSI.magenta + ANSI.bold, ch);
-      if (ch === "*") return paint(ANSI.cyan, ch);
-      return paint(ANSI.dim, ch);
-    })
-    .join("");
-}
-
 // width override exists for tests; the live call reads the terminal.
 export function welcome(width: number = termWidth()): string {
-  const rule = paint(ANSI.dim, "·".repeat(width));
-  const divider = paint(ANSI.dim, "╌".repeat(width));
+  const rule = "·".repeat(width);
+  const divider = "╌".repeat(width);
   // the starfield is 48 wide; on narrower screens it would wrap-tear,
   // so it steps aside and the banner carries the welcome alone.
-  const art =
-    width < 50 ? "" : ART.map((l) => centerLine(paintArt(l), width)).join("\n");
+  const art = width < 50 ? "" : ART.map((l) => centerLine(l, width)).join("\n");
   const titleText =
     width < 31
-      ? `agent-harness ${paint(ANSI.dim, `v${VERSION}`)}`
-      : `Welcome to ${paint(ANSI.bold, "agent-harness")} ${paint(ANSI.dim, `v${VERSION}`)}`;
-  const title = centerLine(titleText, width);
-  const sub = centerLine(paint(ANSI.dim, "Let's get started."), width);
-  const credit = centerLine(paint(ANSI.dim, "by TheElephantCoder"), width);
+      ? `agent-harness v${VERSION}`
+      : `Welcome to agent-harness v${VERSION}`;
+  const title = centerLine(menuText(bold(titleText)), width);
+  const sub = centerLine(menuText("Let's get started."), width);
+  const credit = centerLine(menuText("by TheElephantCoder"), width);
   return (
     [rule, "", art, "", title, "", sub, credit, ""].join("\n") + "\n" + divider
   );
@@ -137,15 +125,6 @@ function parseArgs(argv: string[]) {
   return { cmd, flags };
 }
 
-const ANSI = {
-  reset: "\x1b[0m",
-  bold: "\x1b[1m",
-  dim: "\x1b[2m",
-  green: "\x1b[32m",
-  cyan: "\x1b[36m",
-  magenta: "\x1b[35m",
-};
-
 function useColor(): boolean {
   return (
     !!process.stdout.isTTY &&
@@ -154,24 +133,63 @@ function useColor(): boolean {
   );
 }
 
-function paint(code: string, text: string): string {
-  return useColor() ? `${code}${text}${ANSI.reset}` : text;
+// Ghostty keeps inverse cells opaque even with background-opacity-cells.
+// Supply the theme background as the foreground, then reverse the pair.
+let menuColors = "";
+function ghosttyMenuColors(): string {
+  if (
+    !useColor() ||
+    !(
+      process.env.TERM_PROGRAM === "ghostty" ||
+      process.env.TERM === "xterm-ghostty"
+    )
+  )
+    return "";
+  const bundled = "/Applications/Ghostty.app/Contents/MacOS/ghostty";
+  const bin =
+    process.platform === "darwin" && fs.existsSync(bundled)
+      ? bundled
+      : "ghostty";
+  const config = spawnSync(bin, ["+show-config", "--changes-only=false"], {
+    encoding: "utf8",
+    timeout: 500,
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  // A remote shell or a slow config lookup may have no local theme data.
+  const hex =
+    /^background = #([0-9a-f]{6})$/im.exec(config.stdout ?? "")?.[1] ??
+    "282c34";
+  const rgb = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const [r, g, b] = rgb.map((value) => {
+    const v = value / 255;
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const ink = (luminance + 0.05) / 0.05 >= 1.05 / (luminance + 0.05) ? 0 : 255;
+  return `\x1b[7;38;2;${rgb.join(";")};48;2;${ink};${ink};${ink}m`;
+}
+function menuText(text: string): string {
+  return menuColors ? `${menuColors}${text}\x1b[0m` : text;
+}
+
+function bold(text: string): string {
+  return useColor() ? `\x1b[1m${text}\x1b[0m` : text;
 }
 
 async function selectFallback(
   title: string,
   options: string[],
 ): Promise<number> {
-  console.log(paint(ANSI.bold, title));
+  console.log(menuText(bold(title)));
   options.forEach((o, i) => {
-    console.log(`  ${i + 1}. ${o}`);
+    console.log(menuText(`  ${i + 1}. ${o}`));
   });
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
   const answer = await new Promise<string>((resolve) => {
-    rl.question(paint(ANSI.cyan, "❯ "), (a) => {
+    rl.question(menuText("❯ "), (a) => {
       rl.close();
       resolve(a);
     });
@@ -205,17 +223,14 @@ async function selectOption(title: string, options: string[]): Promise<number> {
       pendingDigit = 0;
     };
     const stdin = process.stdin;
-    const hint = paint(
-      ANSI.dim,
-      "↑↓ to move · enter to select · type a number",
-    );
+    const hint = "↑↓ to move · enter to select · type a number";
     const draw = () => {
-      let out = `${paint(ANSI.bold, title)}\n`;
+      let out = `${bold(title)}\n`;
       options.forEach((o, i) => {
         out +=
           i === index
-            ? `${paint(ANSI.cyan + ANSI.bold, "❯")} ${paint(ANSI.bold, `${i + 1}. ${o}`)}\n`
-            : paint(ANSI.dim, `  ${i + 1}. ${o}`) + "\n";
+            ? `${bold(`❯ ${i + 1}. ${o}`)}\n`
+            : `  ${i + 1}. ${o}` + "\n";
       });
       out += `${hint}\n`;
       const lines = out.split("\n").length;
@@ -223,7 +238,7 @@ async function selectOption(title: string, options: string[]): Promise<number> {
         process.stdout.write(`\x1b[${rendered}A`);
       }
       out.split("\n").forEach((l) => {
-        process.stdout.write("\x1b[G\x1b[K" + l + "\n");
+        process.stdout.write("\x1b[G\x1b[K" + (l ? menuText(l) : "") + "\n");
       });
       rendered = lines;
     };
@@ -324,7 +339,7 @@ async function askQuestion(prompt: string): Promise<string> {
   });
   try {
     const answer: string = await new Promise<string>((resolve) => {
-      rl.question(paint(ANSI.cyan, `${prompt} `), (a) => {
+      rl.question(menuText(`${prompt} `), (a) => {
         resolve(a.trim());
       });
       rl.on("close", () => resolve(""));
@@ -410,7 +425,7 @@ async function showMenu(): Promise<boolean> {
   } else if (picked === 15) {
     await runCommand("gui", []);
   }
-  console.log(paint(ANSI.dim, "╌".repeat(termWidth())));
+  console.log("╌".repeat(termWidth()));
   return false;
 }
 
@@ -685,12 +700,13 @@ async function showOptimizationsMenu(): Promise<void> {
 }
 
 async function interactive() {
+  menuColors = ghosttyMenuColors();
   console.log(welcome());
   for (;;) {
     const quit = await showMenu();
     if (quit) break;
   }
-  console.log(paint(ANSI.dim, "bye."));
+  console.log(menuText("bye."));
 }
 
 // same tarball the README install uses; registry publish is still pending,
@@ -799,9 +815,7 @@ function upgradeBar(pct: number, stage: string, frame: string): string {
   const tail = ` ${Math.round(pct)}% ${stage}`;
   const barWidth = Math.max(10, width - plainLen(head) - plainLen(tail) - 2);
   const filled = Math.min(barWidth, Math.round((pct / 100) * barWidth));
-  const bar =
-    paint(ANSI.cyan, "█".repeat(filled)) +
-    paint(ANSI.dim, "░".repeat(barWidth - filled));
+  const bar = "█".repeat(filled) + "░".repeat(barWidth - filled);
   return `\r${head}[${bar}]${tail}`;
 }
 

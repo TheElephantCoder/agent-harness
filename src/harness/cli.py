@@ -22,15 +22,36 @@ VERSION = "0.3.1"
 
 RESET = "\x1b[0m"
 BOLD = "\x1b[1m"
-DIM = "\x1b[2m"
-CYAN = "\x1b[36m"
-MAGENTA = "\x1b[35m"
 
 def use_color():
     return bool(sys.stdout.isatty()) and not os.environ.get("NO_COLOR") and os.environ.get("TERM") != "dumb"
 
-def paint(code, text):
-    return f"{code}{text}{RESET}" if use_color() else text
+_menu_colors = ""
+
+def ghostty_menu_colors():
+    if not use_color() or not (os.environ.get("TERM_PROGRAM") == "ghostty" or os.environ.get("TERM") == "xterm-ghostty"):
+        return ""
+    bundled = "/Applications/Ghostty.app/Contents/MacOS/ghostty"
+    binary = bundled if sys.platform == "darwin" and os.path.isfile(bundled) else "ghostty"
+    try:
+        result = subprocess.run([binary, "+show-config", "--changes-only=false"], stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=0.5, check=True)
+        output = result.stdout
+    except (OSError, subprocess.SubprocessError):
+        output = b""
+    match = re.search(rb"^background = #([0-9a-f]{6})$", output, re.I | re.M)
+    rgb = bytes.fromhex(match[1].decode("ascii") if match else "282c34")
+    values = [channel / 255 for channel in rgb]
+    r, g, b = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in values]
+    luminance = .2126*r + .7152*g + .0722*b
+    ink = 0 if (luminance + .05) / .05 >= 1.05 / (luminance + .05) else 255
+    return f"\x1b[7;38;2;{rgb[0]};{rgb[1]};{rgb[2]};48;2;{ink};{ink};{ink}m"
+
+def menu_text(text):
+    return f"{_menu_colors}{text}{RESET}" if _menu_colors else text
+
+def bold(text):
+    return f"{BOLD}{text}{RESET}" if use_color() else text
 
 ART = [
     "                                              *",
@@ -58,38 +79,27 @@ def center_line(line, width):
     pad = max(0, (width - len(plain)) // 2)
     return " " * pad + line
 
-def paint_art(line):
-    out = []
-    for ch in line:
-        if ch == "◆":
-            out.append(paint(MAGENTA + BOLD, ch))
-        elif ch == "*":
-            out.append(paint(CYAN, ch))
-        else:
-            out.append(paint(DIM, ch))
-    return "".join(out)
-
 def welcome(width=None):
     width = width or term_width()
-    rule = paint(DIM, "·" * width)
-    divider = paint(DIM, "╌" * width)
+    rule = "·" * width
+    divider = "╌" * width
     # the starfield is 48 wide; on narrower screens it would wrap-tear,
     # so it steps aside and the title carries the welcome alone.
-    art = "" if width < 50 else "\n".join(center_line(paint_art(l), width) for l in ART)
-    if width < 31:
-        title = center_line(f"agent-harness {paint(DIM, f'v{VERSION}')}", width)
-    else:
-        title = center_line(f"Welcome to {paint(BOLD, 'agent-harness')} {paint(DIM, f'v{VERSION}')}", width)
-    sub = center_line(paint(DIM, "Let's get started."), width)
-    credit = center_line(paint(DIM, "by TheElephantCoder"), width)
+    art = "" if width < 50 else "\n".join(center_line(l, width) for l in ART)
+    title = f"agent-harness v{VERSION}"
+    if width >= 31:
+        title = "Welcome to " + title
+    title = center_line(menu_text(bold(title)), width)
+    sub = center_line(menu_text("Let's get started."), width)
+    credit = center_line(menu_text("by TheElephantCoder"), width)
     return "\n".join([rule, "", art, "", title, "", sub, credit, ""]) + "\n" + divider
 
 def pick_numbered(title, options):
-    print(paint(BOLD, title))
+    print(menu_text(bold(title)))
     for i, o in enumerate(options):
-        print(f"  {i + 1}. {o}")
+        print(menu_text(f"  {i + 1}. {o}"))
     try:
-        answer = input(paint(CYAN, "❯ "))
+        answer = input(menu_text("❯ "))
     except EOFError:
         print()
         return -1
@@ -111,21 +121,21 @@ def pick_arrows(title, options):
     rendered = 0
     # first digit of a two-digit option number, with its timestamp.
     pending, pending_at = 0, 0.0
-    hint = paint(DIM, "↑↓ to move · enter to select · type a number")
+    hint = "↑↓ to move · enter to select · type a number"
     try:
         tty.setraw(fd)
         while True:
-            lines = [paint(BOLD, title)]
+            lines = [bold(title)]
             for i, o in enumerate(options):
                 if i == index:
-                    lines.append(f"{paint(CYAN + BOLD, '❯')} {paint(BOLD, f'{i + 1}. {o}')}")
+                    lines.append(bold(f"❯ {i + 1}. {o}"))
                 else:
-                    lines.append(paint(DIM, f"  {i + 1}. {o}"))
+                    lines.append(f"  {i + 1}. {o}")
             lines.append(hint)
             if rendered:
                 sys.stdout.write(f"\x1b[{rendered}A")
             for l in lines:
-                sys.stdout.write("\x1b[G\x1b[K" + l + "\n")
+                sys.stdout.write("\x1b[G\x1b[K" + menu_text(l) + "\n")
             sys.stdout.flush()
             rendered = len(lines)
             if pending:
@@ -221,7 +231,7 @@ def pick(title, options):
 
 def ask_question(prompt):
     try:
-        return input(paint(CYAN, prompt + " ")).strip()
+        return input(menu_text(prompt + " ")).strip()
     except (EOFError, OSError):
         print()
         return ""
@@ -292,7 +302,7 @@ def show_menu():
         local_models_menu()
     elif picked == 15:
         cmd_gui()
-    print(paint(DIM, "╌" * term_width()))
+    print("╌" * term_width())
     return False
 
 
@@ -1638,7 +1648,7 @@ def upgrade_bar(pct, stage, frame):
     tail = f" {round(pct)}% {stage}"
     bar_w = max(10, width - len(head) - len(tail) - 2)
     filled = min(bar_w, round(pct / 100 * bar_w))
-    bar = paint(CYAN, "█" * filled) + paint(DIM, "░" * (bar_w - filled))
+    bar = "█" * filled + "░" * (bar_w - filled)
     return "\r" + head + "[" + bar + "]" + tail
 
 def animated_run(cmd, stage):
@@ -2897,11 +2907,13 @@ def cmd_skill_verify(namesel):
     return True
 
 def launch_shell():
+    global _menu_colors
+    _menu_colors = ghostty_menu_colors()
     print(welcome())
     while True:
         if show_menu():
             break
-    print(paint(DIM, "bye."))
+    print(menu_text("bye."))
 
 def cmd_gui(args=None):
     """The web gui lives in the node build. Hand off to it when node and
