@@ -1566,10 +1566,11 @@ function cmdInit(flags: string[]): boolean {
   for (const f of priorFiles) {
     if (typeof f !== "string") recorded.set(f.path, f.sha);
   }
+  const memoryPaths = new Set(["MEMORY.md"]);
   const put = (rel: string, content: string, exec = false, force = false) => {
     const abs = path.join(cwd, rel);
     const exists = fs.existsSync(abs);
-    const overwriting = force || forceAll;
+    const overwriting = force || (forceAll && !memoryPaths.has(rel));
     if (dry) {
       const action = !exists ? "write" : overwriting ? "overwrite" : "skip";
       planned.push({ rel, action });
@@ -1617,7 +1618,10 @@ function cmdInit(flags: string[]): boolean {
   if (memSrc !== null) dests.set("MEMORY.md", memSrc);
   for (const n of names) {
     const j = byName.get(n)!.json!;
-    if (j.memoryPath && memSrc !== null) dests.set(j.memoryPath, memSrc);
+    if (j.memoryPath && memSrc !== null) {
+      memoryPaths.add(j.memoryPath);
+      dests.set(j.memoryPath, memSrc);
+    }
     if (j.agentsPath && agentsSrc !== null) dests.set(j.agentsPath, agentsSrc);
   }
   for (const [rel, content] of dests) put(rel, content);

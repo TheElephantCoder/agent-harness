@@ -1451,10 +1451,11 @@ function cmdInit(flags) {
         if (typeof f !== "string")
             recorded.set(f.path, f.sha);
     }
+    const memoryPaths = new Set(["MEMORY.md"]);
     const put = (rel, content, exec = false, force = false) => {
         const abs = path.join(cwd, rel);
         const exists = fs.existsSync(abs);
-        const overwriting = force || forceAll;
+        const overwriting = force || (forceAll && !memoryPaths.has(rel));
         if (dry) {
             const action = !exists ? "write" : overwriting ? "overwrite" : "skip";
             planned.push({ rel, action });
@@ -1505,8 +1506,10 @@ function cmdInit(flags) {
         dests.set("MEMORY.md", memSrc);
     for (const n of names) {
         const j = byName.get(n).json;
-        if (j.memoryPath && memSrc !== null)
+        if (j.memoryPath && memSrc !== null) {
+            memoryPaths.add(j.memoryPath);
             dests.set(j.memoryPath, memSrc);
+        }
         if (j.agentsPath && agentsSrc !== null)
             dests.set(j.agentsPath, agentsSrc);
     }

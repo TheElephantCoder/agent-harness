@@ -1321,10 +1321,11 @@ def cmd_init(args=None):
     for f in prior_files:
         if not isinstance(f, str) and f.get("sha"):
             recorded[f.get("path", "")] = f["sha"]
+    memory_paths = {"MEMORY.md"}
     def put(rel, content, exec=False, force=False):
         abs_path = os.path.join(cwd, rel)
         exists = os.path.exists(abs_path)
-        overwriting = force or force_all
+        overwriting = force or (force_all and rel not in memory_paths)
         if dry:
             action = "write" if not exists else ("overwrite" if overwriting else "skip")
             planned.append({"rel": rel, "action": action})
@@ -1371,6 +1372,7 @@ def cmd_init(args=None):
     for n in names:
         j = by_name[n]["json"]
         if j.get("memoryPath") and mem_src is not None:
+            memory_paths.add(j["memoryPath"])
             dests[j["memoryPath"]] = mem_src
         if j.get("agentsPath") and agents_src is not None:
             dests[j["agentsPath"]] = agents_src
