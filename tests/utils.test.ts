@@ -102,8 +102,8 @@ describe("gui server", () => {
         body: '{"cmd":"version","args":[]}',
       });
       assert.strictEqual(form.status, 415);
-      // <img>-style drain: browser marks it cross-site
-      const img = await fetch(`${base}/api/term/poll?id=x`, {
+      // Cross-site GET requests are rejected even for read-only routes.
+      const img = await fetch(`${base}/api/status`, {
         headers: { "Sec-Fetch-Site": "cross-site" },
       });
       assert.strictEqual(img.status, 403);
@@ -175,85 +175,21 @@ describe("gui server", () => {
           })
         ).json();
         assert.strictEqual(blocked.ok, false);
-        const noAgent = await (
-          await fetch(`${base}/api/agent`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ agent: "nope", prompt: "hi" }),
-          })
-        ).json();
-        assert.strictEqual(noAgent.ok, false);
-        const started = await (
-          await fetch(`${base}/api/term/start`, { method: "POST" })
-        ).json();
-        assert.strictEqual(started.ok, true);
-        assert.strictEqual(typeof started.id, "string");
-        // a real pty: arrow UI with ANSI redraws; strip them before matching
-        const strip = (s: string) =>
-          s
-            .replace(/\x1b\[[?!]?[0-9;]*[@-~]/g, "")
-            .replace(/\x1b[()][AB0]/g, "");
-        let menu = "";
-        for (
-          let i = 0;
-          i < 40 && !strip(menu).includes("What do you want to do?");
-          i++
-        ) {
-          await new Promise((r) => setTimeout(r, 200));
-          const p = await (
-            await fetch(`${base}/api/term/poll?id=${started.id}`)
-          ).json();
-          menu += p.output;
+        for (const [route, method] of [
+          ["/api/agent", "POST"],
+          ["/api/term/start", "POST"],
+          ["/api/term/input", "POST"],
+          ["/api/term/poll", "GET"],
+          ["/api/term/kill", "POST"],
+        ]) {
+          const response = await fetch(base + route, { method });
+          assert.strictEqual(response.status, 404, route);
         }
-        const clean = strip(menu);
-        assert.ok(clean.includes("What do you want to do?"));
-        assert.ok(clean.includes("Web GUI"));
-        assert.ok(clean.includes("esc back"));
-        await fetch(`${base}/api/term/input`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: started.id, data: "q" }),
-        });
-        let bye = "";
-        for (let i = 0; i < 40 && !strip(bye).includes("bye."); i++) {
-          await new Promise((r) => setTimeout(r, 200));
-          const p = await (
-            await fetch(`${base}/api/term/poll?id=${started.id}`)
-          ).json();
-          bye += p.output;
-          if (p.exited && p.output === "") break;
-        }
-        assert.ok(strip(bye).includes("bye."));
-        const sh = await (
-          await fetch(`${base}/api/term/start`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mode: "shell" }),
-          })
-        ).json();
-        assert.strictEqual(sh.ok, true);
-        await fetch(`${base}/api/term/input`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: sh.id, data: "echo hi-pty\n" }),
-        });
-        let echoed = "";
-        for (let i = 0; i < 40 && !strip(echoed).includes("hi-pty"); i++) {
-          await new Promise((r) => setTimeout(r, 200));
-          const p = await (
-            await fetch(`${base}/api/term/poll?id=${sh.id}`)
-          ).json();
-          echoed += p.output;
-        }
-        assert.ok(strip(echoed).includes("hi-pty"));
-        await fetch(`${base}/api/term/kill`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: sh.id }),
-        });
         const page = await (await fetch(`${base}/`)).text();
+        assert.doesNotMatch(page, /data-page="(?:agents|commands)"|\/api\/(?:agent|term)\b/);
         assert.ok(page.includes('data-page="overview"'));
-        assert.ok(page.includes("Project health at a glance"));
+        assert.ok(page.includes('aria-label="Checkout files and commands"'));
+        assert.ok(page.includes('data-quick="doctor"'));
         assert.ok(page.includes('data-page="settings"'));
         assert.ok(page.includes("High contrast"));
         for (const name of ["Harvest", "Espresso", "Glacier", "Moss"]) {
@@ -263,23 +199,18 @@ describe("gui server", () => {
           'data-page="memory"',
           'data-page="skills"',
           "Confirm before running",
-          "Compact cards",
+          'id="set-compact"',
           "Remember last page",
           'id="nav-update"',
           'id="upd-pill"',
           'id="upd-modal"',
           "Show update info",
-          "nav-group",
+          'class="page-menu"',
           'id="side-toggle"',
           "set-group",
           "pal-group",
           "Workspace",
-          "Look and feel",
-          'id="term-out"',
-          'id="term-kbd-in"',
-          'id="term-shell"',
-          'id="term-menu"',
-          "Click inside and type",
+          'id="themes"',
           'data-page="about"',
           "System information",
           "Credits",
@@ -287,7 +218,6 @@ describe("gui server", () => {
           "release date",
           "Not affiliated",
           "nor @theelephantcoder is affiliated with",
-          "not affiliated with any agent vendor",
           "contact@theelephantcoder.com",
         ]) {
           // prettier rewraps template prose, so compare against collapsed
