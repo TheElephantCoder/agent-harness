@@ -4,7 +4,7 @@
 
 import * as readline from "node:readline";
 import { spawn, spawnSync } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as http from "node:http";
 import * as https from "node:https";
@@ -4527,52 +4527,6 @@ export function captureRunSingleton(
   });
 }
 
-async function runAgent(
-  agent: string,
-  prompt: string,
-): Promise<{ ok: boolean; output: string; ms: number }> {
-  const t0 = Date.now();
-  const bin =
-    agent === "opencode" ? "opencode" : agent === "claude" ? "claude" : "";
-  if (!bin) return { ok: false, output: `unknown agent: ${agent}`, ms: 0 };
-  if (!haveBin(bin)) {
-    return { ok: false, output: `${bin} not found - install it first`, ms: 0 };
-  }
-  const clean = prompt.trim().slice(0, 8000);
-  if (!clean) return { ok: false, output: "give a prompt to run", ms: 0 };
-  // argv arrays only, never a shell; cwd is the project the server runs in.
-  const argv = bin === "opencode" ? ["run", clean] : ["-p", clean];
-  return new Promise((resolve) => {
-    const cap = 1024 * 1024;
-    let out = "";
-    const push = (d: Buffer) => {
-      if (out.length < cap)
-        out += d.toString("utf8").slice(0, cap - out.length);
-    };
-    let settled = false;
-    const done = (ok: boolean, extra = "") => {
-      if (settled) return;
-      settled = true;
-      const text = (out.trim() + extra).slice(0, cap) || "(no output)";
-      resolve({ ok, output: text, ms: Date.now() - t0 });
-    };
-    const child = spawn(bin, argv, { cwd: process.cwd(), timeout: 600000 });
-    child.stdout?.on("data", push);
-    child.stderr?.on("data", push);
-    child.on("error", () => done(false, "\n[harness] could not start " + bin));
-    child.on("close", (code) => done(code === 0));
-    const timer = setTimeout(() => {
-      try {
-        child.kill("SIGKILL");
-      } catch {
-        // already gone
-      }
-      done(false, "\n[harness] timed out after 10 minutes");
-    }, 600000);
-    if (typeof timer.unref === "function") timer.unref();
-  });
-}
-
 async function handleGui(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -4584,7 +4538,7 @@ async function handleGui(
   };
   // loopback-only server, so every stranger at the socket is either a local
   // tool (curl, cron - fine) or a website driving the user's browser (not
-  // fine: /api/run and /api/term/start mutate the project). Host must be a
+  // fine: /api/run can mutate the project). Host must be a
   // loopback name (kills DNS rebinding), cross-site browser hints die, and
   // POST bodies must be real JSON (forms and no-preflight fetch cannot send
   // that content type, which is what makes this an actual CSRF wall).
@@ -4628,53 +4582,6 @@ async function handleGui(
     }
     if (req.method === "GET" && url.pathname === "/api/update-info") {
       return send(200, JSON.stringify(await guiUpdateInfo()));
-    }
-    if (url.pathname === "/api/term/start" && req.method === "POST") {
-      let mode = "menu";
-      try {
-        const parsed = JSON.parse(await readBody(req)) as { mode?: unknown };
-        if (parsed.mode === "shell") mode = "shell";
-      } catch {
-        // empty body means menu
-      }
-      return send(200, JSON.stringify(termStart(mode)));
-    }
-    if (url.pathname === "/api/term/input" && req.method === "POST") {
-      let parsed: { id?: unknown; data?: unknown };
-      try {
-        parsed = JSON.parse(await readBody(req)) as {
-          id?: unknown;
-          data?: unknown;
-        };
-      } catch {
-        return send(
-          400,
-          JSON.stringify({ ok: false, output: "want {id, data}" }),
-        );
-      }
-      if (typeof parsed.id !== "string" || typeof parsed.data !== "string") {
-        return send(
-          400,
-          JSON.stringify({ ok: false, output: "want {id, data}" }),
-        );
-      }
-      return send(200, JSON.stringify(termInput(parsed.id, parsed.data)));
-    }
-    if (url.pathname === "/api/term/poll" && req.method === "GET") {
-      const id = url.searchParams.get("id") ?? "";
-      return send(200, JSON.stringify(termPoll(id)));
-    }
-    if (url.pathname === "/api/term/kill" && req.method === "POST") {
-      let parsed: { id?: unknown };
-      try {
-        parsed = JSON.parse(await readBody(req)) as { id?: unknown };
-      } catch {
-        return send(400, JSON.stringify({ ok: false, output: "want {id}" }));
-      }
-      if (typeof parsed.id !== "string") {
-        return send(400, JSON.stringify({ ok: false, output: "want {id}" }));
-      }
-      return send(200, JSON.stringify(termKill(parsed.id)));
     }
     if (req.method === "POST" && url.pathname === "/api/run") {
       let parsed: { cmd?: unknown; args?: unknown };
@@ -4733,38 +4640,8 @@ async function handleGui(
         clearTimeout(timer);
       }
     }
-    if (req.method === "POST" && url.pathname === "/api/agent") {
-      let parsed: { agent?: unknown; prompt?: unknown };
-      try {
-        parsed = JSON.parse(await readBody(req)) as {
-          agent?: unknown;
-          prompt?: unknown;
-        };
-      } catch {
-        return send(
-          400,
-          JSON.stringify({ ok: false, output: "want agent opencode|claude" }),
-        );
-      }
-      if (parsed.agent !== "opencode" && parsed.agent !== "claude") {
-        return send(
-          400,
-          JSON.stringify({ ok: false, output: "want agent opencode|claude" }),
-        );
-      }
-      if (typeof parsed.prompt !== "string" || !parsed.prompt.trim()) {
-        return send(
-          400,
-          JSON.stringify({ ok: false, output: "want a prompt" }),
-        );
-      }
-      return send(
-        200,
-        JSON.stringify(await runAgent(parsed.agent, parsed.prompt)),
-      );
-    }
     if (req.method === "POST" && url.pathname === "/api/quit") {
-      // quitting mid-run would orphan the spawned agent child; ask again later
+      // Let the active command finish before stopping the server.
       if (runBusy) {
         return send(
           409,
@@ -4775,7 +4652,6 @@ async function handleGui(
         );
       }
       send(200, JSON.stringify({ ok: true }));
-      termKillAll();
       setTimeout(() => process.exit(0), 100);
       return;
     }
@@ -4793,131 +4669,6 @@ async function handleGui(
       // response already gone
     }
   }
-}
-
-type TermSession = {
-  proc: import("node:child_process").ChildProcess;
-  buf: string;
-  exited: boolean;
-};
-const termSessions = new Map<string, TermSession>();
-const TERM_MAX_SESSIONS = 3;
-const TERM_BUF_CAP = 1024 * 1024;
-
-function termSpawn(mode: string): TermSession {
-  // Real PTY via the stdlib-only python bridge (node has no built-in pty,
-  // and node-pty would need a native build). argv[1] is unreliable (test
-  // workers, bin symlinks), so both paths resolve through the package root.
-  const root = selfRoot();
-  const entry = root ? path.join(root, "dist", "harness", "cli.js") : "";
-  const bridge = root ? path.join(root, "src", "harness", "gui-pty.py") : "";
-  const missing = (msg: string): TermSession => ({
-    proc: undefined as unknown as import("node:child_process").ChildProcess,
-    buf: msg,
-    exited: true,
-  });
-  if (!entry || !fs.existsSync(entry)) {
-    return missing(
-      "[harness] terminal unavailable - built CLI not found (run npm run build)\n",
-    );
-  }
-  if (!bridge || !fs.existsSync(bridge)) {
-    return missing("[harness] terminal unavailable - pty bridge missing\n");
-  }
-  const shell = mode === "shell";
-  const cmd = shell ? ["bash", "-l"] : ["node", entry];
-  const proc = spawn("python3", [bridge, "80", "24", ...cmd], {
-    cwd: process.cwd(),
-    env: {
-      ...process.env,
-      ...(shell
-        ? {}
-        : { HARNESS_INTERACTIVE: "1", HARNESS_EMBEDDED_TERMINAL: "1" }),
-    },
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  proc.stdin?.on("error", () => {
-    // child already gone; termInput guards with destroyed/exited flags
-  });
-  const s: TermSession = { proc, buf: "", exited: false };
-  const feed = (chunk: Buffer) => {
-    s.buf += chunk.toString("utf8");
-    if (s.buf.length > TERM_BUF_CAP) s.buf = s.buf.slice(-TERM_BUF_CAP);
-  };
-  proc.stdout?.on("data", feed);
-  proc.stderr?.on("data", feed);
-  proc.on("exit", () => {
-    s.exited = true;
-  });
-  proc.on("error", (e) => {
-    s.buf += `\n[harness] terminal failed to start: ${String((e as Error)?.message ?? e)}\n`;
-    s.exited = true;
-  });
-  return s;
-}
-
-function termStart(mode: string): { ok: boolean; id: string } {
-  while (termSessions.size >= TERM_MAX_SESSIONS) {
-    const oldest = termSessions.keys().next().value;
-    if (oldest === undefined) break;
-    termKill(oldest);
-  }
-  // predictable ids would let a cross-site spray of guesses write into a
-  // live shell session; 128 random bits end that game.
-  const id = randomBytes(16).toString("base64url");
-  termSessions.set(id, termSpawn(mode));
-  return { ok: true, id };
-}
-
-function termInput(id: string, data: string): { ok: boolean } {
-  const s = termSessions.get(id);
-  if (!s || s.exited || !s.proc.stdin || s.proc.stdin.destroyed)
-    return { ok: false };
-  s.proc.stdin.write(data.slice(0, 64 * 1024));
-  return { ok: true };
-}
-
-function termPoll(id: string): {
-  ok: boolean;
-  output: string;
-  exited: boolean;
-} {
-  const s = termSessions.get(id);
-  if (!s) return { ok: false, output: "", exited: true };
-  const out = s.buf.slice(0, 256 * 1024);
-  s.buf = s.buf.slice(out.length);
-  if (s.exited && !s.buf.length) {
-    try {
-      s.proc?.stdin?.destroy();
-    } catch {
-      // already gone
-    }
-    termSessions.delete(id);
-  }
-  return { ok: true, output: out, exited: s.exited };
-}
-
-function termKill(id: string): { ok: boolean } {
-  const s = termSessions.get(id);
-  if (!s) return { ok: false };
-  termSessions.delete(id);
-  try {
-    s.proc.kill("SIGTERM");
-    setTimeout(() => {
-      try {
-        s.proc.kill("SIGKILL");
-      } catch {
-        // already gone
-      }
-    }, 2000).unref?.();
-  } catch {
-    // already gone
-  }
-  return { ok: true };
-}
-
-function termKillAll(): void {
-  for (const id of [...termSessions.keys()]) termKill(id);
 }
 
 export function startGuiServer(
@@ -5008,9 +4759,7 @@ async function main() {
     return;
   }
   if (process.argv.length <= 2) {
-    // HARNESS_INTERACTIVE=1 forces the menu loop with piped stdio (used by
-    // the gui terminal tab); without a TTY the pickers fall back to
-    // line mode on their own.
+    // With piped stdio, HARNESS_INTERACTIVE opts into the line-mode menu.
     if (process.stdin.isTTY || process.env.HARNESS_INTERACTIVE === "1") {
       await interactive();
       return;

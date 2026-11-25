@@ -7,23 +7,17 @@
       content="width=device-width,initial-scale=1,maximum-scale=5"
     />
     <meta name="color-scheme" content="light dark" />
-    <title>agent-harness gui</title>
+    <title>agent-harness · Workspace</title>
     <style>
-      /* ---------------------------------------------------------------------------
-   agent-harness local gui.
-   Instrument-panel aesthetic: hairline rules, serif display against a mono
-   grid, one accent per theme. Dynamic text always wraps to fit its box
-   (never clipped, never ellipsized); every grid cell uses
-   minmax(min(100%, Npx), 1fr) so rows refuse to overflow at any viewport.
---------------------------------------------------------------------------- */
+      /* Theme tokens are shared by the workspace and dialogs. */
       :root,
       html[data-theme="regular"] {
-        --bg: #f4f4f2;
-        --panel: #ffffff;
-        --fg: #171717;
-        --muted: #6f6f6f;
-        --line: #e5e5e2;
-        --accent: #1f6feb;
+        --bg: #ffffff;
+        --panel: #f6f6f4;
+        --fg: #242421;
+        --muted: #62625f;
+        --line: #d9d9d6;
+        --accent: #a33b2b;
         --accent-fg: #ffffff;
         --ok: #15803d;
         --bad: #b91c1c;
@@ -403,358 +397,61 @@
       kbd {
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
-      /* the two-frame shell */
-      .app {
-        display: flex;
-        min-height: 100dvh;
+      /* The masthead, page menu and inspector share the same left edge. */
+      :root {
+        --measure: 1216px;
+        --gutter: clamp(18px, 4.5vw, 70px);
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
-      /* ---------- sidebar rail ---------- */
-      .side {
-        width: 232px;
-        flex: none;
-        display: flex;
-        flex-direction: column;
-        position: sticky;
-        top: 0;
-        height: 100dvh;
-        background: var(--panel);
-        border-right: 1px solid var(--line);
-        overflow: hidden;
+      .mast { background: var(--code); color: var(--code-fg); }
+      .mast-inner, .page-menu, .content {
+        max-width: var(--measure);
+        margin-inline: auto;
+        padding-inline: var(--gutter);
       }
-      .brand {
-        flex: none;
+      .mast-inner {
+        min-height: 56px;
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 14px 16px;
-        border-bottom: 1px solid var(--line);
-      }
-      .mark {
-        width: 28px;
-        height: 28px;
-        flex: none;
-        border-radius: 7px;
-        background: var(--accent);
-        color: var(--accent-fg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font:
-          700 12px/1 ui-monospace,
-          Menlo,
-          monospace;
-        letter-spacing: -0.02em;
-      }
-      .bname {
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        line-height: 1.2;
-      }
-      .bname b {
-        font:
-          700 14px/1.2 Inter,
-          system-ui,
-          sans-serif;
-        letter-spacing: -0.015em;
-      }
-      .bname small {
-        color: var(--muted);
-        font:
-          500 10.5px/1.3 ui-monospace,
-          Menlo,
-          monospace;
-      }
-      #side-toggle {
-        margin-left: auto;
-        flex: none;
-        width: 24px;
-        height: 24px;
-        border: 1px solid var(--line);
-        border-radius: 6px;
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1;
-      }
-      #side-toggle:hover {
-        color: var(--fg);
-        border-color: var(--muted);
-      }
-      .nav {
-        flex: 1 1 auto;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        padding: 10px 10px 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-      }
-      .nav-group {
-        flex: none;
-        margin: 14px 4px 5px;
-        font:
-          500 10px/1 ui-monospace,
-          Menlo,
-          monospace;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
-      .nav-group:first-child {
-        margin-top: 4px;
-      }
-      .nav button {
-        flex: none;
-        position: relative;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        width: 100%;
-        padding: 8px 10px 8px 13px;
-        border-radius: 8px;
-        text-align: left;
-        color: var(--muted);
-        font-size: 13.5px;
-        line-height: 1.25;
-      }
-      .nav button::before {
-        content: "";
-        position: absolute;
-        left: 3px;
-        top: 22%;
-        bottom: 22%;
-        width: 3px;
-        border-radius: 2px;
-        background: transparent;
-        transition: background 0.15s;
-      }
-      .nav button .ico {
-        flex: none;
-        width: 18px;
-        text-align: center;
-        font-size: 13px;
-        opacity: 0.9;
-      }
-      .nav button .lbl {
-        flex: 1 1 auto;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-        line-height: 1.3;
-      }
-      .nav button .cnt {
-        flex: none;
-        margin-left: auto;
-        min-width: 20px;
-        text-align: center;
-        font:
-          600 10.5px/1.6 ui-monospace,
-          Menlo,
-          monospace;
-        color: var(--muted);
-        border: 1px solid var(--line);
-        border-radius: 99px;
-        padding: 0 6px;
-      }
-      .nav button:hover {
-        color: var(--fg);
-        background: var(--bg);
-      }
-      .nav button:hover .cnt {
-        border-color: var(--muted);
-      }
-      .nav button[aria-current="page"] {
-        background: var(--bg);
-        color: var(--fg);
-        font-weight: 600;
-      }
-      .nav button[aria-current="page"]::before {
-        background: var(--accent);
-      }
-      .nav button[aria-current="page"] .cnt {
-        border-color: var(--muted);
-        color: var(--fg);
-      }
-      /* sidebar footer: cwd (wraps freely, never clipped) + version pill */
-      .side-foot {
-        flex: none;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding: 12px;
-        border-top: 1px solid var(--line);
-      }
-      #side-cwd {
-        display: block;
-        color: var(--muted);
-        font:
-          400 10.5px/1.45 ui-monospace,
-          Menlo,
-          monospace;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-      }
-      .ver-pill {
-        width: 100%;
-        min-height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        padding: 6px 10px;
-        text-align: center;
-        line-height: 1.35;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--bg);
-        color: var(--muted);
-        font:
-          600 11px/1.35 ui-monospace,
-          Menlo,
-          monospace;
-      }
-      .ver-pill.avail {
-        background: var(--accent);
-        border-color: var(--accent);
-        color: var(--accent-fg);
-      }
-      .ver-pill:active {
-        transform: translateY(1px);
-      }
-      /* ---------- console bar ---------- */
-      .main {
-        flex: 1 1 auto;
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-      }
-      .top {
-        flex: none;
-        position: sticky;
-        top: 0;
-        z-index: 9;
-        background: var(--bg);
-        border-bottom: 1px solid var(--line);
-      }
-      .top-inner {
-        display: flex;
+        gap: 18px;
         flex-wrap: wrap;
-        align-items: center;
-        column-gap: 10px;
-        row-gap: 6px;
-        max-width: 1480px;
-        margin-inline: auto;
-        width: 100%;
-        padding: 12px clamp(14px, 2.6vw, 36px);
       }
-      .top h1 {
-        font:
-          700 17px/1.25 Charter,
-          "Iowan Old Style",
-          "Palatino Linotype",
-          Georgia,
-          serif;
-        letter-spacing: -0.01em;
-        margin: 0;
+      .wordmark-sign { width: 17px; height: 17px; }
+      .wordmark {
+        display: inline-flex; align-items: center; gap: 9px;
+        font: 650 18px/1 var(--mono);
+        letter-spacing: -.075em;
+        color: inherit;
       }
-      .cwd {
-        flex: 1 1 180px;
-        min-width: 0;
+      .mast button:hover, .tree-action:hover, .text-action:hover { text-decoration: underline; text-underline-offset: 4px; }
+      .mast button:focus-visible { outline-color: var(--code-fg); }
+      .release, .connection, .kbd { font: 11px/1.5 var(--mono); }
+      .release { opacity: .8; }
+      .connection { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; }
+      .connection::before { content: ""; width: 6px; height: 6px; border: 1px solid; border-radius: 50%; }
+      .connection.online::before { background: currentColor; }
+      .mast-control { min-height: 36px; font-size: 13px; }
+      .kbd { margin-left: 4px; padding: 2px 4px; border: 1px solid currentColor; }
+      .nav-shell { border-bottom: 1px solid var(--line); background: var(--panel); }
+      .page-menu { display: flex; align-items: center; flex-wrap: wrap; column-gap: clamp(12px, 1.8vw, 28px); }
+      .page-menu button {
+        font-size: 13px;
+        line-height: 1.3;
+        min-height: 43px;
+        border-bottom: 2px solid transparent;
         color: var(--muted);
-        font:
-          400 11px/1.4 ui-monospace,
-          Menlo,
-          monospace;
-        overflow-wrap: anywhere;
-        word-break: break-word;
       }
-      .spacer {
-        flex: 1 1 0;
-      }
-      .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        padding: 4px 11px;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        background: var(--panel);
-        color: var(--muted);
-        font-size: 12px;
-        white-space: nowrap;
-      }
-      .dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: var(--ok);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent);
-      }
-      @supports not (background: color-mix(in srgb, red 50%, blue)) {
-        .dot {
-          box-shadow: none;
-        }
-      }
-      .kbd {
-        font:
-          500 10.5px/1.5 ui-monospace,
-          Menlo,
-          monospace;
-        color: var(--muted);
-        border: 1px solid var(--line);
-        border-bottom-width: 2px;
-        border-radius: 5px;
-        padding: 0 5px;
-        background: var(--panel);
-      }
-      .pal-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        min-height: 34px;
-        padding: 5px 12px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--panel);
-        color: var(--muted);
-        font-size: 12.5px;
-        white-space: nowrap;
-      }
-      .pal-btn:hover {
-        color: var(--fg);
-        border-color: var(--muted);
-      }
-      /* ---------- content ---------- */
-      .content {
-        width: 100%;
-        max-width: 1240px;
-        margin-inline: auto;
-        padding: clamp(20px, 3vw, 40px) clamp(14px, 2.6vw, 36px) 110px;
-        flex: 1;
-      }
+      .page-menu button[data-page="settings"] { margin-left: auto; }
+      .page-menu button:hover { color: var(--fg); }
+      .page-menu button[aria-current="page"] { color: var(--accent); border-bottom-color: currentColor; font-weight: 650; }
+      .count { margin-left: 3px; font: 10px var(--mono); }
+      .count:empty { display: none; }
+      #side-toggle { display: none; }
+      .content { padding-block: clamp(30px, 4vw, 58px) 72px; }
       .page {
         display: none;
       }
-      .page.on {
-        display: block;
-        animation: rise 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
-      }
-      @keyframes rise {
-        from {
-          opacity: 0;
-          transform: translateY(6px);
-        }
-        to {
-          opacity: 1;
-          transform: none;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .page.on {
-          animation: none;
-        }
-      }
+      .page.on { display: block; }
       .eyebrow {
         margin: 0 0 6px;
         font:
@@ -793,68 +490,96 @@
         font-size: 14px;
         text-wrap: pretty;
       }
-      .set-group {
-        margin: 30px 0 10px;
-        font:
-          500 10px/1.4 ui-monospace,
-          Menlo,
-          monospace;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        color: var(--muted);
+      .checkout-head, .section-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px 20px;
       }
-      .set-group::after {
+      .checkout-head { margin-bottom: 28px; }
+      .checkout-head h1 {
+        font: 550 clamp(25px, 3vw, 40px)/1.18 var(--mono);
+        letter-spacing: -.065em;
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      .checkout-head h1::after { content: "/"; color: var(--muted); }
+      .cwd { display: block; font: 12px/1.6 var(--mono); color: var(--muted); margin-top: 5px; overflow-wrap: anywhere; }
+      .tree-action, .text-action { font: 500 12px/1.5 var(--mono); text-decoration: underline; text-underline-offset: 3px; }
+      .tree-action { color: var(--fg); min-height: 34px; }
+      .tree-action:disabled { color: var(--muted); cursor: wait; }
+      .tree-action:hover, .text-action:hover { color: var(--accent); }
+      .tree-action.primary { padding: 4px 12px; background: var(--fg); color: var(--panel); text-decoration: none; }
+      .tree-action.primary:hover { background: var(--accent); color: var(--accent-fg); }
+      .tree { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      .tree th, .tree td { text-align: left; vertical-align: middle; overflow-wrap: anywhere; }
+      .tree thead { border-block: 1px solid var(--line); background: var(--panel); }
+      .tree thead th { padding: 7px 12px; font: 500 11px/1.5 var(--mono); color: var(--muted); }
+      .tree th:first-child { width: 39%; }
+      .tree th:last-child { width: 26%; }
+      .tree tbody th, .tree tbody td { padding: 7px 12px; height: 51px; border-bottom: 1px solid var(--line); }
+      .tree tbody th { font: 500 14px/1.4 var(--mono); }
+      .tree tbody td { font-size: 14px; }
+      .tree tbody th .branch {
+        display: inline-block;
+        position: relative;
+        width: 20px;
+        margin-right: 6px;
+        height: 1em;
+        vertical-align: baseline;
+        border-bottom: 1px solid var(--muted);
+        transform: translateY(-.26em);
+      }
+      .tree tbody th { position: relative; }
+      .tree tbody th::before {
         content: "";
-        display: block;
-        margin-top: 6px;
-        height: 1px;
-        background: var(--line);
+        position: absolute;
+        left: 12px;
+        top: 0;
+        bottom: -1px;
+        border-left: 1px solid var(--muted);
       }
-      /* stat tiles */
-      .stats {
+      .tree tbody tr:last-child th::before { bottom: 50%; }
+      .tree tbody tr:first-child th::before { top: 0; }
+      .tree tbody th .branch { transform: none; height: 0; vertical-align: middle; }
+      .inspector-body {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));
-        gap: 10px;
-        margin-bottom: 22px;
+        grid-template-columns: minmax(0, 2.25fr) minmax(218px, .85fr);
+        gap: clamp(32px, 4.5vw, 64px);
       }
-      .stat {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: var(--r);
-        padding: 13px 15px;
-        box-shadow: var(--shadow);
-        min-width: 0;
+      .inspector-body .section-title { margin-bottom: 14px; }
+      .inspector-body .tree th:last-child { width: 25%; }
+      .runtime {
+        margin: 0;
+        padding: 0;
+        border-top: 1px solid var(--line);
+        font: 13px/1.5 var(--mono);
       }
-      .stat .v {
-        font:
-          700 clamp(17px, 2vw, 22px) / 1.2 ui-monospace,
-          SFMono-Regular,
-          Menlo,
-          monospace;
-        letter-spacing: -0.02em;
-        overflow-wrap: anywhere;
-        word-break: break-word;
+      .runtime div:not([hidden]) {
+        display: grid;
+        grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+        gap: 8px;
+        align-items: baseline;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
       }
-      .stat .v.good {
-        color: var(--ok);
+      .runtime dt { color: var(--muted); font: 13px/1.5 system-ui, sans-serif; }
+      .runtime dd { text-align: right; margin: 0; overflow-wrap: anywhere; }
+      .session-log { margin-top: clamp(32px, 4vw, 56px); }
+      @media (max-width: 900px) {
+        .inspector-body { grid-template-columns: 1fr; gap: 28px; }
+        .runtime div:not([hidden]) { grid-template-columns: minmax(100px, .38fr) 1fr; }
+        .runtime dd { text-align: left; }
       }
-      .stat .v.bad {
-        color: var(--bad);
+      @media (max-width: 560px) {
+        .inspector-body .tree tbody th:first-child { width: auto; }
       }
-      .stat .v.warn {
-        color: var(--warn);
-      }
-      .stat .k {
-        margin-top: 3px;
-        font:
-          500 10px/1.4 ui-monospace,
-          Menlo,
-          monospace;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--muted);
-        overflow-wrap: anywhere;
-      }
+      .section-head { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+      .section-title { margin: 0; font: 600 18px/1.3 system-ui, sans-serif; letter-spacing: -.03em; }
+      .output-section { margin-top: 32px; }
+      .output-section:has(.output-empty) { display: none; }
+      #recent > .note { margin-block: 12px 0; }
       /* panels + cards */
       .panels {
         display: grid;
@@ -867,18 +592,9 @@
         margin-top: 12px;
       }
       .card {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: var(--r);
-        padding: 15px 16px;
-        box-shadow: var(--shadow);
         min-width: 0;
-        transition:
-          border-color 0.16s ease,
-          transform 0.16s ease;
-      }
-      .card:hover {
-        border-color: var(--muted);
+        padding: 18px 0;
+        border-top: 1px solid var(--line);
       }
       .card h3 {
         margin: 0 0 4px;
@@ -905,8 +621,7 @@
       }
       /* form primitives */
       select,
-      input[type="text"],
-      textarea {
+      input[type="text"] {
         display: block;
         width: 100%;
         max-width: 100%;
@@ -928,11 +643,6 @@
         flex: 2 1 200px;
         width: auto;
         min-width: 0;
-      }
-      textarea {
-        min-height: 92px;
-        resize: vertical;
-        line-height: 1.5;
       }
       label.flag {
         display: inline-flex;
@@ -1108,15 +818,12 @@
       }
       @media (prefers-reduced-motion: reduce) {
         .spin {
-          animation-duration: 2.4s;
+          animation: none;
         }
       }
       /* activity ledger */
       .actwrap {
-        border: 1px solid var(--line);
-        border-radius: var(--r);
-        background: var(--panel);
-        box-shadow: var(--shadow);
+        background: var(--bg);
         overflow: auto;
         max-height: 65vh;
       }
@@ -1160,307 +867,185 @@
       .mono {
         font-size: 11.5px;
       }
-      /* themes grid */
-      .themes {
+      .preferences {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 196px), 1fr));
-        gap: 10px;
-        min-width: 0;
+        grid-template-columns: minmax(130px, .45fr) minmax(0, 1fr);
+        gap: 12px clamp(24px, 6vw, 72px);
+        max-width: 820px;
+        padding: 15px 0;
+        border-top: 1px solid var(--line);
       }
-      .theme {
-        border: 1.5px solid var(--line);
-        border-radius: var(--r);
-        overflow: hidden;
-        background: var(--panel);
-        text-align: left;
-        padding: 0;
-        min-width: 0;
-        transition:
-          border-color 0.15s,
-          transform 0.15s;
-      }
-      .theme:hover {
-        transform: translateY(-1px);
-        border-color: var(--muted);
-      }
-      .theme[aria-pressed="true"] {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 1px var(--accent);
-      }
-      .theme .sw {
-        height: 64px;
-        display: flex;
-        align-items: flex-end;
-        gap: 6px;
-        padding: 9px;
-      }
-      .theme .sw i {
-        display: block;
-        width: 22px;
-        height: 22px;
-        border-radius: 6px;
-        border: 1px solid rgba(128, 128, 128, 0.35);
-      }
-      .theme .nm {
-        display: block;
-        padding: 9px 12px 0;
-        font-size: 13.5px;
-        font-weight: 650;
-        line-height: 1.3;
-        overflow-wrap: anywhere;
-      }
-      .theme .ds {
-        display: block;
-        padding: 2px 12px 11px;
-        font-size: 11.5px;
-        color: var(--muted);
-        line-height: 1.45;
-        overflow-wrap: anywhere;
-      }
-      /* settings rows */
+      .set-group { margin: 10px 0; font-size: 15px; font-weight: 600; }
       .setrow {
         display: flex;
-        flex-wrap: wrap;
         align-items: center;
-        gap: 8px 12px;
-        padding: 11px 0;
-        border-top: 1px solid var(--line);
-        font-size: 13.5px;
-      }
-      .setrow:first-of-type {
-        border-top: 0;
-      }
-      .setrow .grow {
-        flex: 1 1 200px;
-        min-width: 0;
-      }
-      .setrow small {
-        display: block;
-        color: var(--muted);
-        font-size: 12px;
-        margin-top: 2px;
-        line-height: 1.45;
-      }
-      .switch {
-        margin-left: auto;
-        flex: none;
-      }
-      /* ---------- terminal ---------- */
-      .term {
-        border: 1px solid var(--line);
-        border-radius: var(--r);
-        overflow: hidden;
-        background: var(--code);
-        color: var(--code-fg);
-        box-shadow: var(--shadow);
-        min-width: 0;
-      }
-      .term-bar {
-        display: flex;
+        justify-content: space-between;
         flex-wrap: wrap;
-        align-items: center;
-        gap: 7px;
-        padding: 8px 11px;
-        border-bottom: 1px solid var(--line);
-        background: var(--panel);
-        color: var(--muted);
-        font-size: 12px;
+        gap: 10px 16px;
+        min-height: 43px;
+        padding: 7px 0;
       }
-      .tdot {
-        width: 9px;
-        height: 9px;
-        flex: none;
-        border-radius: 50%;
-        background: var(--line);
-      }
-      .tname {
-        min-width: 0;
-        flex: 1 1 auto;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-        line-height: 1.35;
-        font:
-          500 11.5px/1.35 ui-monospace,
-          Menlo,
-          monospace;
-      }
-      .tbtn {
-        flex: none;
-        border: 1px solid var(--line);
-        border-radius: 6px;
-        color: var(--muted);
-        font-size: 11.5px;
-        padding: 3px 10px;
-        min-height: 24px;
-        line-height: 1.3;
-        overflow-wrap: break-word;
-      }
-      .tbtn:hover {
-        color: var(--fg);
-        border-color: var(--muted);
-      }
-      .tbtn[aria-pressed="true"] {
-        color: var(--accent-fg);
+      label.setrow { cursor: pointer; }
+      .setrow select { width: auto; flex: none; font-size: 13px; min-height: 34px; }
+      .theme-field { display: inline-flex; gap: 10px; align-items: center; }
+      .theme-swatch {
+        width: 11px;
+        height: 11px;
+        border: 1px solid var(--fg);
         background: var(--accent);
-        border-color: var(--accent);
-        font-weight: 600;
+        box-shadow: -4px 3px 0 var(--panel), -5px 4px 0 var(--muted);
       }
-      .term-out {
-        height: min(56vh, 470px);
-        min-height: 230px;
-        padding: 13px 14px;
-        font:
-          400 12.5px/1.62 ui-monospace,
-          SFMono-Regular,
-          Menlo,
-          Consolas,
-          monospace;
-        white-space: pre;
-        overflow: auto;
-        overflow-x: auto;
-        outline: none;
-        cursor: text;
-        tab-size: 8;
-      }
-      .term-out:focus {
-        box-shadow: inset 0 0 0 1.5px var(--accent);
-      }
-      .term-out .ln {
-        min-height: 1.62em;
-      }
-      .term-out .cur {
-        background: var(--code-fg);
-        color: var(--code);
-      }
-      .term-out .b {
-        font-weight: 700;
-      }
-      .term-out .d {
-        opacity: 0.6;
-      }
-      .term-out .g32 {
-        color: #4ade80;
-      }
-      .term-out .g35 {
-        color: #e879f9;
-      }
-      .term-out .g36 {
-        color: #67e8f9;
-      }
-      .term-kbd {
-        display: none;
-        align-items: center;
-        gap: 8px;
-        padding: 9px 12px;
-        border-top: 1px solid var(--line);
-      }
-      @media (pointer: coarse) {
-        .term-kbd {
-          display: flex;
-        }
-      }
-      .term-kbd input {
-        flex: 1;
-        min-width: 0;
-        background: none;
-        border: 0;
-        outline: none;
-        color: var(--code-fg);
-        font:
-          400 13px/1.5 ui-monospace,
-          Menlo,
-          monospace;
-        min-height: 0;
-        padding: 4px 0;
-      }
-      .term-kbd input::placeholder {
-        color: var(--muted);
-      }
-      .tprompt {
-        flex: none;
-        color: var(--accent);
-        font-weight: 700;
+      .preference-actions { margin: 8px 0; }
+      #about-panels details { padding-block: 7px; border-bottom: 1px solid var(--line); }
+      #about-panels summary { cursor: pointer; font-size: 14px; }
+      #about-panels details[open] summary { margin-bottom: 8px; }
+      .server-path { margin: 10px 0; font: 12px/1.6 var(--mono); overflow-wrap: anywhere; }
+      .viewer-list, .form-strip { max-width: 860px; }
+      .viewer { padding: 17px 0; border-top: 1px solid var(--line); }
+      .viewer-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+      .viewer-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+      .viewer-head p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+      .viewer .view:not(:empty) { margin-top: 14px; }
+      .form-strip .card { padding-block: 20px 24px; }
+      .form-strip .row { margin-top: 10px; }
+      @media (max-width: 660px) {
+        .preferences { grid-template-columns: 1fr; gap: 0; }
+        .set-group { margin: 0 0 5px; }
       }
       /* ---------- palette ---------- */
+      /* The search surface stays opaque until the browser can blur it. */
+      #pal-open {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 10px;
+        border: 1px solid rgb(255 255 255 / 26%);
+        border-radius: 9px;
+        background: linear-gradient(165deg, rgb(255 255 255 / 12%), rgb(255 255 255 / 3%));
+        box-shadow: inset 0 1px rgb(255 255 255 / 12%);
+      }
+      .search-icon {
+        width: 1em;
+        height: 1em;
+        flex: none;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+      }
       .pal {
+        --glass-ink: #fff;
+        --glass-muted: #e0e2e4;
+        --glass-rule: rgb(255 255 255 / 22%);
+        --glass-selection: rgb(255 255 255 / 11%);
         position: fixed;
-        inset: 0;
-        z-index: 80;
-        background: rgba(0, 0, 0, 0.42);
-        display: none;
-        padding: 11vh 16px 16px;
-        overflow: auto;
-      }
-      .pal.on {
-        display: block;
-      }
-      .pal-box {
-        max-width: 560px;
-        margin-inline: auto;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 12px;
+        inset: max(12px, 12dvh) 0 auto;
+        width: min(580px, calc(100% - 24px));
+        max-width: none;
+        max-height: 78dvh;
+        margin: 0 auto;
+        padding: 0;
+        color: var(--glass-ink);
+        background: #292d31;
+        border: 1px solid rgb(255 255 255 / 38%);
+        border-radius: 18px;
+        box-shadow: inset 0 1px rgb(255 255 255 / 48%), inset 0 -1px rgb(255 255 255 / 12%), 0 12px 32px rgb(0 0 0 / 18%);
         overflow: hidden;
-        box-shadow: var(--shadow);
       }
-      .pal-box input {
-        width: 100%;
-        border: 0;
-        background: none;
+      .pal::backdrop { background: rgb(18 22 26 / 20%); }
+      @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .pal {
+          background: linear-gradient(160deg, rgb(255 255 255 / 10%), transparent 34%), rgb(23 27 31 / 80%);
+          -webkit-backdrop-filter: blur(17px) saturate(.75);
+          backdrop-filter: blur(17px) saturate(.75);
+        }
+      }
+      .pal-box { display: flex; flex-direction: column; max-height: inherit; }
+      .pal-search {
+        display: flex;
+        align-items: center;
+        flex: none;
+        gap: 12px;
+        padding: 12px 15px 12px 19px;
+        border-bottom: 1px solid var(--glass-rule);
+      }
+      .pal-search .search-icon { font-size: 20px; }
+      .pal-search #pal-in {
+        flex: 1;
+        min-width: 0;
+        padding: 4px 0;
+        color: var(--glass-ink);
+        background: transparent;
         outline: none;
-        color: var(--fg);
-        font:
-          400 15px/1.5 Inter,
-          system-ui,
-          sans-serif;
-        padding: 15px 17px;
+        border: 0;
+        font: 450 18px/1.4 system-ui, sans-serif;
       }
-      #pal-in::placeholder {
-        color: var(--muted);
+      #pal-in::placeholder { color: var(--glass-muted); opacity: 1; }
+      .pal-close {
+        min-height: 32px;
+        padding: 0 8px;
+        border: 1px solid var(--glass-rule);
+        border-radius: 6px;
+        color: var(--glass-muted);
+        font: 12px var(--mono);
       }
+      .pal-close:focus-visible { outline-color: var(--glass-ink); }
       .pal-list {
-        max-height: min(46vh, 340px);
-        overflow: auto;
-        border-top: 1px solid var(--line);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        max-height: min(46dvh, 360px);
+        padding: 4px 7px 8px;
+        scrollbar-color: var(--glass-rule) transparent;
       }
-      .pal-group {
-        padding: 10px 17px 3px;
-        font:
-          500 10px/1.4 ui-monospace,
-          Menlo,
-          monospace;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
+      .pal-group { padding: 10px 11px 4px; color: var(--glass-muted); font: 11px/1.4 var(--mono); }
       .pal-list button {
+        position: relative;
         display: flex;
         flex-wrap: wrap;
+        align-items: baseline;
         gap: 2px 12px;
         width: 100%;
-        padding: 9px 17px;
+        min-height: 38px;
+        padding: 8px 12px;
+        border: 1px solid transparent;
+        border-radius: 8px;
         text-align: left;
-        font-size: 13.5px;
-        line-height: 1.35;
+        font-size: 14px;
       }
-      .pal-list button .lbl {
-        flex: 1 1 auto;
-        overflow-wrap: anywhere;
-        word-break: break-word;
+      .pal-list button .lbl { flex: 1 1 auto; overflow-wrap: anywhere; }
+      .pal-list button small { color: var(--glass-muted); font: 11px/1.5 var(--mono); overflow-wrap: anywhere; }
+      .pal-list button:hover, .pal-list button[aria-selected="true"] { background: var(--glass-selection); }
+      .pal-list button[aria-selected="true"] { border-color: var(--glass-rule); }
+      .pal-list button[aria-selected="true"]::before {
+        content: "";
+        position: absolute;
+        inset: 9px auto 9px 2px;
+        width: 3px;
+        border-radius: 2px;
+        background: color-mix(in srgb, var(--accent) 55%, white);
       }
-      .pal-list button small {
-        flex: none;
-        margin-left: auto;
-        color: var(--muted);
-        font:
-          400 11px/1.6 ui-monospace,
-          Menlo,
-          monospace;
-        overflow-wrap: anywhere;
+      .pal-empty { color: var(--glass-muted); margin: 8px 12px; }
+      @media (max-height: 500px), (max-width: 560px) {
+        .pal { inset-block-start: max(12px, env(safe-area-inset-top)); max-height: calc(100dvh - 24px); }
       }
-      .pal-list button.sel,
-      .pal-list button:hover {
-        background: var(--bg);
+      html[data-theme="contrast"] .pal {
+        background: var(--panel);
+        color: var(--fg);
+        --glass-ink: var(--fg);
+        --glass-muted: var(--fg);
+        --glass-rule: var(--line);
+        --glass-selection: #eee;
+        border-color: var(--line);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        box-shadow: none;
+      }
+      @media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) {
+        .pal { background: #222629; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; }
+        #pal-open { background: transparent; box-shadow: none; }
+      }
+      @media (forced-colors: active) {
+        .pal-list button[aria-selected="true"] { border-color: Highlight; }
       }
       /* ---------- modal ---------- */
       .modal {
@@ -1555,9 +1140,7 @@
       body.compact .card {
         padding: 10px 12px;
       }
-      body.compact .stats {
-        gap: 8px;
-      }
+      body.compact .tree tbody td, body.compact .tree tbody th { height: auto; padding-block: 4px; }
       body.compact .content {
         padding-left: 14px;
         padding-right: 14px;
@@ -1576,492 +1159,208 @@
         clip-path: inset(50%);
         white-space: nowrap;
       }
-      /* ---------- wide displays ---------- */
-      @media (min-width: 1520px) {
-        .content {
-          max-width: 1400px;
-        }
+      .lead {
+        font: 600 clamp(26px, 3vw, 38px)/1.2 system-ui, sans-serif;
+        letter-spacing: -.045em;
+        overflow-wrap: anywhere;
       }
-      @media (min-width: 2000px) {
-        .content {
-          max-width: 1560px;
-          padding-top: clamp(20px, 2vw, 40px);
-        }
-        .panels {
-          gap: 14px;
-        }
+      .panels { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 36px; }
+      .card p + .row { margin-top: 10px; }
+      .btn, input[type="text"], select { border-radius: 3px; }
+      @media (max-width: 720px) {
+        .panels { grid-template-columns: 1fr; }
+        .mast-inner { gap: 4px 12px; padding-block: 6px; }
+        .release { display: none; }
+        #side-toggle { display: inline-block; }
+        .nav-shell:has(.page-menu.mobile-closed) { display: none; }
+        .page-menu { gap: 0 18px; padding-block: 4px; }
+        .page-menu button { min-height: 36px; }
+        .page-menu button[data-page="settings"] { margin-left: 0; }
+        .kbd { display: none; }
       }
-      /* very tall + narrow slivers: everything single-column */
       @media (max-width: 560px) {
-        .panels,
-        .themes {
-          grid-template-columns: 1fr;
-        }
-        .stats {
-          grid-template-columns: repeat(
-            auto-fit,
-            minmax(min(100%, 140px), 1fr)
-          );
-        }
-        /* block flow here: text wraps unconditionally, no flex shrinking Games */
-        .top-inner {
-          display: block;
-        }
-        .top h1 {
-          margin: 0 0 3px;
-        }
-        .cwd {
-          display: block;
-          max-width: 100%;
-          margin-bottom: 8px;
-        }
-        .pill,
-        .pal-btn {
-          display: inline-flex;
-          margin: 0 8px 6px 0;
-        }
-      }
-      /* phone: sidebar becomes a bottom drawer rail */
-      @media (max-width: 760px) {
-        .app {
-          flex-direction: column;
-        }
-        .side {
-          order: 2;
-          position: fixed;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          top: auto;
-          width: auto;
-          height: auto;
-          z-index: 12;
-          border-right: 0;
+
+        .mast-inner { min-height: 48px; }
+        .connection { order: 3; margin-left: 0; width: 100%; font-size: 10px; }
+        #side-toggle { margin-left: auto; }
+        .checkout-head { align-items: start; }
+        .tree, .tree tbody { display: block; }
+        .tree thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
+        .tree tbody tr {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
           border-top: 1px solid var(--line);
-          padding-bottom: env(safe-area-inset-bottom);
+          padding-right: 2px;
         }
-        .brand {
-          padding: 9px 12px;
-          border-bottom: 1px solid var(--line);
-        }
-        .bname small {
-          white-space: nowrap;
-          overflow-wrap: normal;
-        }
-        .side-foot {
-          display: none;
-        }
-        .nav {
-          flex-direction: row;
-          overflow-x: auto;
-          overflow-y: hidden;
-          gap: 2px;
-          padding: 6px 8px;
-          scrollbar-width: none;
-        }
-        .nav::-webkit-scrollbar {
-          display: none;
-        }
-        .nav-group {
-          display: none;
-        }
-        .nav button {
-          flex: 0 0 auto;
-          width: auto;
-          min-width: 58px;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
-          padding: 6px 10px 7px;
-          border-radius: 9px;
-          text-align: center;
-        }
-        .nav button::before {
-          display: none;
-        }
-        .nav button .lbl {
-          flex: none;
-          font-size: 10px;
-          line-height: 1.15;
-          letter-spacing: -0.01em;
-          text-align: center;
-          max-width: 9ch;
-          margin-inline: auto;
-        }
-        .nav button .cnt {
-          display: none;
-        }
-        .main {
-          order: 1;
-        }
-        .content {
-          padding-bottom: 150px;
-        }
+        .tree tbody tr:last-child { border-bottom: 1px solid var(--line); }
+        .tree tbody th, .tree tbody td { border: 0; height: auto; text-align: left; }
+        .tree tbody th:first-child { width: auto; padding: 11px 4px 0 0; font-size: 13px; }
+        .tree tbody th::before { left: 0; }
+        .tree tbody tr { position: relative; }
+        .tree tbody tr:not(:last-child)::before { content: ""; position: absolute; inset: 0 auto -1px 0; border-left: 1px solid var(--muted); }
+        .tree tbody td:nth-child(2) { grid-column: 1; padding: 2px 4px 10px 26px; color: var(--muted); font-size: 12px; }
+        .tree tbody td:last-child { grid-column: 2; grid-row: 1 / 3; align-self: center; padding: 0; }
+        .tree tbody .tree-action { font-size: 11px; }
+
       }
-      /* classic phones in landscape: keep the rail, shrink the console */
-      @media (max-width: 914px) and (max-height: 480px) and (orientation: landscape) {
-        .side .nav {
-          padding: 4px 6px;
-        }
-        .nav button {
-          min-width: 48px;
-        }
-        .term-out {
-          height: 38vh;
-          min-height: 150px;
-        }
-        .content {
-          padding-bottom: 96px;
-        }
-      }
-      /* ultra-wide: three-ish columns, cap the measure */
-      @media (min-width: 1400px) {
-        .panels {
-          grid-template-columns: repeat(
-            auto-fill,
-            minmax(min(100%, 340px), 1fr)
-          );
-        }
-      }
-      /* print: kill the chrome */
       @media print {
-        .side,
-        .top,
-        .pal,
-        .modal {
-          display: none !important;
-        }
-        .content {
-          padding: 0;
-        }
-        body {
-          background: #fff;
-        }
-      }
-      /* collapsed rail (desktop): icons only, labels kept for screen readers */
-      @media (min-width: 761px) {
-        body.narrow .side {
-          width: 64px;
-        }
-        body.narrow .brand {
-          position: relative;
-          padding: 14px 8px;
-          justify-content: center;
-        }
-        body.narrow .bname {
-          display: none;
-        }
-        body.narrow .brand #side-toggle {
-          position: absolute;
-          top: 14px;
-          right: 8px;
-          transform: rotate(180deg);
-        }
-        body.narrow .nav {
-          padding: 8px 6px;
-        }
-        body.narrow .nav button {
-          justify-content: center;
-          padding: 9px 0;
-        }
-        body.narrow .nav button .lbl {
-          position: absolute;
-          width: 1px;
-          height: 1px;
-          overflow: hidden;
-          clip-path: inset(50%);
-          white-space: nowrap;
-        }
-        body.narrow .nav button .cnt {
-          display: none;
-        }
-        body.narrow .nav button::before {
-          left: auto;
-          right: 2px;
-          top: 24%;
-          bottom: 24%;
-        }
-        body.narrow .nav-group {
-          margin: 12px 0 2px;
-          text-align: center;
-          font-size: 0;
-        }
-        body.narrow .nav-group::after {
-          content: "···";
-          font-size: 9px;
-          letter-spacing: 0.08em;
-        }
-        body.narrow .side-foot {
-          padding: 8px;
-        }
-        body.narrow #side-cwd {
-          display: none;
-        }
-        body.narrow .ver-pill {
-          font-size: 9.5px;
-          min-height: 34px;
-          padding: 4px 3px;
-          line-height: 1.3;
-        }
+        .mast, .nav-shell, .pal, .modal, .tree-action, .text-action { display: none !important; }
+        .content { padding: 0; }
       }
     </style>
   </head>
   <body>
-    <div class="app">
-      <aside class="side" aria-label="primary">
-        <div class="brand">
-          <span class="mark" aria-hidden="true">ah</span>
-          <span class="bname"
-            ><b>agent-harness</b><small id="brand-ver">local gui</small></span
-          >
-          <button
-            id="side-toggle"
-            title="collapse sidebar"
-            aria-label="collapse sidebar"
-          >
-            ‹
-          </button>
-        </div>
-        <nav class="nav" id="nav" aria-label="pages">
-          <div class="nav-group">Workspace</div>
-          <button data-page="overview" aria-current="page">
-            <span class="ico" aria-hidden="true">◉</span
-            ><span class="lbl">Overview</span>
-          </button>
-          <button data-page="agents">
-            <span class="ico" aria-hidden="true">⚙</span
-            ><span class="lbl">Agents</span
-            ><span class="cnt" id="nav-agents"></span>
-          </button>
-          <button data-page="commands">
-            <span class="ico" aria-hidden="true">▸</span
-            ><span class="lbl">Commands</span>
-          </button>
-          <div class="nav-group">Library</div>
-          <button data-page="memory">
-            <span class="ico" aria-hidden="true">✎</span
-            ><span class="lbl">Memory</span>
-          </button>
-          <button data-page="skills">
-            <span class="ico" aria-hidden="true">✣</span
-            ><span class="lbl">Skills</span>
-          </button>
-          <button data-page="project">
-            <span class="ico" aria-hidden="true">▤</span
-            ><span class="lbl">Project</span>
-          </button>
-          <div class="nav-group">System</div>
-          <button data-page="activity">
-            <span class="ico" aria-hidden="true">≣</span
-            ><span class="lbl">Activity</span
-            ><span class="cnt" id="nav-act"></span>
-          </button>
-          <button data-page="settings">
-            <span class="ico" aria-hidden="true">✦</span
-            ><span class="lbl">Settings</span>
-          </button>
-          <button id="nav-update">
-            <span class="ico" aria-hidden="true">↻</span
-            ><span class="lbl">Update</span
-            ><span class="cnt" id="nav-upd"></span>
-          </button>
-          <button data-page="about">
-            <span class="ico" aria-hidden="true">ⓘ</span
-            ><span class="lbl">About</span>
-          </button>
-        </nav>
-        <div class="side-foot">
-          <button class="ver-pill" id="upd-pill" title="update status">
-            …
-          </button>
-          <span id="side-cwd"></span>
-        </div>
-      </aside>
-      <div class="main">
-        <header class="top">
-          <div class="top-inner">
-            <h1 id="page-title">Overview</h1>
-            <span class="cwd" id="cwd"></span>
-            <span class="spacer"></span>
-            <span class="pill"
-              ><span class="dot"></span
-              ><span id="srv-state">server live</span></span
-            >
-            <button class="pal-btn" id="pal-open" title="command palette">
-              ⌘K <span class="kbd">Ctrl K</span>
-            </button>
-          </div>
-        </header>
-        <main class="content">
-          <section class="page on" data-page="overview" aria-label="Overview">
-            <p class="eyebrow">Front page</p>
-            <h2 class="lead">Project health at a glance.</h2>
-            <p class="sub">
-              Live snapshot of this checkout, read from the harness server. No
-              CLI commands needed.
-            </p>
-            <div class="stats" id="stats"></div>
-            <div class="panels">
-              <div class="card">
-                <h3>Quick actions</h3>
-                <p>One click runs the matching harness command.</p>
-                <div class="row">
-                  <button class="btn small ghost" data-quick="status">
-                    status
-                  </button>
-                  <button class="btn small ghost" data-quick="doctor">
-                    check setup
-                  </button>
-                  <button class="btn small ghost" data-quick="upgrade --check">
-                    check updates
-                  </button>
-                  <button class="btn small ghost" data-goto="agents">
-                    ask an agent
-                  </button>
-                </div>
+    <header class="mast">
+      <div class="mast-inner">
+        <button class="wordmark" data-goto="overview" aria-label="agent-harness inspector"><svg class="wordmark-sign" aria-hidden="true" viewBox="0 0 20 20"><path d="M3 2v15h14M3 7h10M7 12h10" fill="none" stroke="currentColor" stroke-width="2"/></svg>agent-harness</button>
+        <button class="release" id="upd-pill" title="Show version and update details">Version</button>
+        <span class="connection" id="srv-state" role="status">Connecting</span>
+        <button class="mast-control" id="side-toggle" aria-controls="nav" aria-expanded="true">Pages</button>
+        <button class="mast-control" id="pal-open" aria-haspopup="dialog" aria-controls="pal"><svg class="search-icon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>Find command <kbd class="kbd" id="palette-key">Ctrl K</kbd></button>
+      </div>
+    </header>
+    <div class="nav-shell">
+      <nav class="page-menu" id="nav" aria-label="Workspace">
+          <button data-page="overview" aria-current="page">Inspector</button>
+          <button data-page="memory">Memory</button>
+          <button data-page="skills">Skills</button>
+          <button data-page="project">Files</button>
+          <button data-page="activity">Activity<span class="count" id="nav-act"></span></button>
+          <button data-page="settings">Settings</button>
+          <button data-page="about">About</button>
+          <button id="nav-update">Updates<span class="count" id="nav-upd"></span></button>
+      </nav>
+    </div>
+    <main class="content">
+          <section class="page on" data-page="overview" aria-label="Checkout inspector">
+            <div class="checkout-head">
+              <div>
+                <h1 id="project-name">Current checkout</h1>
+                <code class="cwd" id="cwd"></code>
               </div>
-              <div class="card">
-                <h3>Recent activity</h3>
-                <p>Latest runs from this browser session.</p>
-                <div id="recent"></div>
-              </div>
+              <button class="tree-action primary" data-quick="status">Run status</button>
             </div>
-          </section>
-          <section class="page" data-page="agents" aria-label="Agents">
-            <p class="eyebrow">Agents</p>
-            <h2 class="lead">Run a prompt.</h2>
-            <p class="sub" id="agents-note">
-              Non-interactive runs through an installed coding agent, in the
-              project above. Unavailable agents show why. agent-harness is not
-              affiliated with any agent vendor.
-            </p>
-            <div class="panels" id="agents-box"></div>
-          </section>
-          <section class="page" data-page="commands" aria-label="Commands">
-            <p class="eyebrow">Commands</p>
-            <h2 class="lead">A terminal, already running harness.</h2>
-            <p class="sub">
-              Menu runs the interactive harness; shell is a plain bash in this
-              project. Click inside and type.
-            </p>
-            <div class="term" id="term">
-              <div class="term-bar">
-                <span class="tdot"></span><span class="tdot"></span
-                ><span class="tdot"></span>
-                <span class="tname" id="term-name">harness — menu</span>
-                <button class="tbtn" id="term-menu" aria-pressed="true">
-                  menu
-                </button>
-                <button class="tbtn" id="term-shell" aria-pressed="false">
-                  shell
-                </button>
-                <button class="tbtn" id="term-restart">restart</button>
-              </div>
-              <div
-                class="term-out"
-                id="term-out"
-                tabindex="0"
-                aria-label="harness terminal. Click and type."
-              ></div>
-              <div class="term-kbd">
-                <span class="tprompt">❯</span>
-                <input
-                  type="text"
-                  id="term-kbd-in"
-                  placeholder="tap here for keyboard…"
-                  aria-label="terminal keyboard"
-                  autocomplete="off"
-                  autocapitalize="off"
-                  spellcheck="false"
-                />
-              </div>
+            <div class="inspector-body">
+              <section aria-labelledby="tree-title">
+                <h2 class="section-title" id="tree-title">Working tree</h2>
+                <table class="tree" aria-label="Checkout files and commands">
+              <thead><tr><th scope="col">Project path</th><th scope="col">State</th><th scope="col">Action</th></tr></thead>
+              <tbody>
+                <tr>
+                  <th scope="row"><span class="branch" aria-hidden="true"></span>.harness/config.json</th>
+                  <td id="config-state">Loading…</td>
+                  <td><button class="tree-action" data-quick="doctor">Check setup</button></td>
+                </tr>
+                <tr>
+                  <th scope="row"><span class="branch" aria-hidden="true"></span>.harness/bench.json</th>
+                  <td id="bench-state">Loading…</td>
+                  <td><button class="tree-action" data-quick="bench --quick">Run benchmark</button></td>
+                </tr>
+                <tr>
+                  <th scope="row"><span class="branch" aria-hidden="true"></span>MEMORY.md</th>
+                  <td id="memory-state">Loading…</td>
+                  <td><button class="tree-action" data-goto="memory">Open memory</button></td>
+                </tr>
+                <tr>
+                  <th scope="row"><span class="branch" aria-hidden="true"></span>skills/</th>
+                  <td id="skills-state">Loading…</td>
+                  <td><button class="tree-action" data-goto="skills">Browse skills</button></td>
+                </tr>
+              </tbody>
+            </table>
+              </section>
+              <section aria-labelledby="checkout-title">
+                <h2 class="section-title" id="checkout-title">Checkout details</h2>
+                <dl class="runtime">
+                  <div id="branch-row" hidden><dt>Branch</dt><dd id="git-branch"></dd></div>
+                  <div id="revision-row" hidden><dt>Revision</dt><dd id="git-revision"></dd></div>
+              <div><dt>Optimizations</dt><dd id="optimization-state">…</dd></div>
+              <div><dt>Ollama</dt><dd id="model-state">…</dd></div>
+                </dl>
+              </section>
             </div>
+            <section class="session-log" aria-labelledby="session-title">
+              <div class="section-head">
+                <h2 class="section-title" id="session-title">Session history</h2>
+                <button class="text-action" data-goto="activity">View all activity</button>
+              </div>
+              <div id="recent"></div>
+            </section>
           </section>
           <section class="page" data-page="memory" aria-label="Memory">
-            <p class="eyebrow">Memory</p>
-            <h2 class="lead">What the harness remembers.</h2>
+            <h1 class="lead">Project memory</h1>
             <p class="sub">
-              Read MEMORY.md, or append a note to it. Notes sync into the file
-              immediately.
+              Notes are appended to <code>MEMORY.md</code> in this checkout.
             </p>
-            <div class="panels">
+            <div class="form-strip">
               <div class="card">
-                <h3>Add a note</h3>
-                <p>Appends one line to MEMORY.md in this project.</p>
+                <h3><label for="mem-note">Add a note</label></h3>
                 <div class="row">
                   <input
                     class="grow"
                     type="text"
                     id="mem-note"
-                    placeholder="something worth remembering…"
+                    placeholder="Write a project note…"
                     aria-label="memory note"
                   />
-                  <button class="btn small" id="mem-add">sync note</button>
+                  <button class="btn small" id="mem-add">Save note</button>
                 </div>
               </div>
             </div>
-            <div class="panels after-panels" id="mem-cards"></div>
+            <div class="viewer-list" id="mem-cards"></div>
           </section>
           <section class="page" data-page="skills" aria-label="Skills">
-            <p class="eyebrow">Skills</p>
-            <h2 class="lead">Extend the harness.</h2>
+            <h1 class="lead">Skill library</h1>
             <p class="sub">
-              Search installed skills, check their health, or browse the full
-              list.
+              Search installed skills by name or description.
             </p>
-            <div class="panels">
+            <div class="form-strip">
               <div class="card">
-                <h3>Search skills</h3>
-                <p>Matches names and descriptions.</p>
+                <h3><label for="skill-q">Search skills</label></h3>
                 <div class="row">
                   <input
                     class="grow"
                     type="text"
                     id="skill-q"
-                    placeholder="e.g. performance"
+                    placeholder="Skill name or description"
                     aria-label="skill search"
                   />
-                  <button class="btn small" id="skill-go">search</button>
+                  <button class="btn small" id="skill-go">Search</button>
                   <button class="btn small ghost" id="skill-lint">
-                    lint all
+                    Check all skills
                   </button>
                 </div>
               </div>
             </div>
-            <div class="panels after-panels" id="skill-cards"></div>
+            <div class="viewer-list" id="skill-cards"></div>
           </section>
           <section class="page" data-page="project" aria-label="Project">
-            <p class="eyebrow">Project</p>
-            <h2 class="lead">Read the project files.</h2>
+            <h1 class="lead">Project files</h1>
             <p class="sub">
-              Read-only viewers over the live project: snapshot, memory, skills.
+              Inspect files and command output from this checkout.
             </p>
-            <div class="panels" id="proj-cards"></div>
+            <div class="viewer-list" id="proj-cards"></div>
           </section>
           <section class="page" data-page="activity" aria-label="Activity">
-            <p class="eyebrow">Activity</p>
-            <h2 class="lead">What ran here.</h2>
+            <h1 class="lead">Session activity</h1>
             <p class="sub">
-              Every command and agent run from this browser session, newest
-              first.
+              Commands run in this browser session, newest first.
             </p>
             <div class="row" style="margin-bottom: 12px">
-              <button class="btn small ghost" id="act-clear">clear log</button>
+              <button class="btn small ghost" id="act-clear">Clear history</button>
             </div>
             <div class="actwrap" id="act-box">
-              <p class="note">Nothing run yet.</p>
+              <p class="note">No commands have run in this session.</p>
             </div>
           </section>
           <section class="page" data-page="about" aria-label="About">
-            <p class="eyebrow">About</p>
-            <h2 class="lead">This machine, this build.</h2>
+            <h1 class="lead">System and build</h1>
             <p class="sub">
-              System facts, release identity, credits and licenses. Read from
-              the live server.
+              Runtime, release information and project notices.
             </p>
             <div class="row" style="margin-bottom: 12px">
               <button class="btn small ghost" id="about-refresh">
-                refresh
+                Refresh
               </button>
             </div>
             <div class="panels" id="about-panels">
@@ -2069,166 +1368,72 @@
             </div>
           </section>
           <section class="page" data-page="settings" aria-label="Settings">
-            <p class="eyebrow">Settings</p>
-            <h2 class="lead">Make it yours.</h2>
-            <p class="sub">
-              Theme applies instantly and is remembered in this browser.
-            </p>
-            <h3 class="set-group">Look and feel</h3>
-            <div class="card" style="margin-bottom: 12px">
-              <h3>Theme</h3>
-              <p>
-                Nineteen looks. Regular is the default. Applies instantly,
-                remembered in this browser.
-              </p>
-              <div class="themes" id="themes"></div>
-            </div>
-            <div class="panels">
-              <div class="card">
-                <h3>Appearance</h3>
-                <p>Density and motion for this browser.</p>
+            <h1 class="lead">Workspace settings</h1>
+            <p class="sub">Preferences are saved in this browser.</p>
+            <section class="preferences">
+              <h2 class="set-group">Appearance</h2>
+              <div>
                 <div class="setrow">
-                  <span class="grow"
-                    >Compact cards<small
-                      >Tighter padding everywhere.</small
-                    ></span
-                  >
-                  <input
-                    class="switch"
-                    type="checkbox"
-                    id="set-compact"
-                    aria-label="compact cards"
-                  />
+                  <label for="themes">Color theme</label>
+                  <div class="theme-field"><span class="theme-swatch" aria-hidden="true"></span><select id="themes"></select></div>
                 </div>
+                <label class="setrow" for="set-compact">Compact layout<input type="checkbox" id="set-compact" /></label>
+                <label class="setrow" for="set-motion">Reduce motion<input type="checkbox" id="set-motion" /></label>
+              </div>
+            </section>
+            <section class="preferences">
+              <h2 class="set-group">Behavior</h2>
+              <div>
+                <label class="setrow" for="set-confirm-cmd">Confirm before running commands<input type="checkbox" id="set-confirm-cmd" /></label>
+                <label class="setrow" for="set-remember">Remember last page<input type="checkbox" id="set-remember" /></label>
+              </div>
+            </section>
+            <section class="preferences">
+              <h2 class="set-group">Session history</h2>
+              <div>
                 <div class="setrow">
-                  <span class="grow"
-                    >Reduce motion<small
-                      >Disables animations and transitions.</small
-                    ></span
-                  >
-                  <input
-                    class="switch"
-                    type="checkbox"
-                    id="set-motion"
-                    aria-label="reduce motion"
-                  />
+                  <label for="set-keeplog">Commands to keep</label>
+                  <select id="set-keeplog"><option>25</option><option>50</option><option selected>100</option></select>
+                </div>
+                <div class="row preference-actions">
+                  <button class="btn small ghost" id="act-export">Export JSON</button>
+                  <button class="btn small ghost" id="act-clear2">Clear history</button>
                 </div>
               </div>
-            </div>
-            <h3 class="set-group">Behavior</h3>
-            <div class="panels">
-              <div class="card">
-                <h3>Confirmations</h3>
-                <p>Ask before side effects happen.</p>
-                <div class="setrow">
-                  <span class="grow"
-                    >Confirm before running commands<small
-                      >bench, optimize and map can take a while.</small
-                    ></span
-                  >
-                  <input
-                    class="switch"
-                    type="checkbox"
-                    id="set-confirm-cmd"
-                    aria-label="confirm before running commands"
-                  />
-                </div>
-                <div class="setrow">
-                  <span class="grow"
-                    >Confirm before agent runs<small
-                      >Agent calls cost time and tokens.</small
-                    ></span
-                  >
-                  <input
-                    class="switch"
-                    type="checkbox"
-                    id="set-confirm-agent"
-                    aria-label="confirm before agent runs"
-                    checked
-                  />
+            </section>
+            <section class="preferences">
+              <h2 class="set-group">Local server</h2>
+              <div>
+                <p id="srv-info" class="server-path"></p>
+                <div class="row preference-actions">
+                  <button class="btn small ghost" id="set-copy-url">Copy URL</button>
+                  <button class="btn small danger" id="quit">Stop server</button>
                 </div>
               </div>
-              <div class="card">
-                <h3>Navigation</h3>
-                <p>Where the GUI starts.</p>
-                <div class="setrow">
-                  <span class="grow"
-                    >Remember last page<small
-                      >Reopen on the page you left.</small
-                    ></span
-                  >
-                  <input
-                    class="switch"
-                    type="checkbox"
-                    id="set-remember"
-                    aria-label="remember last page"
-                  />
-                </div>
-              </div>
-            </div>
-            <h3 class="set-group">Data</h3>
-            <div class="panels">
-              <div class="card">
-                <h3>Activity log</h3>
-                <p>How much run history this browser keeps.</p>
-                <div class="setrow">
-                  <span class="grow">Keep last runs</span>
-                  <select id="set-keeplog" aria-label="runs to keep">
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100" selected>100</option>
-                  </select>
-                </div>
-                <div class="row" style="margin-top: 10px">
-                  <button class="btn small ghost" id="act-export">
-                    export json
-                  </button>
-                  <button class="btn small ghost" id="act-clear2">
-                    clear log
-                  </button>
-                </div>
-              </div>
-            </div>
-            <h3 class="set-group">System</h3>
-            <div class="panels">
-              <div class="card">
-                <h3>Server</h3>
-                <p id="srv-info">…</p>
-                <div class="row">
-                  <button class="btn small ghost" id="set-copy-url">
-                    copy url
-                  </button>
-                  <button class="btn small danger" id="quit">
-                    stop server
-                  </button>
-                </div>
-              </div>
-            </div>
+            </section>
           </section>
-          <section aria-label="Output" style="margin-top: 30px">
-            <div class="row" style="margin-bottom: 6px; align-items: baseline">
-              <h2 class="lead" style="font-size: 19px; margin: 0">Output</h2>
-              <span class="spacer"></span>
-              <button class="btn small ghost" id="clear">clear output</button>
+          <section aria-label="Output" class="output-section">
+            <div class="section-head">
+              <h2 class="section-title">Command output</h2>
+              <button class="text-action" id="clear">Clear output</button>
             </div>
             <div id="out">
-              <p class="note">Nothing run yet. Pick a command above.</p>
+              <p class="note output-empty">Run a command to see its output here.</p>
             </div>
           </section>
-        </main>
-      </div>
-    </div>
-    <div class="pal" id="pal">
+    </main>
+    <dialog class="pal" id="pal" aria-label="Find command">
       <div class="pal-box">
-        <input
-          id="pal-in"
-          type="text"
-          placeholder="Type a command or page…"
-          aria-label="command palette"
-        />
-        <div class="pal-list" id="pal-list"></div>
+        <div class="pal-search">
+          <svg class="search-icon" aria-hidden="true" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+          <input id="pal-in" type="text" role="combobox" aria-label="Find a command or page"
+            aria-controls="pal-list" aria-autocomplete="list" aria-expanded="true"
+            autocomplete="off" spellcheck="false" placeholder="Find a command or page…" />
+          <button class="pal-close" id="pal-close" aria-label="Close search">Esc</button>
+        </div>
+        <div class="pal-list" id="pal-list" role="listbox" aria-label="Search results"></div>
       </div>
-    </div>
+    </dialog>
     <div class="modal" id="upd-modal">
       <div class="modal-box" role="dialog" aria-label="update info">
         <header>
@@ -2237,139 +1442,89 @@
         </header>
         <div class="kv" id="upd-rows"><p class="note">Loading…</p></div>
         <footer>
-          <button class="btn small" id="upd-check">check for updates</button>
-          <button class="btn small ghost" id="upd-goto-out">view output</button>
+          <button class="btn small" id="upd-check">Check for updates</button>
+          <button class="btn small ghost" id="upd-goto-out">View output</button>
         </footer>
       </div>
     </div>
     <script>
       "use strict";
-      const AGENTS = [
-        {
-          id: "opencode",
-          t: "Opencode",
-          d: "Runs opencode run with your prompt in this project.",
-        },
-        {
-          id: "claude",
-          t: "Claude Code",
-          d: "Runs claude -p with your prompt in this project.",
-        },
-      ];
       const THEMES = [
         {
           id: "regular",
           t: "Regular",
-          d: "Clean light default.",
-          sw: ["#ffffff", "#f4f4f2", "#1f6feb"],
         },
         {
           id: "dark",
           t: "Dark",
-          d: "Low-light gray.",
-          sw: ["#1b1d21", "#131417", "#4c8dff"],
         },
         {
           id: "midnight",
           t: "Midnight",
-          d: "True black, OLED friendly.",
-          sw: ["#0a0a0a", "#000000", "#7c6cff"],
         },
         {
           id: "contrast",
           t: "High contrast",
-          d: "Maximum legibility.",
-          sw: ["#ffffff", "#000000", "#0000cc"],
         },
         {
           id: "harvest",
           t: "Harvest",
-          d: "Warm retro cream and burnt orange.",
-          sw: ["#fffdf0", "#fbf1c7", "#af3a03"],
         },
         {
           id: "pine",
           t: "Pine",
-          d: "Deep forest green dark.",
-          sw: ["#12291d", "#0d1f16", "#57c785"],
         },
         {
           id: "tidal",
           t: "Tidal",
-          d: "Deep ocean blue dark.",
-          sw: ["#0f1f38", "#0a1628", "#38bdf8"],
         },
         {
           id: "dusk",
           t: "Dusk",
-          d: "Muted violet dark.",
-          sw: ["#1e1629", "#150f1e", "#a78bfa"],
         },
         {
           id: "ember",
           t: "Ember",
-          d: "Smoky warm orange dark.",
-          sw: ["#241410", "#1a0f0a", "#fb923c"],
         },
         {
           id: "espresso",
           t: "Espresso",
-          d: "Roasted coffee brown dark.",
-          sw: ["#1e1812", "#14100c", "#d4a373"],
         },
         {
           id: "storm",
           t: "Storm",
-          d: "Blue-gray slate dark.",
-          sw: ["#181e27", "#11151c", "#7dd3fc"],
         },
         {
           id: "glacier",
           t: "Glacier",
-          d: "Icy blue light.",
-          sw: ["#ffffff", "#eef4f8", "#0284c7"],
         },
         {
           id: "meadow",
           t: "Meadow",
-          d: "Soft green light.",
-          sw: ["#ffffff", "#f0f7f1", "#16a34a"],
         },
         {
           id: "blossom",
           t: "Blossom",
-          d: "Soft pink light.",
-          sw: ["#ffffff", "#faf0f3", "#db2777"],
         },
         {
           id: "dune",
           t: "Dune",
-          d: "Warm sand light.",
-          sw: ["#fffdf7", "#f5efe4", "#9a3412"],
         },
         {
           id: "birch",
           t: "Birch",
-          d: "Neutral gray light.",
-          sw: ["#ffffff", "#f2f2f0", "#374151"],
         },
         {
           id: "clay",
           t: "Clay",
-          d: "Terracotta tint light.",
-          sw: ["#fffaf7", "#f7ece6", "#c2410c"],
         },
         {
           id: "orchid",
           t: "Orchid",
-          d: "Lavender tint light.",
-          sw: ["#ffffff", "#f3eff9", "#7c3aed"],
         },
         {
           id: "moss",
           t: "Moss",
-          d: "Olive green dark.",
-          sw: ["#1a1d11", "#12140c", "#a3e635"],
         },
       ];
       const $ = (s) => document.querySelector(s);
@@ -2392,37 +1547,19 @@
         } catch (e) {
           /* private mode */
         }
-        document
-          .querySelectorAll(".theme")
-          .forEach((b) =>
-            b.setAttribute(
-              "aria-pressed",
-              b.dataset.theme === use ? "true" : "false",
-            ),
-          );
+        $("#themes").value = use;
       }
       function renderThemes() {
-        const box = $("#themes");
-        THEMES.forEach((t) => {
-          const b = document.createElement("button");
-          b.className = "theme";
-          b.dataset.theme = t.id;
-          b.innerHTML =
-            `<span class="sw" style="background:${t.sw[0]}">` +
-            t.sw.map((c) => `<i style="background:${c}"></i>`).join("") +
-            `</span><span class="nm">${esc(t.t)}</span><span class="ds">${esc(t.d)}</span>`;
-          b.addEventListener("click", () => setTheme(t.id));
-          box.appendChild(b);
-        });
+        const select = $("#themes");
+        THEMES.forEach((theme) => select.add(new Option(theme.t, theme.id)));
+        select.addEventListener("change", () => setTheme(select.value));
       }
       /* nav */
       const TITLES = {
-        overview: "Overview",
-        agents: "Agents",
-        commands: "Commands",
+        overview: "Inspector",
         memory: "Memory",
         skills: "Skills",
-        project: "Project",
+        project: "Files",
         activity: "Activity",
         settings: "Settings",
         about: "About",
@@ -2452,9 +1589,6 @@
         get confirmCmd() {
           return store("ah-confirm-cmd") === "1";
         },
-        get confirmAgent() {
-          return store("ah-confirm-agent") !== "0";
-        },
         get remember() {
           return store("ah-remember") === "1";
         },
@@ -2479,15 +1613,13 @@
         document
           .querySelectorAll(".page")
           .forEach((s) => s.classList.toggle("on", s.dataset.page === page));
-        $("#page-title").textContent = TITLES[page] || page;
-        curPage = page;
+        document.title = (TITLES[page] || page) + " · agent-harness";
         try {
           location.hash = page;
         } catch (e) {
           /* ignore */
         }
         if (SET.remember) store("ah-page", page);
-        if (page === "commands") termStart();
         if (page === "about") renderAbout();
         window.scrollTo(0, 0);
       }
@@ -2513,17 +1645,18 @@
         return (
           `<tr><td>${esc(new Date(a.t).toLocaleTimeString())}</td><td>${esc(a.cmd)}</td>` +
           `<td>${a.ms >= 1000 ? (a.ms / 1000).toFixed(1) + "s" : a.ms + "ms"}</td>` +
-          `<td style="color:var(--${a.ok ? "ok" : "bad"});font-weight:700">${a.ok ? "ok" : "FAIL"}</td></tr>`
+          `<td style="color:var(--${a.ok ? "ok" : "bad"});font-weight:700">${a.ok ? "Passed" : "Failed"}</td></tr>`
         );
       }
       function renderAct() {
         $("#nav-act").textContent = log.length ? String(log.length) : "";
-        $("#recent").innerHTML = log.length
-          ? `<div class="actwrap"><table class="act"><tbody>${log.slice(0, 5).map(actRow).join("")}</tbody></table></div>`
-          : `<p class="note">No runs yet this session.</p>`;
-        $("#act-box").innerHTML = log.length
-          ? `<table class="act"><thead><tr><th>time</th><th>command</th><th>took</th><th>result</th></tr></thead><tbody>${log.map(actRow).join("")}</tbody></table>`
-          : `<p class="note">Nothing run yet.</p>`;
+        const table = (rows) =>
+          `<table class="act"><thead><tr><th scope="col">Time</th><th scope="col">Command</th><th scope="col">Duration</th><th scope="col">Result</th></tr></thead><tbody>${rows.map(actRow).join("")}</tbody></table>`;
+        const empty = '<p class="note">No commands have run in this session.</p>';
+        $("#recent").innerHTML = log.length ? `<div class="actwrap">${table(log.slice(0, 5))}</div>` : empty;
+        $("#act-box").innerHTML = log.length ? table(log) : empty;
+        $("#act-clear").disabled = $("#act-clear2").disabled = !log.length;
+        $("#act-export").disabled = !log.length;
       }
       /* command runs */
       let n = 0;
@@ -2557,7 +1690,7 @@
           const ms = Math.round(performance.now() - t0);
           div.querySelector("header").innerHTML =
             `<span class="${r.ok ? "ok" : "bad"}">${r.ok ? "ok" : "FAIL"}</span><code>${esc(shown)}</code>` +
-            `<span class="ms">${ms}ms</span><span class="mini"><button class="linkbtn" data-copy="${id}">copy</button></span>`;
+            `<span class="ms">${ms}ms</span><span class="mini"><button class="linkbtn" data-copy="${id}">Copy</button></span>`;
           div.querySelector("pre").textContent = r.output || "(no output)";
           pushAct(shown, ms, r.ok);
           return !!r.ok;
@@ -2579,72 +1712,15 @@
           navigator.clipboard.writeText(pre.textContent);
         b.textContent = "copied";
         setTimeout(() => {
-          b.textContent = "copy";
+          b.textContent = "Copy";
         }, 1200);
       });
-      function agentCard(a, available) {
-        const el = document.createElement("div");
-        el.className = "card";
-        el.innerHTML =
-          `<h3>${esc(a.t)}</h3><p>${esc(a.d)}</p>` +
-          `<textarea placeholder="a prompt for ${esc(a.id)}…" aria-label="prompt"></textarea>` +
-          `<div class="row" style="margin-top:10px"><button class="btn small"${available ? "" : " disabled"}>run${available ? "" : " (not installed)"}</button></div>`;
-        const btn = el.querySelector("button");
-        const box = el.querySelector("textarea");
-        box.addEventListener("keydown", (e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && available)
-            btn.click();
-        });
-        if (available)
-          btn.addEventListener("click", async () => {
-            const v = box.value.trim();
-            if (!v) {
-              box.focus();
-              return;
-            }
-            if (
-              SET.confirmAgent &&
-              !confirm(
-                `Ask ${a.id} (${v.length} chars)? Agent runs cost time and tokens.`,
-              )
-            )
-              return;
-            const out = outBox();
-            const id = "run-" + ++n;
-            const div = document.createElement("div");
-            div.className = "run";
-            div.id = id;
-            div.innerHTML = `<header><span class="spin"></span><code>${esc(a.id)} ← prompt (${v.length} chars)</code></header><pre>running — agents can take minutes…</pre>`;
-            out.prepend(div);
-            btn.disabled = true;
-            const t0 = performance.now();
-            try {
-              const r = await api("/api/agent", { agent: a.id, prompt: v });
-              const ms = Math.round(performance.now() - t0);
-              div.querySelector("header").innerHTML =
-                `<span class="${r.ok ? "ok" : "bad"}">${r.ok ? "ok" : "FAIL"}</span><code>${esc(a.id)} ← prompt (${v.length} chars)</code>` +
-                `<span class="ms">${(ms / 1000).toFixed(1)}s</span><span class="mini"><button class="linkbtn" data-copy="${id}">copy</button></span>`;
-              div.querySelector("pre").textContent = r.output || "(no output)";
-              pushAct(a.id + " ← prompt", ms, r.ok);
-            } catch (e) {
-              div.querySelector("header").innerHTML =
-                `<span class="bad">error</span><code>${esc(a.id)}</code>`;
-              div.querySelector("pre").textContent = String(
-                (e && e.message) || e,
-              );
-              pushAct(a.id + " ← prompt", 0, false);
-            } finally {
-              btn.disabled = false;
-            }
-          });
-        return el;
-      }
       /* project viewers */
       const VIEWERS = [
         {
           cmd: "status",
           t: "Snapshot",
-          d: "Init state, memory, skills, hooks, last benchmark.",
+          d: "Configuration, hooks and benchmark status.",
           args: [],
         },
         {
@@ -2662,10 +1738,10 @@
       ];
       function projCard(v) {
         const el = document.createElement("div");
-        el.className = "card";
+        el.className = "viewer";
         el.innerHTML =
-          `<h3>${esc(v.t)}</h3><p>${esc(v.d)}</p>` +
-          `<div class="row"><button class="btn small ghost">load</button></div><div class="view"></div>`;
+          `<div class="viewer-head"><div><h2>${esc(v.t)}</h2><p>${esc(v.d)}</p></div>` +
+          `<button class="btn small ghost" aria-label="View ${esc(v.t)}">View</button></div><div class="view"></div>`;
         const btn = el.querySelector("button");
         const view = el.querySelector(".view");
         btn.addEventListener("click", async () => {
@@ -2691,41 +1767,20 @@
       }
       /* overview stats */
       function renderStats(p) {
-        const init = p ? p.initialized : "?";
-        const mem =
-          p && typeof p.memTokens === "number"
-            ? "~" + p.memTokens + " tok"
-            : "missing";
-        const skills = p ? p.skills : "?";
-        const bench = p && p.lastBench ? p.lastBench + " ago" : "never";
-        const opt = p ? `${p.optimizationsOn}/${p.optimizationsTotal}` : "?";
-        const lm = !p
-          ? "?"
-          : p.localModels === null
-            ? "no ollama"
-            : `${p.localModels.runners} · ${p.localModels.mem}`;
-        $("#stats").innerHTML = [
-          ["Initialized", init, init === "yes" ? "good" : "warn"],
-          ["Memory", mem, ""],
-          ["Skills", skills, ""],
-          ["Last bench", bench, p && p.lastBench ? "" : "warn"],
-          ["Optimizations", opt, ""],
-          ["Local models", lm, ""],
-        ]
-          .map(
-            ([k, v, c]) =>
-              `<div class="stat"><div class="v${c ? " " + c : ""}">${esc(String(v))}</div><div class="k">${esc(k)}</div></div>`,
-          )
-          .join("");
+        const initialized = { yes: "Initialized", partial: "Partial setup", no: "Not initialized" };
+        $("#config-state").textContent = p ? initialized[p.initialized] : "Unavailable";
+        $("#bench-state").textContent = p ? (p.lastBench ? p.lastBench + " ago" : "No recorded run") : "Unavailable";
+        $("#memory-state").textContent = p ? (p.memTokens == null ? "No memory file" : "~" + p.memTokens.toLocaleString() + " tokens") : "Unavailable";
+        $("#skills-state").textContent = p ? p.skills + (p.skills === 1 ? " installed skill" : " installed skills") : "Unavailable";
+        $("#optimization-state").textContent = p ? p.optimizationsOn + "/" + p.optimizationsTotal + " enabled" : "Unavailable";
+        $("#model-state").textContent = p?.localModels ? p.localModels.runners + " running · " + p.localModels.mem : "Unavailable";
       }
       /* palette */
       const PAL = [
-        { t: "Go to Overview", h: "page", run: () => goto("overview") },
-        { t: "Go to Agents", h: "page", run: () => goto("agents") },
-        { t: "Go to Commands", h: "page", run: () => goto("commands") },
+        { t: "Go to Inspector", h: "page", run: () => goto("overview") },
         { t: "Go to Memory", h: "page", run: () => goto("memory") },
         { t: "Go to Skills", h: "page", run: () => goto("skills") },
-        { t: "Go to Project", h: "page", run: () => goto("project") },
+        { t: "Go to Files", h: "page", run: () => goto("project") },
         { t: "Go to Activity", h: "page", run: () => goto("activity") },
         { t: "Go to Settings", h: "page", run: () => goto("settings") },
         { t: "Go to About", h: "page", run: () => goto("about") },
@@ -2807,20 +1862,14 @@
               ["message", dash(u.subject)],
               ["server built", dash(u.built)],
             ]),
-            `<div class="card"><h3>Credits</h3><p>agent-harness is written and maintained by ` +
-              `<a href="https://github.com/TheElephantCoder" style="color:var(--accent)">TheElephantCoder</a>, ` +
-              `open source on <a href="https://github.com/TheElephantCoder/agent-harness" style="color:var(--accent)">GitHub</a>. ` +
-              `Business inquiries: <a href="mailto:contact@theelephantcoder.com" style="color:var(--accent)">contact@theelephantcoder.com</a>.</p>` +
-              `<p>Agents on this machine: ${s.agents && s.agents.opencode ? "opencode" : "—"}, ` +
-              `${s.agents && s.agents.claude ? "claude" : "—"}. The agent CLIs are separate tools with their own licenses.</p></div>`,
-            `<div class="card"><h3>Licenses</h3><p>agent-harness itself is ${dash(lic.spdx) || "licensed as below"}:</p>` +
-              `<div class="run"><pre></pre></div></div>` +
-              `<div class="card"><h3>Not affiliated</h3>` +
-              `<p>agent-harness is an independent project by ` +
-              `<a href="https://github.com/TheElephantCoder" style="color:var(--accent)">@theelephantcoder</a>. ` +
+            `<section class="card"><h3>Credits</h3><p>Maintainer · <a href="https://github.com/TheElephantCoder">TheElephantCoder</a></p>` +
+              `<p><a href="https://github.com/TheElephantCoder/agent-harness">Source repository</a> · <a href="mailto:contact@theelephantcoder.com">contact@theelephantcoder.com</a></p></section>`,
+            `<section class="card"><h3>Licenses</h3><details><summary>${esc(lic.spdx || "Project license")}</summary>` +
+              `<div class="run"><pre></pre></div></details>` +
+              `<details><summary>Not affiliated</summary><p>` +
               `Neither agent-harness nor @theelephantcoder is affiliated with, endorsed by, ` +
               `or sponsored by Anthropic, OpenCode, or any other agent vendor. Claude, Claude Code, ` +
-              `Opencode and all related marks are trademarks of their respective owners.</p></div>`,
+              `Opencode and all related marks are trademarks of their respective owners.</p></details></section>`,
           ];
           box.innerHTML = cards.join("");
           const pres = box.querySelectorAll("pre");
@@ -2874,35 +1923,49 @@
         $("#upd-modal").classList.remove("on");
       }
       function paintPill(u) {
+        $("#branch-row").hidden = !u.branch;
+        $("#git-branch").textContent = u.branch || "";
+        $("#revision-row").hidden = !u.short;
+        $("#git-revision").textContent = u.short || "";
         const pill = $("#upd-pill");
         const nav = $("#nav-upd");
         const v = "v" + (u.version || "?");
         if (u.behind === true && u.latest) {
-          pill.textContent = `↻ update available · ${v} → ${u.latest}`;
+          pill.textContent = v + " → " + u.latest;
+          pill.title = "Update available";
           pill.classList.add("avail");
           nav.textContent = "!";
         } else if (u.behind === false) {
-          pill.textContent = `✓ ${v} up to date`;
+          pill.textContent = v;
+          pill.title = "Up to date · Show release details";
           pill.classList.remove("avail");
           nav.textContent = "";
         } else {
-          pill.textContent = `${v} · could not check`;
+          pill.textContent = v;
+          pill.title = "Update status unavailable";
           pill.classList.remove("avail");
           nav.textContent = "";
         }
       }
       function openPal() {
-        $("#pal").classList.add("on");
+        if ($("#pal").open) return;
+        $("#pal").showModal();
         renderPal("");
         $("#pal-in").value = "";
         $("#pal-in").focus();
       }
       function closePal() {
-        $("#pal").classList.remove("on");
+        $("#pal").close();
+      }
+      function selectPalOption(button) {
+        const previous = $("#pal-list [aria-selected=true]");
+        if (previous) previous.setAttribute("aria-selected", "false");
+        button.setAttribute("aria-selected", "true");
+        $("#pal-in").setAttribute("aria-activedescendant", button.id);
       }
       function renderPal(q) {
         const box = $("#pal-list");
-        const query = q.toLowerCase();
+        const query = q.trim().toLowerCase();
         const pages = PAL.filter(
           (p) => p.h === "page" && p.t.toLowerCase().includes(query),
         );
@@ -2913,7 +1976,8 @@
               p.h.toLowerCase().includes(query)),
         );
         box.innerHTML = "";
-        let first = true;
+        let count = 0;
+        $("#pal-in").removeAttribute("aria-activedescendant");
         for (const [label, items] of [
           ["Pages", pages],
           ["Commands", cmds],
@@ -2921,14 +1985,15 @@
           if (!items.length) continue;
           const h = document.createElement("div");
           h.className = "pal-group";
+          h.setAttribute("aria-hidden", "true");
           h.textContent = label;
           box.appendChild(h);
           items.forEach((p) => {
             const b = document.createElement("button");
-            if (first) {
-              b.classList.add("sel");
-              first = false;
-            }
+            b.id = "pal-option-" + count++;
+            b.tabIndex = -1;
+            b.setAttribute("role", "option");
+            b.setAttribute("aria-selected", "false");
             b.innerHTML = `<span class="lbl">${esc(p.t)}</span><small>${esc(p.h)}</small>`;
             b.addEventListener("click", () => {
               closePal();
@@ -2937,311 +2002,9 @@
             box.appendChild(b);
           });
         }
-        if (first)
-          box.innerHTML = `<p class="note" style="padding:12px 17px">No match.</p>`;
-      }
-      /* terminal tab: a live PTY session. Grid emulator for the ANSI subset the
-   CLI emits (SGR colors, cursor moves, erase line). 80x24 like the server. */
-      const VT_COLS = 80,
-        VT_ROWS = 24;
-      function vtBlank() {
-        const g = [];
-        for (let r = 0; r < VT_ROWS; r++) {
-          const row = [];
-          for (let c = 0; c < VT_COLS; c++) row.push({ ch: " ", cls: "" });
-          g.push(row);
-        }
-        return g;
-      }
-      const VT = {
-        grid: vtBlank(),
-        r: 0,
-        c: 0,
-        fg: 0,
-        bold: false,
-        dim: false,
-        scroll: [],
-      };
-      function vtCls() {
-        return (
-          (VT.bold ? "b" : "") +
-          (VT.dim ? " d" : "") +
-          (VT.fg ? " g" + VT.fg : "")
-        );
-      }
-      function vtNewline() {
-        VT.r++;
-        VT.c = 0;
-        if (VT.r >= VT_ROWS) {
-          VT.scroll.push(VT.grid.shift());
-          if (VT.scroll.length > 300) VT.scroll.shift();
-          const row = [];
-          for (let c = 0; c < VT_COLS; c++) row.push({ ch: " ", cls: "" });
-          VT.grid.push(row);
-          VT.r = VT_ROWS - 1;
-        }
-      }
-      function vtPut(ch) {
-        if (ch === "\n") {
-          vtNewline();
-          return;
-        }
-        if (ch === "\r") {
-          VT.c = 0;
-          return;
-        }
-        if (ch === "\b" || ch === "\x7f") {
-          VT.c = Math.max(0, VT.c - 1);
-          return;
-        }
-        if (ch === "\t") {
-          do {
-            vtPut(" ");
-          } while (VT.c % 8 !== 0);
-          return;
-        }
-        if (ch < " " || ch === "\x7f") return;
-        if (VT.c >= VT_COLS) vtNewline();
-        VT.grid[VT.r][VT.c] = { ch, cls: vtCls().trim() };
-        VT.c++;
-      }
-      function vtSgr(params) {
-        for (const p of params) {
-          if (p === 0) {
-            VT.fg = 0;
-            VT.bold = false;
-            VT.dim = false;
-          } else if (p === 1) VT.bold = true;
-          else if (p === 2) VT.dim = true;
-          else if (p === 22) {
-            VT.bold = false;
-            VT.dim = false;
-          } else if (p === 32 || p === 35 || p === 36) VT.fg = p;
-          else if (p === 39) VT.fg = 0;
-        }
-      }
-      function vtCsi(private_, nums, final) {
-        const n = nums.length ? nums[0] : 0;
-        const one = n || 1;
-        if (final === "A") VT.r = Math.max(0, VT.r - one);
-        else if (final === "B") VT.r = Math.min(VT_ROWS - 1, VT.r + one);
-        else if (final === "C") VT.c = Math.min(VT_COLS - 1, VT.c + one);
-        else if (final === "D") VT.c = Math.max(0, VT.c - one);
-        else if (final === "G")
-          VT.c = Math.min(VT_COLS - 1, Math.max(0, one - 1));
-        else if (final === "H" || final === "f") {
-          VT.r = Math.min(VT_ROWS - 1, Math.max(0, (nums[0] || 1) - 1));
-          VT.c = Math.min(VT_COLS - 1, Math.max(0, (nums[1] || 1) - 1));
-        } else if (final === "K") {
-          const row = VT.grid[VT.r];
-          const from = n === 1 ? 0 : VT.c;
-          const to = n === 1 ? VT.c : VT_COLS - 1;
-          for (let c = from; c <= to; c++) row[c] = { ch: " ", cls: "" };
-        } else if (final === "J" && n === 2) {
-          VT.grid = vtBlank();
-          VT.r = 0;
-          VT.c = 0;
-        } else if (final === "m") {
-          vtSgr(nums.length ? nums : [0]);
-        }
-        // anything else (?25l/h, s/u, …): ignored
-      }
-      function vtWrite(s) {
-        let i = 0;
-        while (i < s.length) {
-          const ch = s[i];
-          if (ch === "\x1b" && s[i + 1] === "[") {
-            const m = /^\x1b\[([?!]?)([0-9;]*)([@-~])/.exec(s.slice(i));
-            if (m) {
-              const nums =
-                m[2] === ""
-                  ? []
-                  : m[2].split(";").map((x) => parseInt(x || "0", 10));
-              vtCsi(m[1], nums, m[3]);
-              i += m[0].length;
-              continue;
-            }
-            i += 2; // unknown ESC [: skip
-            continue;
-          }
-          if (ch === "\x1b") {
-            i++;
-            continue;
-          } // lone ESC / charset switches: skip
-          vtPut(ch);
-          i++;
-        }
-      }
-      function vtRender() {
-        const out = $("#term-out");
-        const lines = VT.scroll.slice(-140).concat(VT.grid);
-        const cur = VT.scroll.length + VT.r;
-        let html = "";
-        for (let li = 0; li < lines.length; li++) {
-          const row = lines[li];
-          let run = "",
-            cls = null,
-            parts = "";
-          const flush = () => {
-            if (run) {
-              parts += cls
-                ? `<span class="${cls}">${esc(run)}</span>`
-                : esc(run);
-              run = "";
-            }
-          };
-          for (let c = 0; c < row.length; c++) {
-            const cell = row[c];
-            const isCur = li === cur && c === VT.c;
-            const cc = isCur
-              ? cell.cls
-                ? cell.cls + " cur"
-                : "cur"
-              : cell.cls;
-            if (cc !== cls) {
-              flush();
-              cls = cc;
-            }
-            run += cell.ch;
-          }
-          flush();
-          html += `<div class="ln">${parts || " "}</div>`;
-        }
-        out.innerHTML = html;
-        out.scrollTop = out.scrollHeight;
-      }
-      let termId = null,
-        termTimer = 0,
-        termMode = "menu",
-        curPage = "overview";
-      async function termPollOnce() {
-        if (!termId) return;
-        const r = await fetch(
-          "/api/term/poll?id=" + encodeURIComponent(termId),
-        ).then((x) => {
-          if (!x.ok) throw new Error("http " + x.status);
-          return x.json();
-        });
-        if (r.output) vtWrite(r.output);
-        vtRender();
-        if (r.exited) {
-          clearInterval(termTimer);
-          termTimer = 0;
-          termId = null;
-          vtWrite("\r\n[session ended — hit restart for a fresh one]\r\n");
-          vtRender();
-        }
-      }
-      async function termStart() {
-        if (termId || termTimer) return;
-        vtWrite("[connecting…]\r\n");
-        vtRender();
-        try {
-          const r = await api("/api/term/start", { mode: termMode });
-          termId = r.id;
-          termTimer = setInterval(() => {
-            if (curPage === "commands" && !document.hidden)
-              termPollOnce().catch(termDead);
-          }, 150);
-          termPollOnce().catch(termDead);
-        } catch (e) {
-          vtWrite(
-            "[could not start terminal: " +
-              String((e && e.message) || e) +
-              "]\r\n",
-          );
-          vtRender();
-        }
-      }
-      function termDead(e) {
-        clearInterval(termTimer);
-        termTimer = 0;
-        termId = null;
-        vtWrite(
-          "\r\n[lost the terminal session: " +
-            String((e && e.message) || e) +
-            "]\r\n",
-        );
-        vtRender();
-      }
-      function termKey(e) {
-        if (e.metaKey) return false; // let Cmd+R etc. through
-        let s = null;
-        if (e.ctrlKey && !e.altKey) {
-          const k = e.key.toLowerCase();
-          if (k === "c") s = "\x03";
-          else if (k === "d") s = "\x04";
-          else if (k === "l") s = "\x0c";
-          else if (k === "u") s = "\x15";
-          else if (k.length === 1 && k >= "a" && k <= "z")
-            s = String.fromCharCode(k.charCodeAt(0) - 96);
-          else return false;
-        } else if (e.key === "Enter") s = "\r";
-        else if (e.key === "Backspace") s = "\x7f";
-        else if (e.key === "Tab") s = "\t";
-        else if (e.key === "Escape") s = "\x1b";
-        else if (e.key === "ArrowUp") s = "\x1b[A";
-        else if (e.key === "ArrowDown") s = "\x1b[B";
-        else if (e.key === "ArrowRight") s = "\x1b[C";
-        else if (e.key === "ArrowLeft") s = "\x1b[D";
-        else if (e.key === "Home") s = "\x1b[H";
-        else if (e.key === "End") s = "\x1b[F";
-        else if (e.key === "PageUp") s = "\x1b[5~";
-        else if (e.key === "PageDown") s = "\x1b[6~";
-        else if (e.key === "Delete") s = "\x1b[3~";
-        else if (e.key.length === 1 && !e.altKey) s = e.key;
-        else if (e.key.length === 1 && e.altKey) s = "\x1b" + e.key;
-        else return false;
-        e.preventDefault();
-        if (!termId) termStart();
-        else api("/api/term/input", { id: termId, data: s }).catch(() => {});
-        return true;
-      }
-      async function termRestart() {
-        await termStop();
-        VT.grid = vtBlank();
-        VT.r = 0;
-        VT.c = 0;
-        VT.scroll = [];
-        vtRender();
-        termStart();
-      }
-      async function termStop() {
-        if (termTimer) {
-          clearInterval(termTimer);
-          termTimer = 0;
-        }
-        if (termId) {
-          try {
-            await api("/api/term/kill", { id: termId });
-          } catch (e) {
-            /* gone already */
-          }
-          termId = null;
-        }
-      }
-      async function termSetMode(mode) {
-        if (termMode === mode) return;
-        termMode = mode;
-        $("#term-menu").setAttribute(
-          "aria-pressed",
-          mode === "menu" ? "true" : "false",
-        );
-        $("#term-shell").setAttribute(
-          "aria-pressed",
-          mode === "shell" ? "true" : "false",
-        );
-        $("#term-name").textContent =
-          mode === "shell"
-            ? "bash — " + $("#cwd").textContent
-            : "harness — menu";
-        await termStop();
-        VT.grid = vtBlank();
-        VT.r = 0;
-        VT.c = 0;
-        VT.scroll = [];
-        vtRender();
-        termStart();
+        if (count) selectPalOption(box.querySelector("button"));
+        else box.innerHTML = '<p class="pal-empty" role="status">No matching commands or pages.</p>';
+        box.scrollTop = 0;
       }
       /* init */
       (async function init() {
@@ -3254,7 +2017,7 @@
         renderThemes();
         setTheme(saved);
         document
-          .querySelectorAll("#nav button")
+          .querySelectorAll("#nav button[data-page]")
           .forEach((b) =>
             b.addEventListener("click", () => goto(b.dataset.page)),
           );
@@ -3266,8 +2029,8 @@
         document.querySelectorAll("[data-quick]").forEach((b) =>
           b.addEventListener("click", () => {
             const [c, ...a] = b.dataset.quick.split(" ");
-            goto("commands");
-            runCommand(c, a, null);
+            runCommand(c, a, b);
+            if (b.disabled) $("#out").scrollIntoView({ block: "nearest" });
           }),
         );
         $("#pal-open").addEventListener("click", openPal);
@@ -3279,24 +2042,37 @@
         });
         $("#upd-check").addEventListener("click", (e) => {
           closeUpdate();
-          goto("commands");
           runCommand("upgrade", ["--check"], e.target);
+          if (e.target.disabled) $("#out").scrollIntoView({ block: "nearest" });
         });
         $("#upd-goto-out").addEventListener("click", () => {
           closeUpdate();
           window.scrollTo(0, document.body.scrollHeight);
         });
+        $("#pal-close").addEventListener("click", closePal);
         $("#pal").addEventListener("click", (e) => {
-          if (e.target.id === "pal") closePal();
+          if (e.target !== e.currentTarget) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          if (e.clientX < rect.left || e.clientX > rect.right ||
+              e.clientY < rect.top || e.clientY > rect.bottom) closePal();
         });
         $("#pal-in").addEventListener("input", (e) =>
           renderPal(e.target.value),
         );
         $("#pal-in").addEventListener("keydown", (e) => {
-          if (e.key === "Escape") closePal();
+          if (e.isComposing) return;
+          const selected = $("#pal-list [aria-selected=true]");
+          if (!selected) return;
           if (e.key === "Enter") {
-            const first = $("#pal-list button");
-            if (first) first.click();
+            e.preventDefault();
+            selected.click();
+          } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            const options = [...document.querySelectorAll("#pal-list button")];
+            const step = e.key === "ArrowDown" ? 1 : -1;
+            const next = options[(options.indexOf(selected) + step + options.length) % options.length];
+            selectPalOption(next);
+            next.scrollIntoView({ block: "nearest" });
           }
         });
         document.addEventListener("keydown", (e) => {
@@ -3304,22 +2080,21 @@
             e.preventDefault();
             openPal();
           }
-          if (e.key === "Escape") closeUpdate();
+          if (e.key === "Escape" && !$("#pal").open) closeUpdate();
         });
         const start = (location.hash || "").replace("#", "");
-        if (TITLES[start]) goto(start);
-        else if (SET.remember && TITLES[store("ah-page") || ""])
-          goto(store("ah-page"));
+        const previous = SET.remember ? store("ah-page") : null;
+        const initial = start || previous;
+        if (initial) goto(Object.hasOwn(TITLES, initial) ? initial : "overview");
+        $("#palette-key").textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ K" : "Ctrl K";
         applyPrefs();
-        if (store("ah-narrow") === "1") document.body.classList.add("narrow");
         $("#side-toggle").addEventListener("click", () => {
-          const on = document.body.classList.toggle("narrow");
-          store("ah-narrow", on ? "1" : null);
+          const closed = $("#nav").classList.toggle("mobile-closed");
+          $("#side-toggle").setAttribute("aria-expanded", String(!closed));
         });
         $("#set-compact").checked = SET.compact;
         $("#set-motion").checked = SET.motion;
         $("#set-confirm-cmd").checked = SET.confirmCmd;
-        $("#set-confirm-agent").checked = SET.confirmAgent;
         $("#set-remember").checked = SET.remember;
         $("#set-keeplog").value = String(SET.keepLog);
         $("#set-compact").addEventListener("change", (e) => {
@@ -3332,9 +2107,6 @@
         });
         $("#set-confirm-cmd").addEventListener("change", (e) =>
           store("ah-confirm-cmd", e.target.checked ? "1" : null),
-        );
-        $("#set-confirm-agent").addEventListener("change", (e) =>
-          store("ah-confirm-agent", e.target.checked ? "1" : "0"),
         );
         $("#set-remember").addEventListener("change", (e) =>
           store("ah-remember", e.target.checked ? "1" : null),
@@ -3388,22 +2160,22 @@
         $("#set-copy-url").addEventListener("click", (e) => {
           if (navigator.clipboard)
             navigator.clipboard.writeText(location.origin + "/");
-          e.target.textContent = "copied";
+          e.target.textContent = "Copied";
           setTimeout(() => {
-            e.target.textContent = "copy url";
+            e.target.textContent = "Copy URL";
           }, 1200);
         });
         const mb = $("#mem-cards");
         [
           {
             cmd: "memory",
-            t: "Full memory",
-            d: "Complete MEMORY.md contents.",
+            t: "MEMORY.md",
+            d: "All notes in the project memory file.",
             args: ["show"],
           },
           {
             cmd: "memory",
-            t: "Memory stats",
+            t: "Memory usage",
             d: "Size, notes, token estimate.",
             args: ["stats"],
           },
@@ -3413,60 +2185,37 @@
           {
             cmd: "skill",
             t: "Installed skills",
-            d: "Every skill with a SKILL.md.",
+            d: "Skill directories with a SKILL.md file.",
             args: ["list"],
           },
         ].forEach((v) => sb.appendChild(projCard(v)));
         renderAct();
-        // static wiring lives outside the status try: one transient /api/status
-        // failure used to leave the terminal, agents and project tabs dead until
-        // a manual reload
-        const tout = $("#term-out");
-        tout.addEventListener("keydown", termKey);
-        tout.addEventListener("click", () => tout.focus());
-        const kbd = $("#term-kbd-in");
-        kbd.addEventListener("keydown", (e) => {
-          if (termKey(e)) kbd.value = "";
-        });
-        $("#term-restart").addEventListener("click", termRestart);
-        $("#term-menu").addEventListener("click", () => termSetMode("menu"));
-        $("#term-shell").addEventListener("click", () => termSetMode("shell"));
         const pb = $("#proj-cards");
         VIEWERS.forEach((v) => pb.appendChild(projCard(v)));
         try {
           const s = await api("/api/status");
           $("#cwd").textContent = s.cwd;
-          $("#side-cwd").textContent = s.cwd;
-          $("#brand-ver").textContent = "v" + s.version + " · local gui";
-          document.title = "agent-harness gui — " + s.cwd;
+          $("#project-name").textContent = s.cwd.split(/[\\/]/).filter(Boolean).pop() || s.cwd;
+          $("#srv-state").textContent = "Local server online";
+          $("#upd-pill").textContent = "v" + s.version;
+          $("#srv-state").classList.add("online");
           renderStats(s.project || null);
-          const ab = $("#agents-box");
-          AGENTS.forEach((a) =>
-            ab.appendChild(agentCard(a, !!(s.agents && s.agents[a.id]))),
-          );
-          const have = ["opencode", "claude"].filter(
-            (k) => s.agents && s.agents[k],
-          ).length;
-          $("#nav-agents").textContent = have ? String(have) + "/2" : "";
-          if (!have)
-            $("#agents-note").textContent +=
-              " Neither agent binary was found on PATH — install one to use this section.";
-          $("#srv-info").textContent =
-            `Serving ${s.cwd} as harness ${s.version}. Agents on PATH: ` +
-            `${s.agents.opencode ? "opencode" : "—"}, ${s.agents.claude ? "claude" : "—"}.`;
+          $("#srv-info").textContent = location.origin + " · v" + s.version;
           api("/api/update-info")
             .then(paintPill)
             .catch(() => {
-              $("#upd-pill").textContent = "update info unavailable";
+              $("#upd-pill").title = "Update status unavailable";
             });
         } catch (e) {
-          $("#srv-state").textContent = "server unreachable";
+          $("#srv-state").textContent = "Server offline";
+          $("#srv-state").classList.remove("online");
+          renderStats(null);
           $("#out").innerHTML =
             `<p class="note">Could not reach the harness server: ${esc(String((e && e.message) || e))}</p>`;
         }
         $("#clear").addEventListener("click", () => {
           $("#out").innerHTML =
-            `<p class="note">Nothing run yet. Pick a command above.</p>`;
+            `<p class="note output-empty">Run a command to see its output here.</p>`;
         });
         $("#act-clear").addEventListener("click", () => {
           log = [];
@@ -3486,7 +2235,7 @@
             if (still) {
               $("#quit").textContent = "server busy - try again";
               setTimeout(() => {
-                $("#quit").textContent = "stop server";
+                $("#quit").textContent = "Stop server";
               }, 2000);
               return;
             }
@@ -3494,7 +2243,7 @@
           }
           document.body.innerHTML =
             `<main class="content"><p class="eyebrow">Stopped</p>` +
-            `<h2 class="lead">Server is off.</h2><p class="sub">Re-run <code class="inline">harness gui</code> to start it again.</p></main>`;
+            `<h1 class="lead">Server is off.</h1><p class="sub">Re-run <code class="inline">harness gui</code> to start it again.</p></main>`;
         });
       })();
     </script>
