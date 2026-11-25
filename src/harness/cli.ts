@@ -3306,8 +3306,13 @@ async function cmdSkillUpdate(name: string): Promise<boolean> {
       // no skills/ dir is fine
     }
     for (const c of cands) {
-      body = readText(c);
-      if (body !== null) break;
+      const candidate = readText(c);
+      if (candidate === null) continue;
+      const fm = parseFrontmatter(candidate);
+      if (fm && sanitizeSkillName(fm.name) === name) {
+        body = candidate;
+        break;
+      }
     }
   } else if (/^https?:\/\//.test(repo)) {
     const low = repo.split(/[?#]/)[0].toLowerCase();

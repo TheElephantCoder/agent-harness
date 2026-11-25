@@ -2601,9 +2601,14 @@ def cmd_skill_update(name):
                 cands.append(os.path.join(abs_path, "skills", e, "SKILL.md"))
         except OSError:
             pass
-        for c in cands:
-            body = read_text(c)
-            if body is not None:
+        for candidate in cands:
+            try:
+                text = read_text(candidate)
+            except UnicodeDecodeError:
+                continue
+            frontmatter = parse_frontmatter(text) if text is not None else None
+            if frontmatter and sanitize_skill_name(frontmatter["name"]) == name:
+                body = text
                 break
     elif re.match(r"https?://", repo):
         low = re.split(r"[?#]", repo)[0].lower()

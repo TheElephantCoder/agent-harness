@@ -144,3 +144,21 @@ def test_skill_update_repairs_a_stale_pin(harness, tmp_path):
     saved = manifest.read_bytes()
     harness("skill", "update", "routes")
     assert manifest.read_bytes() == saved
+
+
+def test_local_skill_update_finds_the_registered_name(harness, tmp_path):
+    source = Path(make_skill(tmp_path))
+    target = source / "skills/z-routing/SKILL.md"
+    target.parent.mkdir(parents=True)
+    (source / "SKILL.md").rename(target)
+    harness("skill", "add", "--path", str(source))
+    other = source / "skills/a-formatting/SKILL.md"
+    other.parent.mkdir()
+    other.write_text("---\nname: formatting\ndescription: Format a file.\n---\n")
+    target.write_text(target.read_text() + "Cover the fallback route.\n")
+    harness("skill", "update", "routes")
+    assert (tmp_path / ".harness/skills/routes/SKILL.md").read_bytes() == target.read_bytes()
+    harness("skill", "verify", "routes")
+    target.unlink()
+    harness("skill", "update", "routes", status=1)
+    harness("skill", "verify", "routes")

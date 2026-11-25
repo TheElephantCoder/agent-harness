@@ -3077,9 +3077,14 @@ async function cmdSkillUpdate(name) {
             // no skills/ dir is fine
         }
         for (const c of cands) {
-            body = readText(c);
-            if (body !== null)
+            const candidate = readText(c);
+            if (candidate === null)
+                continue;
+            const fm = parseFrontmatter(candidate);
+            if (fm && sanitizeSkillName(fm.name) === name) {
+                body = candidate;
                 break;
+            }
         }
     }
     else if (/^https?:\/\//.test(repo)) {
