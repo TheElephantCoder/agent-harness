@@ -3344,32 +3344,33 @@ async function cmdSkillUpdate(name: string): Promise<boolean> {
     return false;
   }
   const file = path.join(cwd, ".harness", "skills", name, "SKILL.md");
-  const cur = readText(file);
-  if (cur !== null && sha256(cur) === sha256(body)) {
+  const current = readText(file);
+  const digest = sha256(body);
+  if (current === body && entry.sha256 === digest) {
     console.log(`[harness] ok - skill ${name} already up to date`);
     return true;
   }
-  try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, body);
-  } catch {
-    console.log(`[harness] skill update - could not write ${file}`);
-    return false;
+  if (current !== body) {
+    try {
+      writeProjectFile(file, body, current !== null);
+    } catch {
+      console.log(`[harness] skill update - could not write ${file}`);
+      return false;
+    }
   }
   const manFile = path.join(cwd, ".harness", "config.json");
   try {
     const manText = readText(manFile);
     if (manText === null) throw new Error("missing");
     const man = JSON.parse(manText);
-    man.addedSkills = (man.addedSkills ?? []).map((a: AddedSkill) =>
-      a.name === name
-        ? { ...a, sha256: sha256(body as string), ts: new Date().toISOString() }
-        : a,
-    );
-    fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+    const pin = man.addedSkills?.find((item: AddedSkill) => item.name === name);
+    if (!pin || pin.repo !== entry.repo || pin.ref !== entry.ref) throw new Error("source changed");
+    pin.sha256 = digest;
+    pin.ts = new Date().toISOString();
+    writeProjectFile(manFile, JSON.stringify(man, null, 2), true);
   } catch {
     console.log(
-      "[harness] skill update - file written, manifest left stale (re-verify)",
+      "[harness] skill update - could not update the manifest pin; retry skill update",
     );
     return false;
   }

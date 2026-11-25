@@ -128,3 +128,19 @@ def test_remove_accepts_the_filename_shown_in_research_list(harness, tmp_path):
     assert (findings / "route-table-md.md").is_file()
     harness("research", "remove", "Route table md")
     assert not (findings / "route-table-md.md").exists()
+
+
+def test_skill_update_repairs_a_stale_pin(harness, tmp_path):
+    source = Path(make_skill(tmp_path))
+    harness("skill", "add", "--path", str(source))
+    updated = (source / "SKILL.md").read_text() + "Check the fallback route.\n"
+    (source / "SKILL.md").write_text(updated)
+    installed = tmp_path / ".harness/skills/routes/SKILL.md"
+    installed.write_text(updated)
+    harness("skill", "verify", "routes", status=1)
+    harness("skill", "update", "routes")
+    harness("skill", "verify", "routes")
+    manifest = tmp_path / ".harness/config.json"
+    saved = manifest.read_bytes()
+    harness("skill", "update", "routes")
+    assert manifest.read_bytes() == saved

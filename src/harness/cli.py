@@ -2629,17 +2629,17 @@ def cmd_skill_update(name):
         print(f"[harness] skill update - fetched body fails validation (name must stay {name})")
         return False
     dest = os.path.join(cwd, ".harness", "skills", name, "SKILL.md")
-    cur = read_text(dest)
-    if cur is not None and sha256(cur) == sha256(body):
+    current = read_text(dest)
+    digest = sha256(body)
+    if current == body and entry.get("sha256") == digest:
         print(f"[harness] ok - skill {name} already up to date")
         return True
-    try:
-        os.makedirs(os.path.dirname(dest), exist_ok=True)
-        with open(dest, "w", encoding="utf-8") as f:
-            f.write(body)
-    except OSError:
-        print(f"[harness] skill update - could not write {dest}")
-        return False
+    if current != body:
+        try:
+            write_project_file(dest, body, current is not None)
+        except OSError:
+            print(f"[harness] skill update - could not write {dest}")
+            return False
     man_file = os.path.join(cwd, ".harness", "config.json")
     try:
         man_text = read_text(man_file)
@@ -2648,14 +2648,13 @@ def cmd_skill_update(name):
         man = json.loads(man_text)
         if not isinstance(man, dict):
             raise ValueError("shape")
-        for a in man.get("addedSkills", []):
-            if isinstance(a, dict) and a.get("name") == name:
-                a["sha256"] = sha256(body)
-                a["ts"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        with open(man_file, "w", encoding="utf-8") as f:
-            json.dump(man, f, indent=2)
-    except (ValueError, OSError):
-        print("[harness] skill update - file written, manifest left stale (re-verify)")
+        pin = next((item for item in man.get("addedSkills", []) if isinstance(item, dict) and item.get("name") == name), None)
+        if not pin or pin.get("repo") != entry.get("repo") or pin.get("ref") != entry.get("ref"):
+            raise ValueError("source changed")
+        pin.update(sha256=digest, ts=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+        write_project_file(man_file, json.dumps(man, indent=2), True)
+    except (ValueError, TypeError, OSError):
+        print("[harness] skill update - could not update the manifest pin; retry skill update")
         return False
     print(f"[harness] ok - skill {name} updated")
     return True
