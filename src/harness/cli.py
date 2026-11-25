@@ -2373,41 +2373,49 @@ def finish_skill_add(body, repo_label, ref):
         print("[harness] skill add - unusable skill name in frontmatter")
         return False
     rel = os.path.join(".harness", "skills", name, "SKILL.md")
-    if os.path.exists(os.path.join(cwd, rel)):
-        print(f"[harness] skill add - {rel} exists already")
-        return False
+    target = os.path.join(cwd, rel)
+    manifest = os.path.join(cwd, ".harness", "config.json")
+    lock = manifest + ".skill-add.lock"
     try:
-        os.makedirs(os.path.join(cwd, ".harness", "skills", name), exist_ok=True)
-        with open(os.path.join(cwd, rel), "w", encoding="utf-8") as f:
-            f.write(body)
+        os.makedirs(os.path.dirname(manifest), exist_ok=True)
+        stream = open(lock, "x", encoding="utf-8")
     except OSError:
-        print(f"[harness] skill add - could not write {rel}")
+        print("[harness] skill add - could not reserve the manifest for writing")
         return False
-    man_file = os.path.join(cwd, ".harness", "config.json")
-    man = {"version": VERSION, "harness": [], "files": []}
-    man_text = read_text(man_file)
-    if man_text is not None:
-        try:
-            man = json.loads(man_text)
-            if not isinstance(man, dict):
-                print("[harness] skill add - .harness/config.json corrupt")
+    published = False
+    try:
+        with stream:
+            if os.path.exists(target):
+                print(f"[harness] skill add - {rel} exists already")
                 return False
-        except ValueError:
-            print("[harness] skill add - .harness/config.json corrupt")
-            return False
-    added = man.get("addedSkills", [])
-    if not isinstance(added, list):
-        added = []
-    added.append({"name": name, "repo": repo_label, "ref": ref,
-                  "sha256": sha256(body), "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
-    man["addedSkills"] = added
-    try:
-        os.makedirs(os.path.dirname(man_file), exist_ok=True)
-        with open(man_file, "w", encoding="utf-8") as f:
-            json.dump(man, f, indent=2)
-    except OSError:
-        print("[harness] skill add - could not update .harness/config.json")
+            state = {"version": VERSION, "harness": [], "files": []}
+            if os.path.exists(manifest):
+                with open(manifest, encoding="utf-8") as existing:
+                    state = json.load(existing)
+                os.chmod(lock, stat.S_IMODE(os.stat(manifest).st_mode))
+            if not isinstance(state, dict):
+                raise ValueError("invalid manifest")
+            pins = state.get("addedSkills", [])
+            if not isinstance(pins, list) or not all(isinstance(pin, dict) and isinstance(pin.get("name"), str) for pin in pins):
+                raise ValueError("invalid skill pins")
+            state["addedSkills"] = [pin for pin in pins if pin["name"] != name]
+            state["addedSkills"].append({"name": name, "repo": repo_label, "ref": ref,
+                                         "sha256": sha256(body),
+                                         "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+            json.dump(state, stream, indent=2)
+        write_project_file(target, body, False)
+        try:
+            os.replace(lock, manifest)
+            published = True
+        except OSError:
+            os.unlink(target)
+            raise
+    except (OSError, ValueError):
+        print(f"[harness] skill add - could not install and register {rel}; check .harness/config.json")
         return False
+    finally:
+        if not published:
+            os.unlink(lock)
     where = repo_label if ref == "-" else f"{repo_label}@{ref}"
     print(f"[harness] ok - skill {name} from {where} pinned in manifest")
     return True

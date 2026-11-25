@@ -96,3 +96,22 @@ def test_map_keeps_doctor_in_sync(harness, tmp_path):
     harness("doctor", "--strict")
     index.write_text("manual edit")
     assert "MAP.md" in harness("doctor", "--strict", status=1)
+
+
+def test_failed_skill_add_can_retry(harness, tmp_path):
+    harness("init")
+    source = make_skill(tmp_path)
+    manifest = tmp_path / ".harness/config.json"
+    saved = manifest.read_bytes()
+    target = tmp_path / ".harness/skills/routes/SKILL.md"
+    for invalid in ("{", "null", '{"addedSkills":{}}'):
+        manifest.write_text(invalid)
+        harness("skill", "add", "--path", source, status=1)
+        assert not target.exists()
+        assert manifest.read_text() == invalid
+    manifest.write_bytes(saved)
+    harness("skill", "add", "--path", source)
+    harness("skill", "verify", "routes")
+    target.write_text("locally edited")
+    harness("skill", "add", "--path", source, status=1)
+    assert target.read_text() == "locally edited"

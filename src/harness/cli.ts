@@ -3046,49 +3046,60 @@ function finishSkillAdd(body: string, repoLabel: string, ref: string): boolean {
     return false;
   }
   const rel = path.join(".harness", "skills", name, "SKILL.md");
-  if (fs.existsSync(path.join(cwd, rel))) {
-    console.log(`[harness] skill add - ${rel} exists already`);
-    return false;
-  }
+  const target = path.join(cwd, rel);
+  const manifest = path.join(cwd, ".harness", "config.json");
+  const lock = manifest + ".skill-add.lock";
+  let fd: number;
   try {
-    fs.mkdirSync(path.join(cwd, ".harness", "skills", name), {
-      recursive: true,
-    });
-    fs.writeFileSync(path.join(cwd, rel), body);
+    fs.mkdirSync(path.dirname(manifest), { recursive: true });
+    fd = fs.openSync(lock, "wx");
   } catch {
-    console.log(`[harness] skill add - could not write ${rel}`);
+    console.log("[harness] skill add - could not reserve the manifest for writing");
     return false;
   }
-  const manFile = path.join(cwd, ".harness", "config.json");
-  let man: Record<string, unknown> = {
-    version: VERSION,
-    harness: [],
-    files: [],
-  };
-  const manText = readText(manFile);
-  if (manText !== null) {
+  let published = false;
+  try {
     try {
-      man = JSON.parse(manText);
+      if (fs.existsSync(target)) {
+        console.log(`[harness] skill add - ${rel} exists already`);
+        return false;
+      }
+      let state = { version: VERSION, harness: [], files: [] } as Record<string, unknown>;
+      if (fs.existsSync(manifest)) {
+        state = JSON.parse(fs.readFileSync(manifest, "utf8"));
+        fs.fchmodSync(fd, fs.statSync(manifest).mode & 0o777);
+      }
+      if (!state || typeof state !== "object" || Array.isArray(state)) {
+        throw new Error("invalid manifest");
+      }
+      const pins = state.addedSkills === undefined ? [] : state.addedSkills;
+      if (!Array.isArray(pins) || !pins.every((pin) => pin && typeof pin.name === "string")) {
+        throw new Error("invalid skill pins");
+      }
+      state.addedSkills = [
+        ...pins.filter((pin) => pin.name !== name),
+        { name, repo: repoLabel, ref, sha256: sha256(body), ts: new Date().toISOString() },
+      ];
+      fs.writeFileSync(fd, JSON.stringify(state, null, 2));
     } catch {
-      console.log("[harness] skill add - .harness/config.json corrupt");
+      console.log("[harness] skill add - could not read or prepare .harness/config.json");
       return false;
+    } finally {
+      fs.closeSync(fd);
     }
-  }
-  const added = (man.addedSkills ?? []) as Array<Record<string, string>>;
-  added.push({
-    name,
-    repo: repoLabel,
-    ref,
-    sha256: sha256(body),
-    ts: new Date().toISOString(),
-  });
-  man.addedSkills = added;
-  try {
-    fs.mkdirSync(path.dirname(manFile), { recursive: true });
-    fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+    writeProjectFile(target, body, false);
+    try {
+      fs.renameSync(lock, manifest);
+      published = true;
+    } catch (error) {
+      fs.unlinkSync(target);
+      throw error;
+    }
   } catch {
-    console.log("[harness] skill add - could not update .harness/config.json");
+    console.log(`[harness] skill add - could not install and register ${rel}`);
     return false;
+  } finally {
+    if (!published) fs.rmSync(lock, { force: true });
   }
   console.log(
     `[harness] ok - skill ${name} from ${ref === "-" ? repoLabel : `${repoLabel}@${ref}`} pinned in manifest`,
