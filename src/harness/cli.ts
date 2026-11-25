@@ -3306,8 +3306,13 @@ async function cmdSkillUpdate(name: string): Promise<boolean> {
       // no skills/ dir is fine
     }
     for (const c of cands) {
-      body = readText(c);
-      if (body !== null) break;
+      const candidate = readText(c);
+      if (candidate === null) continue;
+      const fm = parseFrontmatter(candidate);
+      if (fm && sanitizeSkillName(fm.name) === name) {
+        body = candidate;
+        break;
+      }
     }
   } else if (/^https?:\/\//.test(repo)) {
     const low = repo.split(/[?#]/)[0].toLowerCase();
@@ -3344,32 +3349,33 @@ async function cmdSkillUpdate(name: string): Promise<boolean> {
     return false;
   }
   const file = path.join(cwd, ".harness", "skills", name, "SKILL.md");
-  const cur = readText(file);
-  if (cur !== null && sha256(cur) === sha256(body)) {
+  const current = readText(file);
+  const digest = sha256(body);
+  if (current === body && entry.sha256 === digest) {
     console.log(`[harness] ok - skill ${name} already up to date`);
     return true;
   }
-  try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, body);
-  } catch {
-    console.log(`[harness] skill update - could not write ${file}`);
-    return false;
+  if (current !== body) {
+    try {
+      writeProjectFile(file, body, current !== null);
+    } catch {
+      console.log(`[harness] skill update - could not write ${file}`);
+      return false;
+    }
   }
   const manFile = path.join(cwd, ".harness", "config.json");
   try {
     const manText = readText(manFile);
     if (manText === null) throw new Error("missing");
     const man = JSON.parse(manText);
-    man.addedSkills = (man.addedSkills ?? []).map((a: AddedSkill) =>
-      a.name === name
-        ? { ...a, sha256: sha256(body as string), ts: new Date().toISOString() }
-        : a,
-    );
-    fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+    const pin = man.addedSkills?.find((item: AddedSkill) => item.name === name);
+    if (!pin || pin.repo !== entry.repo || pin.ref !== entry.ref) throw new Error("source changed");
+    pin.sha256 = digest;
+    pin.ts = new Date().toISOString();
+    writeProjectFile(manFile, JSON.stringify(man, null, 2), true);
   } catch {
     console.log(
-      "[harness] skill update - file written, manifest left stale (re-verify)",
+      "[harness] skill update - could not update the manifest pin; retry skill update",
     );
     return false;
   }
@@ -4200,28 +4206,23 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
       }
       if (flags[0] === "backup") {
         const memFile = path.join(process.cwd(), "MEMORY.md");
-        const text = readText(memFile);
-        if (text === null) {
-          console.log(
-            "[harness] memory - no MEMORY.md here (run harness init)",
-          );
-          return false;
-        }
         const stamp = new Date().toISOString().slice(0, 10);
-        let dest = path.join(process.cwd(), `MEMORY.backup.${stamp}.md`);
-        for (let n = 2; fs.existsSync(dest); n++) {
-          dest = path.join(process.cwd(), `MEMORY.backup.${stamp}-${n}.md`);
+        for (let number = 1; ; number++) {
+          const suffix = number === 1 ? "" : `-${number}`;
+          const name = `MEMORY.backup.${stamp}${suffix}.md`;
+          try {
+            fs.copyFileSync(memFile, path.join(process.cwd(), name), fs.constants.COPYFILE_EXCL);
+          } catch (error) {
+            const code = (error as NodeJS.ErrnoException).code;
+            if (code === "EEXIST") continue;
+            console.log(code === "ENOENT"
+              ? "[harness] memory - no MEMORY.md here (run harness init)"
+              : "[harness] FAIL - memory: could not write backup");
+            return false;
+          }
+          console.log(`[harness] ok - memory backed up to ${name}`);
+          return true;
         }
-        try {
-          fs.writeFileSync(dest, text);
-        } catch {
-          console.log("[harness] FAIL - memory: could not write backup");
-          return false;
-        }
-        console.log(
-          `[harness] ok - memory backed up to ${path.basename(dest)}`,
-        );
-        return true;
       }
       if (flags[0] === "edit") {
         const memFile = path.join(process.cwd(), "MEMORY.md");
@@ -4392,8 +4393,10 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
           console.log("[harness] research remove - give a finding name");
           return false;
         }
-        // slugify + basename: the resolved path can never leave findings/.
-        const file = `${slugify(name)}.md`;
+        // A listed filename is already complete. Titles still use the capture slug.
+        const file = name.endsWith(".md") && path.basename(name) === name && !name.includes("\\")
+          ? name
+          : `${slugify(name)}.md`;
         const abs = path.join(process.cwd(), "research", "findings", file);
         if (!fs.existsSync(abs)) {
           console.log(`[harness] research remove - no finding named "${name}"`);

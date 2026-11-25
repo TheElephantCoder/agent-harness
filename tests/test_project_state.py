@@ -1,4 +1,5 @@
 """Exercise the same project workflows through both shipped CLIs."""
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -115,3 +116,75 @@ def test_failed_skill_add_can_retry(harness, tmp_path):
     target.write_text("locally edited")
     harness("skill", "add", "--path", source, status=1)
     assert target.read_text() == "locally edited"
+
+
+def test_remove_accepts_the_filename_shown_in_research_list(harness, tmp_path):
+    harness("research", "Route table")
+    harness("research", "Route table md")
+    findings = tmp_path / "research/findings"
+    assert "route-table.md" in harness("research")
+    harness("research", "remove", "route-table.md")
+    assert not (findings / "route-table.md").exists()
+    harness("research", "remove", "route-table.md", status=1)
+    assert (findings / "route-table-md.md").is_file()
+    harness("research", "remove", "Route table md")
+    assert not (findings / "route-table-md.md").exists()
+
+
+def test_skill_update_repairs_a_stale_pin(harness, tmp_path):
+    source = Path(make_skill(tmp_path))
+    harness("skill", "add", "--path", str(source))
+    updated = (source / "SKILL.md").read_text() + "Check the fallback route.\n"
+    (source / "SKILL.md").write_text(updated)
+    installed = tmp_path / ".harness/skills/routes/SKILL.md"
+    installed.write_text(updated)
+    harness("skill", "verify", "routes", status=1)
+    harness("skill", "update", "routes")
+    harness("skill", "verify", "routes")
+    manifest = tmp_path / ".harness/config.json"
+    saved = manifest.read_bytes()
+    harness("skill", "update", "routes")
+    assert manifest.read_bytes() == saved
+
+
+def test_local_skill_update_finds_the_registered_name(harness, tmp_path):
+    source = Path(make_skill(tmp_path))
+    target = source / "skills/z-routing/SKILL.md"
+    target.parent.mkdir(parents=True)
+    (source / "SKILL.md").rename(target)
+    harness("skill", "add", "--path", str(source))
+    other = source / "skills/a-formatting/SKILL.md"
+    other.parent.mkdir()
+    other.write_text("---\nname: formatting\ndescription: Format a file.\n---\n")
+    target.write_text(target.read_text() + "Cover the fallback route.\n")
+    harness("skill", "update", "routes")
+    assert (tmp_path / ".harness/skills/routes/SKILL.md").read_bytes() == target.read_bytes()
+    harness("skill", "verify", "routes")
+    target.unlink()
+    harness("skill", "update", "routes", status=1)
+    harness("skill", "verify", "routes")
+
+
+def test_backup_preserves_bytes_and_reserves_its_filename(harness, tmp_path):
+    memory = tmp_path / "MEMORY.md"
+    original = b"# Memory\r\n\r\nKeep line endings.\r\n"
+    memory.write_bytes(original)
+    memory.chmod(0o600)
+    harness("memory", "backup")
+    first, = tmp_path.glob("MEMORY.backup.*.md")
+    next_slot = first.with_name(first.stem + "-2.md")
+    missing = tmp_path / "moved-backup.md"
+    next_slot.symlink_to(missing)
+    memory.write_bytes(original + b"New note.\r\n")
+    harness("memory", "backup")
+    assert first.read_bytes() == original
+    assert not missing.exists()
+    assert next_slot.is_symlink()
+    assert first.with_name(first.stem + "-3.md").read_bytes() == memory.read_bytes()
+    if os.name == "posix":
+        assert first.stat().st_mode & 0o077 == 0
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        outputs = list(pool.map(lambda _: harness("memory", "backup"), range(4)))
+    assert len(set(outputs)) == 4
+    for number in range(4, 8):
+        assert first.with_name(f"{first.stem}-{number}.md").read_bytes() == memory.read_bytes()
