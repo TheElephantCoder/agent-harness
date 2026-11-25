@@ -1290,12 +1290,16 @@ def cmd_init(args=None):
     if prior is not None and not migrate and not dry and not force_all:
         print("[harness] init - already initialized here (use --migrate to fill gaps)")
         return False
-    prior_harness = []
-    try:
-        if prior is not None:
-            prior_harness = [n for n in json.loads(prior).get("harness", []) if n in by_name]
-    except (ValueError, AttributeError):
-        pass
+    prior_state = {}
+    if prior is not None:
+        try:
+            parsed = json.loads(prior)
+            if isinstance(parsed, dict):
+                prior_state = parsed
+        except ValueError:
+            pass
+    previous_names = prior_state.get("harness")
+    prior_harness = [n for n in previous_names if isinstance(n, str) and n in by_name] if isinstance(previous_names, list) else []
     if explicit:
         unknown = [n for n in explicit if n not in by_name]
         if unknown:
@@ -1309,13 +1313,15 @@ def cmd_init(args=None):
                  if (AUTO_MARKERS.get(a["name"], "") or "") and os.path.exists(os.path.join(os.getcwd(), AUTO_MARKERS[a["name"]]))]
     tracked = set()
     prior_files = []
-    if prior is not None:
-        try:
-            prior_files = json.loads(prior).get("files", [])
-            for f in prior_files:
-                tracked.add(f if isinstance(f, str) else f.get("path", ""))
-        except (ValueError, AttributeError):
-            pass
+    if isinstance(prior_state.get("files"), list):
+        for entry in prior_state["files"]:
+            if isinstance(entry, str):
+                tracked.add(entry)
+            elif isinstance(entry, dict) and isinstance(entry.get("path"), str):
+                tracked.add(entry["path"])
+            else:
+                continue
+            prior_files.append(entry)
     written, skipped, planned = [], [], []
     recorded = {}
     for f in prior_files:
@@ -1532,12 +1538,9 @@ def cmd_init(args=None):
         seen_paths.add(p)
         deduped.append(f)
     files = list(reversed(deduped))
-    prior_opts = {}
-    if prior is not None:
-        try:
-            prior_opts = json.loads(prior).get("optimizations", {}) or {}
-        except (ValueError, AttributeError):
-            pass
+    prior_opts = prior_state.get("optimizations")
+    if not isinstance(prior_opts, dict):
+        prior_opts = {}
     optimizations = dict(default_optimizations())
     for o in OPTIMIZATIONS:
         if isinstance(prior_opts.get(o["name"]), bool):
@@ -1553,7 +1556,7 @@ def cmd_init(args=None):
     try:
         os.makedirs(os.path.dirname(man_file), exist_ok=True)
         with open(man_file, "w", encoding="utf-8") as f:
-            json.dump({"version": VERSION, "harness": names, "files": files,
+            json.dump({**prior_state, "version": VERSION, "harness": names, "files": files,
                        "optimizations": optimizations,
                        "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, f, indent=2)
     except OSError:

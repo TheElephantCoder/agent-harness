@@ -48,3 +48,26 @@ def test_force_preserves_unowned_files(harness, tmp_path):
     assert instructions.read_text() == "Run the local routing tests.\n"
     manifest = json.loads((tmp_path / ".harness/config.json").read_text())
     assert "AGENTS.md" not in [f["path"] for f in manifest["files"]]
+
+
+def make_skill(tmp_path):
+    source = tmp_path / "fixture"
+    source.mkdir()
+    (source / "SKILL.md").write_text("---\nname: routes\ndescription: Check local routes.\n---\nRun tests.\n")
+    return str(source)
+
+
+def test_migrate_retains_skill_registration(harness, tmp_path):
+    harness("init")
+    harness("skill", "add", "--path", make_skill(tmp_path))
+    manifest = tmp_path / ".harness/config.json"
+    state = json.loads(manifest.read_text())
+    pins = state["addedSkills"]
+    state["disabledByPerf"] = ["post-edit--check.sh"]
+    manifest.write_text(json.dumps(state))
+    for option in ("--migrate", "--force"):
+        harness("init", option)
+        harness("skill", "verify", "routes")
+        updated = json.loads(manifest.read_text())
+        assert updated["addedSkills"] == pins
+        assert updated["disabledByPerf"] == state["disabledByPerf"]

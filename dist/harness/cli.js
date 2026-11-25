@@ -1400,15 +1400,20 @@ function cmdInit(flags) {
         if (c.json)
             byName.set(c.name, c);
     }
-    let priorHarness = [];
-    try {
-        if (prior !== null) {
-            priorHarness = (JSON.parse(prior).harness ?? []).filter((n) => byName.has(n));
+    let priorState = {};
+    if (prior !== null) {
+        try {
+            const parsed = JSON.parse(prior);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+                priorState = parsed;
+        }
+        catch {
+            // A corrupt manifest is rebuilt from the checkout.
         }
     }
-    catch {
-        // corrupt manifest: autodetect below, rewrite after
-    }
+    const priorHarness = Array.isArray(priorState.harness)
+        ? priorState.harness.filter((name) => byName.has(name))
+        : [];
     let names;
     if (explicit.length > 0) {
         const unknown = explicit.filter((n) => !byName.has(n));
@@ -1431,16 +1436,12 @@ function cmdInit(flags) {
     }
     const tracked = new Set();
     const priorFiles = [];
-    if (prior !== null) {
-        try {
-            const parsed = JSON.parse(prior).files ?? [];
-            for (const f of parsed) {
-                priorFiles.push(f);
-                tracked.add(typeof f === "string" ? f : f.path);
-            }
-        }
-        catch {
-            // corrupt manifest: rewrite below
+    if (Array.isArray(priorState.files)) {
+        for (const file of priorState.files) {
+            if (typeof file !== "string" && typeof file?.path !== "string")
+                continue;
+            priorFiles.push(file);
+            tracked.add(typeof file === "string" ? file : file.path);
         }
     }
     const written = [];
@@ -1727,14 +1728,7 @@ function cmdInit(flags) {
         return true;
     })
         .reverse();
-    let priorOpts = {};
-    try {
-        if (prior !== null)
-            priorOpts = JSON.parse(prior).optimizations ?? {};
-    }
-    catch {
-        // corrupt manifest: defaults below
-    }
+    const priorOpts = (priorState.optimizations ?? {});
     const optimizations = { ...defaultOptimizations() };
     for (const o of OPTIMIZATIONS) {
         if (typeof priorOpts[o.name] === "boolean")
@@ -1752,6 +1746,7 @@ function cmdInit(flags) {
     try {
         fs.mkdirSync(path.dirname(manFile), { recursive: true });
         fs.writeFileSync(manFile, JSON.stringify({
+            ...priorState,
             version: VERSION,
             harness: names,
             files: deduped,

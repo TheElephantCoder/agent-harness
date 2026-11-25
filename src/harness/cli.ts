@@ -1513,16 +1513,18 @@ function cmdInit(flags: string[]): boolean {
   )) {
     if (c.json) byName.set(c.name, c);
   }
-  let priorHarness: string[] = [];
-  try {
-    if (prior !== null) {
-      priorHarness = (JSON.parse(prior).harness ?? []).filter((n: string) =>
-        byName.has(n),
-      );
+  let priorState: Record<string, unknown> = {};
+  if (prior !== null) {
+    try {
+      const parsed = JSON.parse(prior);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) priorState = parsed;
+    } catch {
+      // A corrupt manifest is rebuilt from the checkout.
     }
-  } catch {
-    // corrupt manifest: autodetect below, rewrite after
   }
+  const priorHarness = Array.isArray(priorState.harness)
+    ? priorState.harness.filter((name): name is string => byName.has(name))
+    : [];
   let names: string[];
   if (explicit.length > 0) {
     const unknown = explicit.filter((n) => !byName.has(n));
@@ -1545,15 +1547,11 @@ function cmdInit(flags: string[]): boolean {
   }
   const tracked = new Set<string>();
   const priorFiles: Array<string | { path: string; sha: string }> = [];
-  if (prior !== null) {
-    try {
-      const parsed = JSON.parse(prior).files ?? [];
-      for (const f of parsed) {
-        priorFiles.push(f);
-        tracked.add(typeof f === "string" ? f : f.path);
-      }
-    } catch {
-      // corrupt manifest: rewrite below
+  if (Array.isArray(priorState.files)) {
+    for (const file of priorState.files) {
+      if (typeof file !== "string" && typeof file?.path !== "string") continue;
+      priorFiles.push(file);
+      tracked.add(typeof file === "string" ? file : file.path);
     }
   }
   const written: Array<{ rel: string; sha: string }> = [];
@@ -1870,12 +1868,7 @@ function cmdInit(flags: string[]): boolean {
       return true;
     })
     .reverse();
-  let priorOpts: Record<string, unknown> = {};
-  try {
-    if (prior !== null) priorOpts = JSON.parse(prior).optimizations ?? {};
-  } catch {
-    // corrupt manifest: defaults below
-  }
+  const priorOpts = (priorState.optimizations ?? {}) as Record<string, unknown>;
   const optimizations: Record<string, boolean> = { ...defaultOptimizations() };
   for (const o of OPTIMIZATIONS) {
     if (typeof priorOpts[o.name] === "boolean")
@@ -1898,6 +1891,7 @@ function cmdInit(flags: string[]): boolean {
       manFile,
       JSON.stringify(
         {
+          ...priorState,
           version: VERSION,
           harness: names,
           files: deduped,
