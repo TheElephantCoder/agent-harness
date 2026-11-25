@@ -1570,7 +1570,15 @@ function cmdInit(flags: string[]): boolean {
   const put = (rel: string, content: string, exec = false, force = false) => {
     const abs = path.join(cwd, rel);
     const exists = fs.existsSync(abs);
-    const overwriting = force || (forceAll && !memoryPaths.has(rel));
+    let overwriting = force && tracked.has(rel);
+    if (exists && !force && forceAll && !memoryPaths.has(rel)) {
+      const want = recorded.get(rel);
+      const current = want === undefined ? null : readText(abs);
+      overwriting = current !== null && sha256(current) === want;
+      if (!dry && want !== undefined && !overwriting) {
+        console.log(`[harness] init - ${rel} edited by you, keeping (delete it to force overwrite)`);
+      }
+    }
     if (dry) {
       const action = !exists ? "write" : overwriting ? "overwrite" : "skip";
       planned.push({ rel, action });
@@ -1581,21 +1589,6 @@ function cmdInit(flags: string[]): boolean {
     if (!overwriting && exists) {
       skipped.push(rel);
       return;
-    }
-    if (overwriting && exists && !force) {
-      // --force reinstalls what init owns, never your edits: a tracked
-      // file whose content drifted from its recorded hash is left alone.
-      const want = recorded.get(rel);
-      if (want !== undefined) {
-        const cur = readText(abs);
-        if (cur !== null && sha256(cur) !== want) {
-          console.log(
-            `[harness] init - ${rel} edited by you, keeping (delete it to force overwrite)`,
-          );
-          skipped.push(rel);
-          return;
-        }
-      }
     }
     try {
       fs.mkdirSync(path.dirname(abs), { recursive: true });

@@ -37,3 +37,14 @@ def test_force_preserves_synced_memory(harness, tmp_path):
     memory.unlink()
     harness("init", "--force")
     assert memory.is_file()
+
+
+def test_force_preserves_unowned_files(harness, tmp_path):
+    instructions = tmp_path / "AGENTS.md"
+    instructions.write_text("Run the local routing tests.\n")
+    harness("init")
+    assert "= AGENTS.md" in harness("init", "--force", "--dry-run")
+    harness("init", "--force")
+    assert instructions.read_text() == "Run the local routing tests.\n"
+    manifest = json.loads((tmp_path / ".harness/config.json").read_text())
+    assert "AGENTS.md" not in [f["path"] for f in manifest["files"]]

@@ -1325,7 +1325,13 @@ def cmd_init(args=None):
     def put(rel, content, exec=False, force=False):
         abs_path = os.path.join(cwd, rel)
         exists = os.path.exists(abs_path)
-        overwriting = force or (force_all and rel not in memory_paths)
+        overwriting = force and rel in tracked
+        if exists and not force and force_all and rel not in memory_paths:
+            want = recorded.get(rel)
+            current = read_text(abs_path) if want is not None else None
+            overwriting = current is not None and sha256(current) == want
+            if not dry and want is not None and not overwriting:
+                print(f"[harness] init - {rel} edited by you, keeping (delete it to force overwrite)")
         if dry:
             action = "write" if not exists else ("overwrite" if overwriting else "skip")
             planned.append({"rel": rel, "action": action})
@@ -1337,16 +1343,6 @@ def cmd_init(args=None):
         if not overwriting and exists:
             skipped.append(rel)
             return
-        if overwriting and exists and not force:
-            # --force reinstalls what init owns, never your edits: a tracked
-            # file whose content drifted from its recorded hash is left alone.
-            want = recorded.get(rel)
-            if want is not None:
-                cur = read_text(abs_path)
-                if cur is not None and sha256(cur) != want:
-                    print(f"[harness] init - {rel} edited by you, keeping (delete it to force overwrite)")
-                    skipped.append(rel)
-                    return
         try:
             os.makedirs(os.path.dirname(abs_path) or ".", exist_ok=True)
             with open(abs_path, "w", encoding="utf-8") as f:
