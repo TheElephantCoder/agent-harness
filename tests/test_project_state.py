@@ -85,3 +85,14 @@ def test_failed_adapter_install_can_resume(harness, tmp_path):
     assert (collision / "skills/performance/SKILL.md").is_file()
     assert json.loads((tmp_path / ".harness/config.json").read_text())["harness"] == ["claude"]
     harness("doctor", "--strict")
+
+
+def test_map_keeps_doctor_in_sync(harness, tmp_path):
+    harness("init")
+    (tmp_path / "routes.py").write_text("def match(): pass\n")
+    harness("map")
+    index = tmp_path / ".harness/MAP.md"
+    assert "routes.py" in index.read_text()
+    harness("doctor", "--strict")
+    index.write_text("manual edit")
+    assert "MAP.md" in harness("doctor", "--strict", status=1)

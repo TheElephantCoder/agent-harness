@@ -2663,27 +2663,24 @@ export function slugify(s) {
 // the tool's own writes must keep the manifest hash fresh, or doctor
 // reports the file as modified after every sync/prune
 function refreshManifestSha(cwd, rel) {
+    const file = path.join(cwd, ".harness", "config.json");
+    if (!fs.existsSync(file))
+        return true;
     try {
-        const manFile = path.join(cwd, ".harness", "config.json");
-        const text = readText(manFile);
-        if (text === null)
-            return;
-        const man = JSON.parse(text);
-        if (typeof man !== "object" ||
-            man === null ||
-            !Array.isArray(man.files))
-            return;
-        const sha = sha256(readText(path.join(cwd, rel)) ?? "");
-        const files = man.files;
-        const entry = files.find((f) => typeof f === "object" && f !== null && f.path === rel);
-        if (entry)
-            entry.sha = sha;
+        const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+        if (!Array.isArray(manifest?.files))
+            return false;
+        const sha = sha256(fs.readFileSync(path.join(cwd, rel), "utf8"));
+        const index = manifest.files.findIndex((entry) => entry === rel || (typeof entry === "object" && entry?.path === rel));
+        if (index === -1)
+            manifest.files.push({ path: rel, sha });
         else
-            files.push({ path: rel, sha });
-        fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+            manifest.files[index] = { path: rel, sha };
+        writeProjectFile(file, JSON.stringify(manifest, null, 2), true);
+        return true;
     }
     catch {
-        // manifest problems are doctor's job, not ours
+        return false;
     }
 }
 function cmdMemorySync(note) {
@@ -3258,6 +3255,10 @@ function cmdMap() {
     }
     catch {
         console.log("[harness] FAIL - map: could not write .harness/MAP.md");
+        return false;
+    }
+    if (!refreshManifestSha(cwd, ".harness/MAP.md")) {
+        console.log("[harness] FAIL - map written, could not update .harness/config.json");
         return false;
     }
     console.log(`[harness] ok - map: ${r.files} files, ${r.lines} lines, ~${fmtTok(r.tokens)} tokens -> .harness/MAP.md${r.omitted > 0 ? ` (${r.omitted} omitted, capped at ${MAP_MAX_FILES})` : ""}`);

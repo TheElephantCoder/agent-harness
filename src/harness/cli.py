@@ -1787,6 +1787,9 @@ def cmd_map(args=None):
     except OSError:
         print("[harness] FAIL - map: could not write .harness/MAP.md")
         return False
+    if not refresh_manifest_sha(cwd, os.path.join(".harness", "MAP.md")):
+        print("[harness] FAIL - map written, could not update .harness/config.json")
+        return False
     print(f"[harness] ok - map: {r['files']} files, {r['lines']} lines, ~{fmt_tok(r['tokens'])} tokens -> .harness/MAP.md" + (f" ({r['omitted']} omitted, capped at {MAP_MAX_FILES})" if r['omitted'] else ""))
     return True
 
@@ -2142,28 +2145,27 @@ def verify_added_skill(cwd, a):
     return None
 
 def refresh_manifest_sha(cwd, rel):
-    """The tool's own writes must keep the manifest hash fresh, or doctor
-    reports the file as modified after every sync/prune."""
+    file = os.path.join(cwd, ".harness", "config.json")
+    if not os.path.exists(file):
+        return True
     try:
-        man_file = os.path.join(cwd, ".harness", "config.json")
-        text = read_text(man_file)
-        if text is None:
-            return
-        man = json.loads(text)
-        if not isinstance(man, dict) or not isinstance(man.get("files"), list):
-            return
-        sha = sha256(read_text(os.path.join(cwd, rel)) or "")
-        for f in man["files"]:
-            if isinstance(f, dict) and f.get("path") == rel:
-                f["sha"] = sha
+        with open(file, encoding="utf-8") as stream:
+            manifest = json.load(stream)
+        if not isinstance(manifest, dict) or not isinstance(manifest.get("files"), list):
+            return False
+        with open(os.path.join(cwd, rel), encoding="utf-8") as stream:
+            entry = {"path": rel, "sha": sha256(stream.read())}
+        for index, item in enumerate(manifest["files"]):
+            if item == rel or (isinstance(item, dict) and item.get("path") == rel):
+                manifest["files"][index] = entry
                 break
         else:
-            man["files"].append({"path": rel, "sha": sha})
-        with open(man_file, "w", encoding="utf-8") as f:
-            json.dump(man, f, indent=2)
+            manifest["files"].append(entry)
+        write_project_file(file, json.dumps(manifest, indent=2), True)
+        return True
     except (ValueError, OSError):
-        # manifest problems are doctor's job, not ours
-        pass
+        return False
+
 
 def cmd_memory_sync(note):
     note = (note or "").strip()
