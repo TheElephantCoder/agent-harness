@@ -1473,6 +1473,37 @@ export const HarnessPlugin = async ({ directory }) => ({
 });
 `;
 
+// Publish complete replacements and remove an incomplete file only if this call created it.
+function writeProjectFile(file: string, text: string, replace: boolean, executable = false): void {
+  const parent = path.dirname(file);
+  fs.mkdirSync(parent, { recursive: true });
+  if (!replace) {
+    const fd = fs.openSync(file, "wx");
+    try {
+      try {
+        fs.writeFileSync(fd, text);
+        if (executable) fs.fchmodSync(fd, 0o755);
+      } finally {
+        fs.closeSync(fd);
+      }
+    } catch (error) {
+      fs.unlinkSync(file);
+      throw error;
+    }
+    return;
+  }
+  const mode = executable ? 0o755 : fs.statSync(file).mode & 0o777;
+  const stage = fs.mkdtempSync(path.join(parent, ".harness-write-"));
+  const temp = path.join(stage, "file");
+  try {
+    fs.writeFileSync(temp, text);
+    fs.chmodSync(temp, mode);
+    fs.renameSync(temp, file);
+  } finally {
+    fs.rmSync(stage, { recursive: true, force: true });
+  }
+}
+
 function cmdInit(flags: string[]): boolean {
   const root = selfRoot();
   if (!root) {
@@ -1499,12 +1530,6 @@ function cmdInit(flags: string[]): boolean {
   const cwd = process.cwd();
   const manFile = path.join(cwd, ".harness", "config.json");
   const prior = readText(manFile);
-  if (prior !== null && !migrate && !dry && !forceAll) {
-    console.log(
-      "[harness] init - already initialized here (use --migrate to fill gaps)",
-    );
-    return false;
-  }
   const adapters = listAdapters(root).filter((a) => a.json);
   const byName = new Map(adapters.map((a) => [a.name, a]));
   for (const c of listAdapters(
@@ -1513,16 +1538,25 @@ function cmdInit(flags: string[]): boolean {
   )) {
     if (c.json) byName.set(c.name, c);
   }
-  let priorHarness: string[] = [];
-  try {
-    if (prior !== null) {
-      priorHarness = (JSON.parse(prior).harness ?? []).filter((n: string) =>
-        byName.has(n),
-      );
+  let priorState: Record<string, unknown> = {};
+  if (prior !== null) {
+    try {
+      const parsed = JSON.parse(prior);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) priorState = parsed;
+    } catch {
+      // A corrupt manifest is rebuilt from the checkout.
     }
-  } catch {
-    // corrupt manifest: autodetect below, rewrite after
   }
+  const pending = priorState.pendingInit;
+  if (prior !== null && !Array.isArray(pending) && !migrate && !dry && !forceAll) {
+    console.log(
+      "[harness] init - already initialized here (use --migrate to fill gaps)",
+    );
+    return false;
+  }
+  const priorHarness = Array.isArray(priorState.harness)
+    ? priorState.harness.filter((name): name is string => byName.has(name))
+    : [];
   let names: string[];
   if (explicit.length > 0) {
     const unknown = explicit.filter((n) => !byName.has(n));
@@ -1533,6 +1567,12 @@ function cmdInit(flags: string[]): boolean {
       return false;
     }
     names = explicit;
+  } else if (Array.isArray(pending)) {
+    if (pending.some((name) => !byName.has(name))) {
+      console.log("[harness] init - pending adapter unavailable; select an adapter with --harness");
+      return false;
+    }
+    names = pending;
   } else if (migrate && priorHarness.length > 0) {
     names = priorHarness;
   } else {
@@ -1545,15 +1585,11 @@ function cmdInit(flags: string[]): boolean {
   }
   const tracked = new Set<string>();
   const priorFiles: Array<string | { path: string; sha: string }> = [];
-  if (prior !== null) {
-    try {
-      const parsed = JSON.parse(prior).files ?? [];
-      for (const f of parsed) {
-        priorFiles.push(f);
-        tracked.add(typeof f === "string" ? f : f.path);
-      }
-    } catch {
-      // corrupt manifest: rewrite below
+  if (Array.isArray(priorState.files)) {
+    for (const file of priorState.files) {
+      if (typeof file !== "string" && typeof file?.path !== "string") continue;
+      priorFiles.push(file);
+      tracked.add(typeof file === "string" ? file : file.path);
     }
   }
   const written: Array<{ rel: string; sha: string }> = [];
@@ -1566,10 +1602,20 @@ function cmdInit(flags: string[]): boolean {
   for (const f of priorFiles) {
     if (typeof f !== "string") recorded.set(f.path, f.sha);
   }
+  let failed = false;
+  const memoryPaths = new Set(["MEMORY.md"]);
   const put = (rel: string, content: string, exec = false, force = false) => {
     const abs = path.join(cwd, rel);
     const exists = fs.existsSync(abs);
-    const overwriting = force || forceAll;
+    let overwriting = force && tracked.has(rel);
+    if (exists && !force && forceAll && !memoryPaths.has(rel)) {
+      const want = recorded.get(rel);
+      const current = want === undefined ? null : readText(abs);
+      overwriting = current !== null && sha256(current) === want;
+      if (!dry && want !== undefined && !overwriting) {
+        console.log(`[harness] init - ${rel} edited by you, keeping (delete it to force overwrite)`);
+      }
+    }
     if (dry) {
       const action = !exists ? "write" : overwriting ? "overwrite" : "skip";
       planned.push({ rel, action });
@@ -1581,27 +1627,11 @@ function cmdInit(flags: string[]): boolean {
       skipped.push(rel);
       return;
     }
-    if (overwriting && exists && !force) {
-      // --force reinstalls what init owns, never your edits: a tracked
-      // file whose content drifted from its recorded hash is left alone.
-      const want = recorded.get(rel);
-      if (want !== undefined) {
-        const cur = readText(abs);
-        if (cur !== null && sha256(cur) !== want) {
-          console.log(
-            `[harness] init - ${rel} edited by you, keeping (delete it to force overwrite)`,
-          );
-          skipped.push(rel);
-          return;
-        }
-      }
-    }
     try {
-      fs.mkdirSync(path.dirname(abs), { recursive: true });
-      fs.writeFileSync(abs, content);
-      if (exec) fs.chmodSync(abs, 0o755);
+      writeProjectFile(abs, content, exists, exec);
       written.push({ rel, sha: sha256(content) });
     } catch {
+      failed = true;
       console.log(`[harness] init - could not write ${rel}`);
     }
   };
@@ -1617,7 +1647,10 @@ function cmdInit(flags: string[]): boolean {
   if (memSrc !== null) dests.set("MEMORY.md", memSrc);
   for (const n of names) {
     const j = byName.get(n)!.json!;
-    if (j.memoryPath && memSrc !== null) dests.set(j.memoryPath, memSrc);
+    if (j.memoryPath && memSrc !== null) {
+      memoryPaths.add(j.memoryPath);
+      dests.set(j.memoryPath, memSrc);
+    }
     if (j.agentsPath && agentsSrc !== null) dests.set(j.agentsPath, agentsSrc);
   }
   for (const [rel, content] of dests) put(rel, content);
@@ -1873,12 +1906,7 @@ function cmdInit(flags: string[]): boolean {
       return true;
     })
     .reverse();
-  let priorOpts: Record<string, unknown> = {};
-  try {
-    if (prior !== null) priorOpts = JSON.parse(prior).optimizations ?? {};
-  } catch {
-    // corrupt manifest: defaults below
-  }
+  const priorOpts = (priorState.optimizations ?? {}) as Record<string, unknown>;
   const optimizations: Record<string, boolean> = { ...defaultOptimizations() };
   for (const o of OPTIMIZATIONS) {
     if (typeof priorOpts[o.name] === "boolean")
@@ -1896,13 +1924,14 @@ function cmdInit(flags: string[]): boolean {
     return true;
   }
   try {
-    fs.mkdirSync(path.dirname(manFile), { recursive: true });
-    fs.writeFileSync(
+    writeProjectFile(
       manFile,
       JSON.stringify(
         {
+          ...priorState,
           version: VERSION,
-          harness: names,
+          harness: failed ? priorHarness : names,
+          pendingInit: failed ? names : undefined,
           files: deduped,
           optimizations,
           ts: new Date().toISOString(),
@@ -1910,9 +1939,14 @@ function cmdInit(flags: string[]): boolean {
         null,
         2,
       ),
+      prior !== null,
     );
   } catch {
     console.log("[harness] init - could not write .harness/config.json");
+    return false;
+  }
+  if (failed) {
+    console.log("[harness] init - installation incomplete; resolve the write errors and rerun harness init");
     return false;
   }
   console.log(
@@ -2508,8 +2542,11 @@ function cmdDoctor(flags: string[]): boolean {
   const manText = readText(path.join(process.cwd(), ".harness", "config.json"));
   if (manText !== null) {
     try {
-      const files: Array<string | { path: string; sha: string }> =
-        JSON.parse(manText).files ?? [];
+      const manifest = JSON.parse(manText);
+      if (Array.isArray(manifest.pendingInit)) {
+        fail("[harness] FAIL - project installation incomplete; rerun harness init");
+      }
+      const files: Array<string | { path: string; sha: string }> = manifest.files ?? [];
       const relOf = (f: string | { path: string; sha: string }) =>
         typeof f === "string" ? f : f.path;
       const missing = files
@@ -2816,28 +2853,22 @@ export function slugify(s: string): string {
 
 // the tool's own writes must keep the manifest hash fresh, or doctor
 // reports the file as modified after every sync/prune
-function refreshManifestSha(cwd: string, rel: string): void {
+function refreshManifestSha(cwd: string, rel: string): boolean {
+  const file = path.join(cwd, ".harness", "config.json");
+  if (!fs.existsSync(file)) return true;
   try {
-    const manFile = path.join(cwd, ".harness", "config.json");
-    const text = readText(manFile);
-    if (text === null) return;
-    const man: unknown = JSON.parse(text);
-    if (
-      typeof man !== "object" ||
-      man === null ||
-      !Array.isArray((man as { files?: unknown }).files)
-    )
-      return;
-    const sha = sha256(readText(path.join(cwd, rel)) ?? "");
-    const files = (man as { files: Array<Record<string, unknown>> }).files;
-    const entry = files.find(
-      (f) => typeof f === "object" && f !== null && f.path === rel,
+    const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!Array.isArray(manifest?.files)) return false;
+    const sha = sha256(fs.readFileSync(path.join(cwd, rel), "utf8"));
+    const index = manifest.files.findIndex(
+      (entry: string | { path: string }) => entry === rel || (typeof entry === "object" && entry?.path === rel),
     );
-    if (entry) entry.sha = sha;
-    else files.push({ path: rel, sha });
-    fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+    if (index === -1) manifest.files.push({ path: rel, sha });
+    else manifest.files[index] = { path: rel, sha };
+    writeProjectFile(file, JSON.stringify(manifest, null, 2), true);
+    return true;
   } catch {
-    // manifest problems are doctor's job, not ours
+    return false;
   }
 }
 
@@ -3015,49 +3046,60 @@ function finishSkillAdd(body: string, repoLabel: string, ref: string): boolean {
     return false;
   }
   const rel = path.join(".harness", "skills", name, "SKILL.md");
-  if (fs.existsSync(path.join(cwd, rel))) {
-    console.log(`[harness] skill add - ${rel} exists already`);
-    return false;
-  }
+  const target = path.join(cwd, rel);
+  const manifest = path.join(cwd, ".harness", "config.json");
+  const lock = manifest + ".skill-add.lock";
+  let fd: number;
   try {
-    fs.mkdirSync(path.join(cwd, ".harness", "skills", name), {
-      recursive: true,
-    });
-    fs.writeFileSync(path.join(cwd, rel), body);
+    fs.mkdirSync(path.dirname(manifest), { recursive: true });
+    fd = fs.openSync(lock, "wx");
   } catch {
-    console.log(`[harness] skill add - could not write ${rel}`);
+    console.log("[harness] skill add - could not reserve the manifest for writing");
     return false;
   }
-  const manFile = path.join(cwd, ".harness", "config.json");
-  let man: Record<string, unknown> = {
-    version: VERSION,
-    harness: [],
-    files: [],
-  };
-  const manText = readText(manFile);
-  if (manText !== null) {
+  let published = false;
+  try {
     try {
-      man = JSON.parse(manText);
+      if (fs.existsSync(target)) {
+        console.log(`[harness] skill add - ${rel} exists already`);
+        return false;
+      }
+      let state = { version: VERSION, harness: [], files: [] } as Record<string, unknown>;
+      if (fs.existsSync(manifest)) {
+        state = JSON.parse(fs.readFileSync(manifest, "utf8"));
+        fs.fchmodSync(fd, fs.statSync(manifest).mode & 0o777);
+      }
+      if (!state || typeof state !== "object" || Array.isArray(state)) {
+        throw new Error("invalid manifest");
+      }
+      const pins = state.addedSkills === undefined ? [] : state.addedSkills;
+      if (!Array.isArray(pins) || !pins.every((pin) => pin && typeof pin.name === "string")) {
+        throw new Error("invalid skill pins");
+      }
+      state.addedSkills = [
+        ...pins.filter((pin) => pin.name !== name),
+        { name, repo: repoLabel, ref, sha256: sha256(body), ts: new Date().toISOString() },
+      ];
+      fs.writeFileSync(fd, JSON.stringify(state, null, 2));
     } catch {
-      console.log("[harness] skill add - .harness/config.json corrupt");
+      console.log("[harness] skill add - could not read or prepare .harness/config.json");
       return false;
+    } finally {
+      fs.closeSync(fd);
     }
-  }
-  const added = (man.addedSkills ?? []) as Array<Record<string, string>>;
-  added.push({
-    name,
-    repo: repoLabel,
-    ref,
-    sha256: sha256(body),
-    ts: new Date().toISOString(),
-  });
-  man.addedSkills = added;
-  try {
-    fs.mkdirSync(path.dirname(manFile), { recursive: true });
-    fs.writeFileSync(manFile, JSON.stringify(man, null, 2));
+    writeProjectFile(target, body, false);
+    try {
+      fs.renameSync(lock, manifest);
+      published = true;
+    } catch (error) {
+      fs.unlinkSync(target);
+      throw error;
+    }
   } catch {
-    console.log("[harness] skill add - could not update .harness/config.json");
+    console.log(`[harness] skill add - could not install and register ${rel}`);
     return false;
+  } finally {
+    if (!published) fs.rmSync(lock, { force: true });
   }
   console.log(
     `[harness] ok - skill ${name} from ${ref === "-" ? repoLabel : `${repoLabel}@${ref}`} pinned in manifest`,
@@ -3468,6 +3510,10 @@ function cmdMap(): boolean {
     fs.writeFileSync(path.join(cwd, ".harness", "MAP.md"), r.text);
   } catch {
     console.log("[harness] FAIL - map: could not write .harness/MAP.md");
+    return false;
+  }
+  if (!refreshManifestSha(cwd, ".harness/MAP.md")) {
+    console.log("[harness] FAIL - map written, could not update .harness/config.json");
     return false;
   }
   console.log(
