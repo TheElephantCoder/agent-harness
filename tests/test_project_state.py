@@ -71,3 +71,17 @@ def test_migrate_retains_skill_registration(harness, tmp_path):
         updated = json.loads(manifest.read_text())
         assert updated["addedSkills"] == pins
         assert updated["disabledByPerf"] == state["disabledByPerf"]
+
+
+def test_failed_adapter_install_can_resume(harness, tmp_path):
+    collision = tmp_path / ".claude"
+    collision.write_text("existing checkout file")
+    assert "could not write" in harness("init", "--harness", "claude", status=1)
+    assert collision.read_text() == "existing checkout file"
+    assert "incomplete" in harness("doctor", "--strict", status=1)
+    collision.unlink()
+    harness("init")
+    assert (collision / "settings.json").is_file()
+    assert (collision / "skills/performance/SKILL.md").is_file()
+    assert json.loads((tmp_path / ".harness/config.json").read_text())["harness"] == ["claude"]
+    harness("doctor", "--strict")

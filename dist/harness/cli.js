@@ -1367,6 +1367,40 @@ export const HarnessPlugin = async ({ directory }) => ({
   },
 });
 `;
+// Publish complete replacements and remove an incomplete file only if this call created it.
+function writeProjectFile(file, text, replace, executable = false) {
+    const parent = path.dirname(file);
+    fs.mkdirSync(parent, { recursive: true });
+    if (!replace) {
+        const fd = fs.openSync(file, "wx");
+        try {
+            try {
+                fs.writeFileSync(fd, text);
+                if (executable)
+                    fs.fchmodSync(fd, 0o755);
+            }
+            finally {
+                fs.closeSync(fd);
+            }
+        }
+        catch (error) {
+            fs.unlinkSync(file);
+            throw error;
+        }
+        return;
+    }
+    const mode = executable ? 0o755 : fs.statSync(file).mode & 0o777;
+    const stage = fs.mkdtempSync(path.join(parent, ".harness-write-"));
+    const temp = path.join(stage, "file");
+    try {
+        fs.writeFileSync(temp, text);
+        fs.chmodSync(temp, mode);
+        fs.renameSync(temp, file);
+    }
+    finally {
+        fs.rmSync(stage, { recursive: true, force: true });
+    }
+}
 function cmdInit(flags) {
     const root = selfRoot();
     if (!root) {
@@ -1390,10 +1424,6 @@ function cmdInit(flags) {
     const cwd = process.cwd();
     const manFile = path.join(cwd, ".harness", "config.json");
     const prior = readText(manFile);
-    if (prior !== null && !migrate && !dry && !forceAll) {
-        console.log("[harness] init - already initialized here (use --migrate to fill gaps)");
-        return false;
-    }
     const adapters = listAdapters(root).filter((a) => a.json);
     const byName = new Map(adapters.map((a) => [a.name, a]));
     for (const c of listAdapters(process.cwd(), path.join(".harness", "adapters"))) {
@@ -1411,6 +1441,11 @@ function cmdInit(flags) {
             // A corrupt manifest is rebuilt from the checkout.
         }
     }
+    const pending = priorState.pendingInit;
+    if (prior !== null && !Array.isArray(pending) && !migrate && !dry && !forceAll) {
+        console.log("[harness] init - already initialized here (use --migrate to fill gaps)");
+        return false;
+    }
     const priorHarness = Array.isArray(priorState.harness)
         ? priorState.harness.filter((name) => byName.has(name))
         : [];
@@ -1422,6 +1457,13 @@ function cmdInit(flags) {
             return false;
         }
         names = explicit;
+    }
+    else if (Array.isArray(pending)) {
+        if (pending.some((name) => !byName.has(name))) {
+            console.log("[harness] init - pending adapter unavailable; select an adapter with --harness");
+            return false;
+        }
+        names = pending;
     }
     else if (migrate && priorHarness.length > 0) {
         names = priorHarness;
@@ -1452,6 +1494,7 @@ function cmdInit(flags) {
         if (typeof f !== "string")
             recorded.set(f.path, f.sha);
     }
+    let failed = false;
     const memoryPaths = new Set(["MEMORY.md"]);
     const put = (rel, content, exec = false, force = false) => {
         const abs = path.join(cwd, rel);
@@ -1479,13 +1522,11 @@ function cmdInit(flags) {
             return;
         }
         try {
-            fs.mkdirSync(path.dirname(abs), { recursive: true });
-            fs.writeFileSync(abs, content);
-            if (exec)
-                fs.chmodSync(abs, 0o755);
+            writeProjectFile(abs, content, exists, exec);
             written.push({ rel, sha: sha256(content) });
         }
         catch {
+            failed = true;
             console.log(`[harness] init - could not write ${rel}`);
         }
     };
@@ -1744,18 +1785,22 @@ function cmdInit(flags) {
         return true;
     }
     try {
-        fs.mkdirSync(path.dirname(manFile), { recursive: true });
-        fs.writeFileSync(manFile, JSON.stringify({
+        writeProjectFile(manFile, JSON.stringify({
             ...priorState,
             version: VERSION,
-            harness: names,
+            harness: failed ? priorHarness : names,
+            pendingInit: failed ? names : undefined,
             files: deduped,
             optimizations,
             ts: new Date().toISOString(),
-        }, null, 2));
+        }, null, 2), prior !== null);
     }
     catch {
         console.log("[harness] init - could not write .harness/config.json");
+        return false;
+    }
+    if (failed) {
+        console.log("[harness] init - installation incomplete; resolve the write errors and rerun harness init");
         return false;
     }
     console.log(`[harness] init ${scope} - ${written.length} written, ${skipped.length} skipped (run harness doctor to verify)`);
@@ -2338,7 +2383,11 @@ function cmdDoctor(flags) {
     const manText = readText(path.join(process.cwd(), ".harness", "config.json"));
     if (manText !== null) {
         try {
-            const files = JSON.parse(manText).files ?? [];
+            const manifest = JSON.parse(manText);
+            if (Array.isArray(manifest.pendingInit)) {
+                fail("[harness] FAIL - project installation incomplete; rerun harness init");
+            }
+            const files = manifest.files ?? [];
             const relOf = (f) => typeof f === "string" ? f : f.path;
             const missing = files
                 .map(relOf)

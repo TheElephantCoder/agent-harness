@@ -12,6 +12,7 @@ import signal
 import stat
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from datetime import datetime
@@ -1011,7 +1012,10 @@ def cmd_doctor(args=None):
     man = read_text(os.path.join(os.getcwd(), ".harness", "config.json"))
     if man is not None:
         try:
-            files = json.loads(man).get("files", [])
+            manifest = json.loads(man)
+            if isinstance(manifest.get("pendingInit"), list):
+                fail("[harness] FAIL - project installation incomplete; rerun harness init")
+            files = manifest.get("files", [])
             rel_of = lambda f: f if isinstance(f, str) else f.get("path", "")
             missing = [rel_of(f) for f in files if not os.path.exists(os.path.join(os.getcwd(), rel_of(f)))]
             modified = []
@@ -1265,6 +1269,29 @@ AUTO_MARKERS = {"claude": ".claude", "cursor": ".cursor", "opencode": "opencode.
                 "codex": ".agents", "kiro-cli": ".kiro", "kiro-desktop": ".kiro",
                 "aider": ".aider.conf.yml", "cline": ".clinerules", "generic": ""}
 
+def write_project_file(file, text, replace, executable=False):
+    parent = os.path.dirname(file)
+    os.makedirs(parent, exist_ok=True)
+    if not replace:
+        stream = open(file, "x", encoding="utf-8")
+        try:
+            with stream:
+                stream.write(text)
+                if executable:
+                    os.chmod(file, 0o755)
+        except OSError:
+            os.unlink(file)
+            raise
+        return
+    mode = 0o755 if executable else stat.S_IMODE(os.stat(file).st_mode)
+    with tempfile.TemporaryDirectory(prefix=".harness-write-", dir=parent) as stage:
+        temp = os.path.join(stage, "file")
+        with open(temp, "w", encoding="utf-8") as stream:
+            stream.write(text)
+        os.chmod(temp, mode)
+        os.replace(temp, file)
+
+
 def cmd_init(args=None):
     root = self_root()
     if not root:
@@ -1287,9 +1314,6 @@ def cmd_init(args=None):
     cwd = os.getcwd()
     man_file = os.path.join(cwd, ".harness", "config.json")
     prior = read_text(man_file)
-    if prior is not None and not migrate and not dry and not force_all:
-        print("[harness] init - already initialized here (use --migrate to fill gaps)")
-        return False
     prior_state = {}
     if prior is not None:
         try:
@@ -1298,6 +1322,10 @@ def cmd_init(args=None):
                 prior_state = parsed
         except ValueError:
             pass
+    pending = prior_state.get("pendingInit")
+    if prior is not None and not isinstance(pending, list) and not migrate and not dry and not force_all:
+        print("[harness] init - already initialized here (use --migrate to fill gaps)")
+        return False
     previous_names = prior_state.get("harness")
     prior_harness = [n for n in previous_names if isinstance(n, str) and n in by_name] if isinstance(previous_names, list) else []
     if explicit:
@@ -1306,6 +1334,11 @@ def cmd_init(args=None):
             print(f"[harness] init - unknown harness: {', '.join(unknown)} (try: harness adapter list)")
             return False
         names = explicit
+    elif isinstance(pending, list):
+        if any(not isinstance(name, str) or name not in by_name for name in pending):
+            print("[harness] init - pending adapter unavailable; select an adapter with --harness")
+            return False
+        names = pending
     elif migrate and prior_harness:
         names = prior_harness
     else:
@@ -1327,8 +1360,10 @@ def cmd_init(args=None):
     for f in prior_files:
         if not isinstance(f, str) and f.get("sha"):
             recorded[f.get("path", "")] = f["sha"]
+    failed = False
     memory_paths = {"MEMORY.md"}
     def put(rel, content, exec=False, force=False):
+        nonlocal failed
         abs_path = os.path.join(cwd, rel)
         exists = os.path.exists(abs_path)
         overwriting = force and rel in tracked
@@ -1350,13 +1385,10 @@ def cmd_init(args=None):
             skipped.append(rel)
             return
         try:
-            os.makedirs(os.path.dirname(abs_path) or ".", exist_ok=True)
-            with open(abs_path, "w", encoding="utf-8") as f:
-                f.write(content)
-            if exec:
-                os.chmod(abs_path, 0o755)
+            write_project_file(abs_path, content, exists, exec)
             written.append({"path": rel, "sha": sha256(content)})
         except OSError:
+            failed = True
             print(f"[harness] init - could not write {rel}")
     agents_src = None
     if read_optimizations(cwd).get("slim-agents", True) is False:
@@ -1553,14 +1585,20 @@ def cmd_init(args=None):
             print(f"  {mark[p['action']]} {p['rel']}")
         print(f"[harness] init - would write .harness/config.json ({len(files)} files tracked)")
         return True
+    if failed:
+        prior_state["pendingInit"] = names
+    else:
+        prior_state.pop("pendingInit", None)
+    manifest = {**prior_state, "version": VERSION, "harness": prior_harness if failed else names,
+                "files": files, "optimizations": optimizations,
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     try:
-        os.makedirs(os.path.dirname(man_file), exist_ok=True)
-        with open(man_file, "w", encoding="utf-8") as f:
-            json.dump({**prior_state, "version": VERSION, "harness": names, "files": files,
-                       "optimizations": optimizations,
-                       "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, f, indent=2)
+        write_project_file(man_file, json.dumps(manifest, indent=2), prior is not None)
     except OSError:
         print("[harness] init - could not write .harness/config.json")
+        return False
+    if failed:
+        print("[harness] init - installation incomplete; resolve the write errors and rerun harness init")
         return False
     print(f"[harness] init {scope} - {len(written)} written, {len(skipped)} skipped (run harness doctor to verify)")
     return True
