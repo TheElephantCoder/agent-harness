@@ -4058,8 +4058,10 @@ async function runCommand(cmd, flags) {
                     console.log("[harness] research remove - give a finding name");
                     return false;
                 }
-                // slugify + basename: the resolved path can never leave findings/.
-                const file = `${slugify(name)}.md`;
+                // A listed filename is already complete. Titles still use the capture slug.
+                const file = name.endsWith(".md") && path.basename(name) === name && !name.includes("\\")
+                    ? name
+                    : `${slugify(name)}.md`;
                 const abs = path.join(process.cwd(), "research", "findings", file);
                 if (!fs.existsSync(abs)) {
                     console.log(`[harness] research remove - no finding named "${name}"`);

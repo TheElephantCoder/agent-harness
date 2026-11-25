@@ -2280,8 +2280,8 @@ def cmd_research_remove(name):
     if not q:
         print("[harness] research remove - give a finding name")
         return False
-    # slugify + fixed dir: the resolved path can never leave findings/.
-    abs_path = os.path.join(os.getcwd(), "research", "findings", slugify(q) + ".md")
+    filename = q if q.endswith(".md") and os.path.basename(q) == q and "\\" not in q else slugify(q) + ".md"
+    abs_path = os.path.join(os.getcwd(), "research", "findings", filename)
     if not os.path.isfile(abs_path):
         print(f"[harness] research remove - no finding named \"{q}\"")
         return False

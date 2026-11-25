@@ -115,3 +115,16 @@ def test_failed_skill_add_can_retry(harness, tmp_path):
     target.write_text("locally edited")
     harness("skill", "add", "--path", source, status=1)
     assert target.read_text() == "locally edited"
+
+
+def test_remove_accepts_the_filename_shown_in_research_list(harness, tmp_path):
+    harness("research", "Route table")
+    harness("research", "Route table md")
+    findings = tmp_path / "research/findings"
+    assert "route-table.md" in harness("research")
+    harness("research", "remove", "route-table.md")
+    assert not (findings / "route-table.md").exists()
+    harness("research", "remove", "route-table.md", status=1)
+    assert (findings / "route-table-md.md").is_file()
+    harness("research", "remove", "Route table md")
+    assert not (findings / "route-table-md.md").exists()
