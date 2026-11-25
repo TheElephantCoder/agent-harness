@@ -2706,19 +2706,28 @@ def cmd_memory_search(term):
 
 def cmd_memory_backup():
     mem_file = os.path.join(os.getcwd(), "MEMORY.md")
-    text = read_text(mem_file)
-    if text is None:
+    stamp = time.strftime("%Y-%m-%d", time.gmtime())
+    try:
+        with open(mem_file, "rb") as source:
+            mode = stat.S_IMODE(os.fstat(source.fileno()).st_mode)
+            number = 1
+            while True:
+                suffix = "" if number == 1 else f"-{number}"
+                dest = os.path.join(os.getcwd(), f"MEMORY.backup.{stamp}{suffix}.md")
+                try:
+                    fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), mode)
+                    break
+                except FileExistsError:
+                    number += 1
+            try:
+                with os.fdopen(fd, "wb") as backup:
+                    shutil.copyfileobj(source, backup)
+            except OSError:
+                os.unlink(dest)
+                raise
+    except FileNotFoundError:
         print("[harness] memory - no MEMORY.md here (run harness init)")
         return False
-    stamp = time.strftime("%Y-%m-%d", time.gmtime())
-    dest = os.path.join(os.getcwd(), f"MEMORY.backup.{stamp}.md")
-    n = 2
-    while os.path.exists(dest):
-        dest = os.path.join(os.getcwd(), f"MEMORY.backup.{stamp}-{n}.md")
-        n += 1
-    try:
-        with open(dest, "w", encoding="utf-8") as f:
-            f.write(text)
     except OSError:
         print("[harness] FAIL - memory: could not write backup")
         return False

@@ -4206,28 +4206,23 @@ async function runCommand(cmd: string, flags: string[]): Promise<boolean> {
       }
       if (flags[0] === "backup") {
         const memFile = path.join(process.cwd(), "MEMORY.md");
-        const text = readText(memFile);
-        if (text === null) {
-          console.log(
-            "[harness] memory - no MEMORY.md here (run harness init)",
-          );
-          return false;
-        }
         const stamp = new Date().toISOString().slice(0, 10);
-        let dest = path.join(process.cwd(), `MEMORY.backup.${stamp}.md`);
-        for (let n = 2; fs.existsSync(dest); n++) {
-          dest = path.join(process.cwd(), `MEMORY.backup.${stamp}-${n}.md`);
+        for (let number = 1; ; number++) {
+          const suffix = number === 1 ? "" : `-${number}`;
+          const name = `MEMORY.backup.${stamp}${suffix}.md`;
+          try {
+            fs.copyFileSync(memFile, path.join(process.cwd(), name), fs.constants.COPYFILE_EXCL);
+          } catch (error) {
+            const code = (error as NodeJS.ErrnoException).code;
+            if (code === "EEXIST") continue;
+            console.log(code === "ENOENT"
+              ? "[harness] memory - no MEMORY.md here (run harness init)"
+              : "[harness] FAIL - memory: could not write backup");
+            return false;
+          }
+          console.log(`[harness] ok - memory backed up to ${name}`);
+          return true;
         }
-        try {
-          fs.writeFileSync(dest, text);
-        } catch {
-          console.log("[harness] FAIL - memory: could not write backup");
-          return false;
-        }
-        console.log(
-          `[harness] ok - memory backed up to ${path.basename(dest)}`,
-        );
-        return true;
       }
       if (flags[0] === "edit") {
         const memFile = path.join(process.cwd(), "MEMORY.md");

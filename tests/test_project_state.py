@@ -1,4 +1,5 @@
 """Exercise the same project workflows through both shipped CLIs."""
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -162,3 +163,28 @@ def test_local_skill_update_finds_the_registered_name(harness, tmp_path):
     target.unlink()
     harness("skill", "update", "routes", status=1)
     harness("skill", "verify", "routes")
+
+
+def test_backup_preserves_bytes_and_reserves_its_filename(harness, tmp_path):
+    memory = tmp_path / "MEMORY.md"
+    original = b"# Memory\r\n\r\nKeep line endings.\r\n"
+    memory.write_bytes(original)
+    memory.chmod(0o600)
+    harness("memory", "backup")
+    first, = tmp_path.glob("MEMORY.backup.*.md")
+    next_slot = first.with_name(first.stem + "-2.md")
+    missing = tmp_path / "moved-backup.md"
+    next_slot.symlink_to(missing)
+    memory.write_bytes(original + b"New note.\r\n")
+    harness("memory", "backup")
+    assert first.read_bytes() == original
+    assert not missing.exists()
+    assert next_slot.is_symlink()
+    assert first.with_name(first.stem + "-3.md").read_bytes() == memory.read_bytes()
+    if os.name == "posix":
+        assert first.stat().st_mode & 0o077 == 0
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        outputs = list(pool.map(lambda _: harness("memory", "backup"), range(4)))
+    assert len(set(outputs)) == 4
+    for number in range(4, 8):
+        assert first.with_name(f"{first.stem}-{number}.md").read_bytes() == memory.read_bytes()
