@@ -4,6 +4,7 @@
 
 import * as readline from "node:readline";
 import { spawn, spawnSync } from "node:child_process";
+import { isUtf8 } from "node:buffer";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as http from "node:http";
@@ -3572,32 +3573,16 @@ export function costReport(
   let skippedBinary = 0;
   let skippedLarge = 0;
   const addFile = (abs: string) => {
-    // NUL byte in the head = binary: it never loads as context, so it
-    // has no honest token cost.
-    let head: Buffer;
     try {
-      const fd = fs.openSync(abs, "r");
-      try {
-        head = Buffer.alloc(8192);
-        const n = fs.readSync(fd, head, 0, 8192, 0);
-        head = head.subarray(0, n);
-      } finally {
-        fs.closeSync(fd);
+      const bytes = fs.readFileSync(abs);
+      if (bytes.subarray(0, 8192).includes(0) || !isUtf8(bytes)) {
+        skippedBinary += 1;
+        return;
       }
+      files.push({ rel: path.relative(root, abs), tokens: estTokens(bytes.toString("utf8")) });
     } catch {
       skippedBinary += 1;
-      return;
     }
-    if (head.includes(0)) {
-      skippedBinary += 1;
-      return;
-    }
-    const text = readText(abs);
-    if (text === null) {
-      skippedBinary += 1;
-      return;
-    }
-    files.push({ rel: path.relative(root, abs), tokens: estTokens(text) });
   };
   const walk = (dir: string) => {
     let entries: string[] = [];

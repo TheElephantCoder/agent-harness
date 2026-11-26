@@ -1840,7 +1840,10 @@ def cost_rows(root, target, all=False):
         if b"\x00" in head:
             skipped["binary"] += 1
             return
-        text = read_text(p)
+        try:
+            text = read_text(p)
+        except UnicodeDecodeError:
+            text = None
         if text is None:
             skipped["binary"] += 1
             return

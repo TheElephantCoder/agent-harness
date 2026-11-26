@@ -230,3 +230,11 @@ def test_bench_fails_when_baseline_cannot_be_saved(harness, tmp_path):
     destination.rmdir()
     harness("bench", "--quick")
     assert "coldStartMs" in json.loads(destination.read_text())
+
+
+def test_cost_skips_undecodable_input_without_losing_valid_rows(harness, tmp_path):
+    (tmp_path / "invalid.bin").write_bytes(b"x" * 8192 + b"\xff")
+    (tmp_path / "valid.md").write_text("A real replacement character: \ufffd")
+    assert "1 binary" in harness("cost", "invalid.bin")
+    report = harness("cost", "--all")
+    assert "1 binary" in report and "valid.md" in report and "invalid.bin" not in report
