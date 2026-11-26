@@ -2703,6 +2703,9 @@ export function pruneFile(
     count += t;
   }
   const rest = lines.slice(kept.length);
+  if (rest.length === 0 || (rest.length === 1 && rest[0] === "")) {
+    return { before, after: before, moved: 0 };
+  }
   const archive = path.join(
     path.dirname(abs),
     `${path.basename(abs, path.extname(abs))}.archive.md`,

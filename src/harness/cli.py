@@ -1115,6 +1115,8 @@ def prune_file(abs_path, budget):
         kept.append(l)
         count += t
     rest = lines[len(kept):]
+    if not rest or rest == [""]:
+        return {"before": before, "after": before, "moved": 0}
     base, ext = os.path.splitext(abs_path)
     archive = base + ".archive.md"
     stamp = time.strftime("%Y-%m-%d", time.gmtime())

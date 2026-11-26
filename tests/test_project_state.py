@@ -255,3 +255,21 @@ def test_cost_distinguishes_missing_targets_from_empty_directories(harness, tmp_
     assert "missing" in harness("cost", "missing.txt", status=1)
     (tmp_path / "empty").mkdir()
     assert "nothing text-readable" in harness("cost", "empty")
+
+
+@pytest.mark.parametrize("trailing_newline", [False, True])
+def test_prune_keeps_archive_intact_when_all_notes_are_retained(harness, tmp_path, trailing_newline):
+    memory = tmp_path / "MEMORY.md"
+    notes = "\n".join(f"{i}. " + "a" * 900 for i in range(10))
+    memory.write_text(notes + ("\n" if trailing_newline else ""))
+    original = memory.read_bytes()
+    archive = tmp_path / "MEMORY.archive.md"
+    for previous in (None, b"# Historical notes\n"):
+        if previous is not None:
+            archive.write_bytes(previous)
+        harness("memory", "prune")
+        assert memory.read_bytes() == original
+        if previous is None:
+            assert not archive.exists()
+        else:
+            assert archive.read_bytes() == previous
