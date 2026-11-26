@@ -249,3 +249,9 @@ def test_cost_skips_explicit_symlinks_just_like_directory_walks(harness, tmp_pat
     for link in ("linked-file", "linked-dir"):
         assert "nothing text-readable" in harness("cost", link)
     assert "text.md" in harness("cost", "source")
+
+
+def test_cost_distinguishes_missing_targets_from_empty_directories(harness, tmp_path):
+    assert "missing" in harness("cost", "missing.txt", status=1)
+    (tmp_path / "empty").mkdir()
+    assert "nothing text-readable" in harness("cost", "empty")

@@ -3375,7 +3375,7 @@ export function costReport(root, target, all) {
         st = fs.lstatSync(abs);
     }
     catch {
-        return { files: [], total: 0, shown: 0, skippedBinary, skippedLarge };
+        return { files: [], total: 0, shown: 0, skippedBinary, skippedLarge, targetUnavailable: true };
     }
     if (st.isFile()) {
         // Explicit files may be dot-named; size and binary checks still apply.
@@ -3410,6 +3410,10 @@ function cmdCost(flags) {
     }
     const target = flags.find((f) => !f.startsWith("--")) ?? ".";
     const r = costReport(process.cwd(), target, flags.includes("--all"));
+    if (r.targetUnavailable) {
+        console.log(`[harness] cost - cannot inspect ${target}`);
+        return false;
+    }
     if (r.files.length === 0) {
         console.log(`[harness] cost - ${target}: nothing text-readable here` +
             (r.skippedBinary + r.skippedLarge > 0

@@ -1877,7 +1877,7 @@ def cost_rows(root, target, all=False):
     try:
         target_stat = os.lstat(abs_path)
     except OSError:
-        return {"rows": [], "total": 0, "shown": 0, **skipped}
+        return {"rows": [], "total": 0, "shown": 0, "target_unavailable": True, **skipped}
     if stat.S_ISREG(target_stat.st_mode):
         if target_stat.st_size > COST_MAX_BYTES:
             skipped["large"] += 1
@@ -1905,6 +1905,9 @@ def cmd_cost(arg_list=None):
         return False
     target = next((f for f in arg_list if not f.startswith("--")), ".")
     r = cost_rows(os.getcwd(), target, "--all" in arg_list)
+    if r.get("target_unavailable"):
+        print(f"[harness] cost - cannot inspect {target}")
+        return False
     if not r["rows"]:
         skip_note = (f" ({r['binary']} binary, {r['large']} oversize skipped)"
                      if r["binary"] + r["large"] else "")
