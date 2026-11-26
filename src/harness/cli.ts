@@ -2071,6 +2071,15 @@ function cmdBench(flags: string[]): boolean {
     } else {
       try {
         const p = JSON.parse(prev);
+        const measurement = (value: unknown) =>
+          typeof value === "number" && Number.isFinite(value) && value >= 0;
+        const hooks = p?.hooks === undefined ? {} : p.hooks;
+        if (!measurement(p?.coldStartMs) ||
+            (p.skillTokens !== undefined && !measurement(p.skillTokens)) ||
+            !hooks || typeof hooks !== "object" || Array.isArray(hooks) ||
+            !Object.values(hooks).every(measurement)) {
+          throw new Error("invalid benchmark measurements");
+        }
         const d = (c: number, o: number) => {
           const diff = r1(c - o);
           return `${c} (was ${o}, ${diff > 0 ? "+" : ""}${diff})`;

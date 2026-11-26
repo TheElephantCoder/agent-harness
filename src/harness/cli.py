@@ -773,6 +773,18 @@ def cmd_bench(args=None):
         else:
             try:
                 p = json.loads(prev)
+
+                def measurement(value):
+                    return type(value) in (int, float) and 0 <= value <= sys.float_info.max
+
+                if not isinstance(p, dict) or not measurement(p.get("coldStartMs")):
+                    raise ValueError("invalid cold-start measurement")
+                hooks = p.get("hooks", {})
+                if not isinstance(hooks, dict) or not all(measurement(v) for v in hooks.values()):
+                    raise ValueError("invalid hook measurements")
+                if "skillTokens" in p and not measurement(p["skillTokens"]):
+                    raise ValueError("invalid skill tokens")
+
                 def d(c, o):
                     diff = round(c - o, 1)
                     return f"{c} (was {o}, {'+' if diff > 0 else ''}{diff})"

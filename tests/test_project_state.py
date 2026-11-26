@@ -206,3 +206,17 @@ def test_invalid_custom_adapter_fails_before_writing_files(harness, tmp_path):
     config.write_text(json.dumps(valid))
     harness("init", "--harness", "mytool")
     assert (tmp_path / ".mytool/skills/performance/SKILL.md").is_file()
+
+
+def test_bench_compare_recovers_from_invalid_measurements(harness, tmp_path):
+    baseline = tmp_path / ".harness/bench.json"
+    baseline.parent.mkdir()
+    for previous in ({"coldStartMs": "unknown"}, {"coldStartMs": 12, "hooks": []},
+                     {"coldStartMs": 12, "skillTokens": False}):
+        baseline.write_text(json.dumps(previous))
+        report = harness("bench", "--quick", "--compare")
+        assert "baseline corrupt" in report
+        assert "compare cold-start" not in report
+        assert isinstance(json.loads(baseline.read_text())["coldStartMs"], (int, float))
+    baseline.write_text('{"coldStartMs":0}')
+    assert "was 0" in harness("bench", "--quick", "--compare")
