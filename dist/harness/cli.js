@@ -3,6 +3,7 @@
 // node >=20
 import * as readline from "node:readline";
 import { spawn, spawnSync } from "node:child_process";
+import { isUtf8 } from "node:buffer";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as http from "node:http";
@@ -1103,8 +1104,12 @@ function listAdapters(root, sub = "adapters") {
         }
         try {
             const json = JSON.parse(text);
-            if (!json.name || !json.skillPath) {
-                out.push({ name: e, json: null, error: "missing name/skillPath" });
+            const required = ["name", "skillPath"];
+            const optional = ["agentsPath", "memoryPath", "hookPath", "displayName", "transpile"];
+            const invalid = required.find((key) => typeof json?.[key] !== "string" || !json[key].trim())
+                ?? optional.find((key) => json[key] != null && typeof json[key] !== "string");
+            if (invalid) {
+                out.push({ name: e, json: null, error: `invalid ${invalid}` });
             }
             else {
                 out.push({ name: json.name, json, error: null });
@@ -1427,8 +1432,7 @@ function cmdInit(flags) {
     const adapters = listAdapters(root).filter((a) => a.json);
     const byName = new Map(adapters.map((a) => [a.name, a]));
     for (const c of listAdapters(process.cwd(), path.join(".harness", "adapters"))) {
-        if (c.json)
-            byName.set(c.name, c);
+        byName.set(c.name, c);
     }
     let priorState = {};
     if (prior !== null) {
@@ -1475,6 +1479,13 @@ function cmdInit(flags) {
             const m = AUTO_MARKERS[n] ?? "";
             return m !== "" && fs.existsSync(path.join(process.cwd(), m));
         });
+    }
+    for (const name of names) {
+        const adapter = byName.get(name);
+        if (!adapter.json) {
+            console.log(`[harness] init - adapter ${name}: ${adapter.error}`);
+            return false;
+        }
     }
     const tracked = new Set();
     const priorFiles = [];
@@ -1907,6 +1918,14 @@ function cmdBench(flags) {
         else {
             try {
                 const p = JSON.parse(prev);
+                const measurement = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0;
+                const hooks = p?.hooks === undefined ? {} : p.hooks;
+                if (!measurement(p?.coldStartMs) ||
+                    (p.skillTokens !== undefined && !measurement(p.skillTokens)) ||
+                    !hooks || typeof hooks !== "object" || Array.isArray(hooks) ||
+                    !Object.values(hooks).every(measurement)) {
+                    throw new Error("invalid benchmark measurements");
+                }
                 const d = (c, o) => {
                     const diff = r1(c - o);
                     return `${c} (was ${o}, ${diff > 0 ? "+" : ""}${diff})`;
@@ -1927,12 +1946,12 @@ function cmdBench(flags) {
         }
     }
     try {
-        fs.mkdirSync(path.dirname(bFile), { recursive: true });
-        fs.writeFileSync(bFile, JSON.stringify(baseline, null, 2));
+        writeProjectFile(bFile, JSON.stringify(baseline, null, 2), fs.existsSync(bFile));
         console.log("[harness] baseline saved to .harness/bench.json");
     }
     catch {
-        console.log("[harness] warn - could not write .harness/bench.json");
+        console.log("[harness] FAIL - could not write .harness/bench.json");
+        return false;
     }
     return ok;
 }
@@ -3300,34 +3319,17 @@ export function costReport(root, target, all) {
     let skippedBinary = 0;
     let skippedLarge = 0;
     const addFile = (abs) => {
-        // NUL byte in the head = binary: it never loads as context, so it
-        // has no honest token cost.
-        let head;
         try {
-            const fd = fs.openSync(abs, "r");
-            try {
-                head = Buffer.alloc(8192);
-                const n = fs.readSync(fd, head, 0, 8192, 0);
-                head = head.subarray(0, n);
+            const bytes = fs.readFileSync(abs);
+            if (bytes.subarray(0, 8192).includes(0) || !isUtf8(bytes)) {
+                skippedBinary += 1;
+                return;
             }
-            finally {
-                fs.closeSync(fd);
-            }
+            files.push({ rel: path.relative(root, abs), tokens: estTokens(bytes.toString("utf8")) });
         }
         catch {
             skippedBinary += 1;
-            return;
         }
-        if (head.includes(0)) {
-            skippedBinary += 1;
-            return;
-        }
-        const text = readText(abs);
-        if (text === null) {
-            skippedBinary += 1;
-            return;
-        }
-        files.push({ rel: path.relative(root, abs), tokens: estTokens(text) });
     };
     const walk = (dir) => {
         let entries = [];
@@ -3373,7 +3375,7 @@ export function costReport(root, target, all) {
         st = fs.lstatSync(abs);
     }
     catch {
-        return { files: [], total: 0, shown: 0, skippedBinary, skippedLarge };
+        return { files: [], total: 0, shown: 0, skippedBinary, skippedLarge, targetUnavailable: true };
     }
     if (st.isFile()) {
         // Explicit files may be dot-named; size and binary checks still apply.
@@ -3408,6 +3410,10 @@ function cmdCost(flags) {
     }
     const target = flags.find((f) => !f.startsWith("--")) ?? ".";
     const r = costReport(process.cwd(), target, flags.includes("--all"));
+    if (r.targetUnavailable) {
+        console.log(`[harness] cost - cannot inspect ${target}`);
+        return false;
+    }
     if (r.files.length === 0) {
         console.log(`[harness] cost - ${target}: nothing text-readable here` +
             (r.skippedBinary + r.skippedLarge > 0
@@ -3675,7 +3681,7 @@ async function runCommand(cmd, flags) {
                 }
                 for (const a of listAdapters(process.cwd(), path.join(".harness", "adapters"))) {
                     if (packagedNames.has(a.name)) {
-                        console.log(`  ${a.name} (custom override)`);
+                        console.log(`  ${a.name} (custom override)${a.error ? ` (${a.error})` : ""}`);
                         continue;
                     }
                     console.log(`  ${a.name} (custom)${a.error ? ` (${a.error})` : ""}`);

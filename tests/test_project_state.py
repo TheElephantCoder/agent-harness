@@ -188,3 +188,70 @@ def test_backup_preserves_bytes_and_reserves_its_filename(harness, tmp_path):
     assert len(set(outputs)) == 4
     for number in range(4, 8):
         assert first.with_name(f"{first.stem}-{number}.md").read_bytes() == memory.read_bytes()
+
+
+def test_invalid_custom_adapter_fails_before_writing_files(harness, tmp_path):
+    harness("adapter", "add", "mytool")
+    config = tmp_path / ".harness/adapters/mytool/adapter.json"
+    valid = json.loads(config.read_text())
+    valid["skillPath"] = ".mytool/skills"
+    for field, value in (("skillPath", ["skills"]), ("memoryPath", 12), ("name", ["mytool"])):
+        config.write_text(json.dumps({**valid, field: value}))
+        listing = harness("adapter", "list")
+        assert field in listing
+        message = harness("init", "--harness", "mytool", status=1)
+        assert "mytool" in message and field in message
+        assert not (tmp_path / "AGENTS.md").exists()
+        assert not (tmp_path / ".harness/config.json").exists()
+    config.write_text(json.dumps(valid))
+    harness("init", "--harness", "mytool")
+    assert (tmp_path / ".mytool/skills/performance/SKILL.md").is_file()
+
+
+def test_bench_compare_recovers_from_invalid_measurements(harness, tmp_path):
+    baseline = tmp_path / ".harness/bench.json"
+    baseline.parent.mkdir()
+    for previous in ({"coldStartMs": "unknown"}, {"coldStartMs": 12, "hooks": []},
+                     {"coldStartMs": 12, "skillTokens": False}):
+        baseline.write_text(json.dumps(previous))
+        report = harness("bench", "--quick", "--compare")
+        assert "baseline corrupt" in report
+        assert "compare cold-start" not in report
+        assert isinstance(json.loads(baseline.read_text())["coldStartMs"], (int, float))
+    baseline.write_text('{"coldStartMs":0}')
+    assert "was 0" in harness("bench", "--quick", "--compare")
+
+
+def test_bench_fails_when_baseline_cannot_be_saved(harness, tmp_path):
+    destination = tmp_path / ".harness/bench.json"
+    destination.mkdir(parents=True)
+    assert "could not write" in harness("bench", "--quick", status=1)
+    assert destination.is_dir()
+    destination.rmdir()
+    harness("bench", "--quick")
+    assert "coldStartMs" in json.loads(destination.read_text())
+
+
+def test_cost_skips_undecodable_input_without_losing_valid_rows(harness, tmp_path):
+    (tmp_path / "invalid.bin").write_bytes(b"x" * 8192 + b"\xff")
+    (tmp_path / "valid.md").write_text("A real replacement character: \ufffd")
+    assert "1 binary" in harness("cost", "invalid.bin")
+    report = harness("cost", "--all")
+    assert "1 binary" in report and "valid.md" in report and "invalid.bin" not in report
+
+
+def test_cost_skips_explicit_symlinks_just_like_directory_walks(harness, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "text.md").write_text("ordinary text")
+    (tmp_path / "linked-file").symlink_to(source / "text.md")
+    (tmp_path / "linked-dir").symlink_to(source, target_is_directory=True)
+    for link in ("linked-file", "linked-dir"):
+        assert "nothing text-readable" in harness("cost", link)
+    assert "text.md" in harness("cost", "source")
+
+
+def test_cost_distinguishes_missing_targets_from_empty_directories(harness, tmp_path):
+    assert "missing" in harness("cost", "missing.txt", status=1)
+    (tmp_path / "empty").mkdir()
+    assert "nothing text-readable" in harness("cost", "empty")
