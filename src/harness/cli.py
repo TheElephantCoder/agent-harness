@@ -1864,9 +1864,7 @@ def cost_rows(root, target, all=False):
                 st = os.lstat(p)
             except OSError:
                 continue
-            if os.path.islink(p):
-                continue
-            if os.path.isdir(p):
+            if stat.S_ISDIR(st.st_mode):
                 if e not in MAP_SKIP_DIRS:
                     walk(p)
             elif not stat.S_ISREG(st.st_mode):
@@ -1876,16 +1874,17 @@ def cost_rows(root, target, all=False):
             else:
                 add_file(p)
 
-    is_file = os.path.isfile(abs_path)
-    if is_file:
-        if os.path.getsize(abs_path) > COST_MAX_BYTES:
+    try:
+        target_stat = os.lstat(abs_path)
+    except OSError:
+        return {"rows": [], "total": 0, "shown": 0, **skipped}
+    if stat.S_ISREG(target_stat.st_mode):
+        if target_stat.st_size > COST_MAX_BYTES:
             skipped["large"] += 1
         else:
             add_file(abs_path)
-    elif os.path.isdir(abs_path):
+    elif stat.S_ISDIR(target_stat.st_mode):
         walk(abs_path)
-    else:
-        return {"rows": [], "total": 0, "shown": 0, **skipped}
     rows.sort(key=lambda r: (-r["tokens"], r["rel"]))
     total = sum(r["tokens"] for r in rows)
     return {"rows": rows, "total": total,

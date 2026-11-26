@@ -238,3 +238,14 @@ def test_cost_skips_undecodable_input_without_losing_valid_rows(harness, tmp_pat
     assert "1 binary" in harness("cost", "invalid.bin")
     report = harness("cost", "--all")
     assert "1 binary" in report and "valid.md" in report and "invalid.bin" not in report
+
+
+def test_cost_skips_explicit_symlinks_just_like_directory_walks(harness, tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "text.md").write_text("ordinary text")
+    (tmp_path / "linked-file").symlink_to(source / "text.md")
+    (tmp_path / "linked-dir").symlink_to(source, target_is_directory=True)
+    for link in ("linked-file", "linked-dir"):
+        assert "nothing text-readable" in harness("cost", link)
+    assert "text.md" in harness("cost", "source")
