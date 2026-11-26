@@ -537,8 +537,16 @@ def list_adapters(root, sub="adapters"):
         except ValueError:
             out.append({"name": e, "json": None, "error": "invalid JSON"})
             continue
-        if not j.get("name") or not j.get("skillPath"):
-            out.append({"name": e, "json": None, "error": "missing name/skillPath"})
+        if not isinstance(j, dict):
+            out.append({"name": e, "json": None, "error": "invalid adapter object"})
+            continue
+        invalid = next((key for key in ("name", "skillPath")
+                        if not isinstance(j.get(key), str) or not j[key].strip()), None)
+        if invalid is None:
+            invalid = next((key for key in ("agentsPath", "memoryPath", "hookPath", "displayName", "transpile")
+                            if j.get(key) is not None and not isinstance(j[key], str)), None)
+        if invalid:
+            out.append({"name": e, "json": None, "error": f"invalid {invalid}"})
         else:
             out.append({"name": j["name"], "json": j, "error": None})
     return out
@@ -1309,8 +1317,7 @@ def cmd_init(args=None):
     adapters = [a for a in list_adapters(root) if a["json"]]
     by_name = {a["name"]: a for a in adapters}
     for c in list_adapters(os.getcwd(), os.path.join(".harness", "adapters")):
-        if c["json"]:
-            by_name[c["name"]] = c
+        by_name[c["name"]] = c
     cwd = os.getcwd()
     man_file = os.path.join(cwd, ".harness", "config.json")
     prior = read_text(man_file)
@@ -1344,6 +1351,11 @@ def cmd_init(args=None):
     else:
         names = [a["name"] for a in adapters
                  if (AUTO_MARKERS.get(a["name"], "") or "") and os.path.exists(os.path.join(os.getcwd(), AUTO_MARKERS[a["name"]]))]
+    for name in names:
+        adapter = by_name[name]
+        if adapter["json"] is None:
+            print(f"[harness] init - adapter {name}: {adapter['error']}")
+            return False
     tracked = set()
     prior_files = []
     if isinstance(prior_state.get("files"), list):
@@ -2839,7 +2851,8 @@ def cmd_adapter_list():
         print(f"  {a['name']}{extra}{err}")
     for a in list_adapters(os.getcwd(), os.path.join(".harness", "adapters")):
         if a["name"] in packaged_names:
-            print(f"  {a['name']} (custom override)")
+            err = f" ({a['error']})" if a["error"] else ""
+            print(f"  {a['name']} (custom override){err}")
         else:
             err = f" ({a['error']})" if a["error"] else ""
             print(f"  {a['name']} (custom){err}")

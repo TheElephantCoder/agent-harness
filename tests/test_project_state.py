@@ -188,3 +188,21 @@ def test_backup_preserves_bytes_and_reserves_its_filename(harness, tmp_path):
     assert len(set(outputs)) == 4
     for number in range(4, 8):
         assert first.with_name(f"{first.stem}-{number}.md").read_bytes() == memory.read_bytes()
+
+
+def test_invalid_custom_adapter_fails_before_writing_files(harness, tmp_path):
+    harness("adapter", "add", "mytool")
+    config = tmp_path / ".harness/adapters/mytool/adapter.json"
+    valid = json.loads(config.read_text())
+    valid["skillPath"] = ".mytool/skills"
+    for field, value in (("skillPath", ["skills"]), ("memoryPath", 12), ("name", ["mytool"])):
+        config.write_text(json.dumps({**valid, field: value}))
+        listing = harness("adapter", "list")
+        assert field in listing
+        message = harness("init", "--harness", "mytool", status=1)
+        assert "mytool" in message and field in message
+        assert not (tmp_path / "AGENTS.md").exists()
+        assert not (tmp_path / ".harness/config.json").exists()
+    config.write_text(json.dumps(valid))
+    harness("init", "--harness", "mytool")
+    assert (tmp_path / ".mytool/skills/performance/SKILL.md").is_file()

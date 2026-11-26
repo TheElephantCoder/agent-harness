@@ -1103,8 +1103,12 @@ function listAdapters(root, sub = "adapters") {
         }
         try {
             const json = JSON.parse(text);
-            if (!json.name || !json.skillPath) {
-                out.push({ name: e, json: null, error: "missing name/skillPath" });
+            const required = ["name", "skillPath"];
+            const optional = ["agentsPath", "memoryPath", "hookPath", "displayName", "transpile"];
+            const invalid = required.find((key) => typeof json?.[key] !== "string" || !json[key].trim())
+                ?? optional.find((key) => json[key] != null && typeof json[key] !== "string");
+            if (invalid) {
+                out.push({ name: e, json: null, error: `invalid ${invalid}` });
             }
             else {
                 out.push({ name: json.name, json, error: null });
@@ -1427,8 +1431,7 @@ function cmdInit(flags) {
     const adapters = listAdapters(root).filter((a) => a.json);
     const byName = new Map(adapters.map((a) => [a.name, a]));
     for (const c of listAdapters(process.cwd(), path.join(".harness", "adapters"))) {
-        if (c.json)
-            byName.set(c.name, c);
+        byName.set(c.name, c);
     }
     let priorState = {};
     if (prior !== null) {
@@ -1475,6 +1478,13 @@ function cmdInit(flags) {
             const m = AUTO_MARKERS[n] ?? "";
             return m !== "" && fs.existsSync(path.join(process.cwd(), m));
         });
+    }
+    for (const name of names) {
+        const adapter = byName.get(name);
+        if (!adapter.json) {
+            console.log(`[harness] init - adapter ${name}: ${adapter.error}`);
+            return false;
+        }
     }
     const tracked = new Set();
     const priorFiles = [];
@@ -3675,7 +3685,7 @@ async function runCommand(cmd, flags) {
                 }
                 for (const a of listAdapters(process.cwd(), path.join(".harness", "adapters"))) {
                     if (packagedNames.has(a.name)) {
-                        console.log(`  ${a.name} (custom override)`);
+                        console.log(`  ${a.name} (custom override)${a.error ? ` (${a.error})` : ""}`);
                         continue;
                     }
                     console.log(`  ${a.name} (custom)${a.error ? ` (${a.error})` : ""}`);
