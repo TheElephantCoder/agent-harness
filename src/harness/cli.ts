@@ -2105,11 +2105,11 @@ function cmdBench(flags: string[]): boolean {
     }
   }
   try {
-    fs.mkdirSync(path.dirname(bFile), { recursive: true });
-    fs.writeFileSync(bFile, JSON.stringify(baseline, null, 2));
+    writeProjectFile(bFile, JSON.stringify(baseline, null, 2), fs.existsSync(bFile));
     console.log("[harness] baseline saved to .harness/bench.json");
   } catch {
-    console.log("[harness] warn - could not write .harness/bench.json");
+    console.log("[harness] FAIL - could not write .harness/bench.json");
+    return false;
   }
   return ok;
 }

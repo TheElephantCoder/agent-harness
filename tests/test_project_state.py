@@ -220,3 +220,13 @@ def test_bench_compare_recovers_from_invalid_measurements(harness, tmp_path):
         assert isinstance(json.loads(baseline.read_text())["coldStartMs"], (int, float))
     baseline.write_text('{"coldStartMs":0}')
     assert "was 0" in harness("bench", "--quick", "--compare")
+
+
+def test_bench_fails_when_baseline_cannot_be_saved(harness, tmp_path):
+    destination = tmp_path / ".harness/bench.json"
+    destination.mkdir(parents=True)
+    assert "could not write" in harness("bench", "--quick", status=1)
+    assert destination.is_dir()
+    destination.rmdir()
+    harness("bench", "--quick")
+    assert "coldStartMs" in json.loads(destination.read_text())

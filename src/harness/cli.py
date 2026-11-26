@@ -797,12 +797,11 @@ def cmd_bench(args=None):
             except ValueError:
                 print("  compare: baseline corrupt, overwriting")
     try:
-        os.makedirs(os.path.dirname(bfile), exist_ok=True)
-        with open(bfile, "w", encoding="utf-8") as f:
-            json.dump(baseline, f, indent=2)
+        write_project_file(bfile, json.dumps(baseline, indent=2), os.path.exists(bfile))
         print("[harness] baseline saved to .harness/bench.json")
     except OSError:
-        print("[harness] warn - could not write .harness/bench.json")
+        print("[harness] FAIL - could not write .harness/bench.json")
+        return False
     return ok
 
 SECRET_RE = [re.compile(p) for p in [
