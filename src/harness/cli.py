@@ -1905,7 +1905,11 @@ def cmd_cost(arg_list=None):
     if bad:
         print(f"[harness] cost - unknown flag {bad} (harness cost [path] [--all])")
         return False
-    target = next((f for f in arg_list if not f.startswith("--")), ".")
+    paths = [arg for arg in arg_list if arg != "--all"]
+    if len(paths) > 1:
+        print("[harness] cost accepts at most one path (harness cost [path] [--all])")
+        return False
+    target = paths[0] if paths else "."
     r = cost_rows(os.getcwd(), target, "--all" in arg_list)
     if r.get("target_unavailable"):
         print(f"[harness] cost - cannot inspect {target}")

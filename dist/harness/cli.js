@@ -3411,7 +3411,12 @@ function cmdCost(flags) {
         console.log(`[harness] cost - unknown flag ${bad} (harness cost [path] [--all])`);
         return false;
     }
-    const target = flags.find((f) => !f.startsWith("--")) ?? ".";
+    const paths = flags.filter((arg) => arg !== "--all");
+    if (paths.length > 1) {
+        console.log("[harness] cost accepts at most one path (harness cost [path] [--all])");
+        return false;
+    }
+    const target = paths[0] ?? ".";
     const r = costReport(process.cwd(), target, flags.includes("--all"));
     if (r.targetUnavailable) {
         console.log(`[harness] cost - cannot inspect ${target}`);

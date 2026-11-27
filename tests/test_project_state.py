@@ -273,3 +273,12 @@ def test_prune_keeps_archive_intact_when_all_notes_are_retained(harness, tmp_pat
             assert not archive.exists()
         else:
             assert archive.read_bytes() == previous
+
+
+def test_cost_rejects_extra_paths_before_reporting_a_total(harness, tmp_path):
+    (tmp_path / "first file.md").write_text("first")
+    (tmp_path / "second.md").write_text("second")
+    report = harness("cost", "first file.md", "--all", "second.md", status=1)
+    assert "at most one path" in report
+    assert "total" not in report
+    assert "(1 file)" in harness("cost", "first file.md", "--all")
